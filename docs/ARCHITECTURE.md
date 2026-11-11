@@ -1,0 +1,89 @@
+# Architecture (v0.1 design)
+
+Quant Super Agent runs the full quant research lifecycle as an **order-driven agent workflow**. This document describes the target architecture and how each component maps to mechanisms already validated in internal pilots (see [EVIDENCE.md](EVIDENCE.md)).
+
+## System overview
+
+```mermaid
+flowchart TB
+    subgraph PlaneA["Supervision plane"]
+        PANEL["Web panel<br/>(pause · policy · tickets)"]
+        WD["Autonomy watchdog<br/>(read-only poll, stop/pause write-face)"]
+        SOP["Surgery SOP<br/>(checklist for policy changes)"]
+    end
+    subgraph PlaneB["Research plane"]
+        ORCH["Orchestrator / Eval<br/>policy gate · strength routing"]
+        W1["Worker: data engineer"]
+        W2["Worker: factor analyst"]
+        W3["Worker: risk & attribution"]
+        W4["Worker: research manager"]
+    end
+    subgraph PlaneC["Evidence plane"]
+        GATE["CI verify gate<br/>schema · fingerprint · no-lookahead"]
+        REG[("Experiment registry")]
+        LEDGER[("Settlement ledger<br/>claimed vs realized")]
+    end
+    subgraph PlaneD["Data plane"]
+        SNAP["As-of snapshots<br/>(immutable, sha256-manifested)"]
+        RECON["Reconciliation checks"]
+    end
+    subgraph PlaneE["Simulation plane"]
+        FORGE["Deterministic git-forge emulation<br/>(issues · PRs · CI hooks)"]
+        SIM["Backtest / settlement simulator"]
+    end
+    PANEL & WD & SOP -.govern.- ORCH
+    ORCH --> W1 & W2 & W3 & W4
+    W2 --> GATE --> REG --> LEDGER --> SIM --> W2
+    W1 --> SNAP --> RECON
+    W2 & GATE --> FORGE
+```
+
+## Order lifecycle
+
+A factor study is an **order**. Each order walks:
+
+1. **Issue** — a human (or a scheduled task) files a research order: scope, constraints, and — optionally — pre-registered hypothesis IDs. Orders without pre-registered H cards cannot produce citable E cards.
+2. **Eval gate** — the orchestrator decides *strength* (explicit / inferred / follow-up) and checks *policy* (who may order what). Non-allowed triggers are ignored — and, in observe mode, recorded as **would-accept decisions** with full rule assessments, so the panel shows what the system *would* have done.
+3. **Ticket + isolation** — accepted orders open a ticket and a worktree. Every worker session is isolated per order; cross-order contamination is structurally impossible (one order = one tree).
+4. **Workers** — quant roles collaborate (see below).
+5. **Evidence cards** — the deliverable is never prose; it is H/E cards (JSON, schema-versioned).
+6. **CI verify gate** — a push hook runs the gate: schema completeness, snapshot fingerprint match, window alignment (no look-ahead), engine version pinning, and metric recomputation on a sampled basis. **A failing card can never be marked ready** — the agent must report failure as failure.
+7. **Review & admission** — humans (L1/L2) or the manager (L3) admit or reject. Admission writes to the registry.
+8. **Settlement** — at horizon end, realized performance is computed by the simulator and written to the ledger against the claim. Reflections feed back into future admissions.
+
+## Worker roles
+
+| Role | Owns | Typical outputs |
+|---|---|---|
+| data engineer | snapshots, reconciliation, PIT discipline | manifests, recon reports |
+| factor analyst | hypothesis → experiment | H cards, E cards, attribution |
+| risk & attribution | robustness, kill criteria | neighborhood stability, capacity/turnover notes, veto cards |
+| research manager | prioritization, admission proposals, iteration budget | next-hypothesis proposals, debate synthesis |
+
+Roles are a **dial, not dogma**: the pilot ran a single generic worker successfully; the multi-role split is an ablation axis for the paper (does role specialization improve discovery rate and statistical rigor?).
+
+## Autonomy supervisor
+
+Three layers, validated in three-arm × 5-round pilots:
+
+1. **Surgery SOP (L1)** — any policy change follows a six-step checklist: pause → change → verify → observe window → revert → resume. Mechanism analysis showed pause-first structurally removes the risk turn (notifications are injected without waking the agent; resume reads the reverted state).
+2. **Watchdog (L2)** — an out-of-band process polls the panel API read-only; on rule triggers (e.g., a ticket whose mandate cites a surgery-window policy version) it stops the ticket. Measured detection→stop: **0.21 s**.
+3. **Prompt discipline (L3)** — worker/orchestrator prompts carry requeue/policy-window discipline, applied and reverted as versioned settings with full audit trail.
+
+Known platform gaps (no requeue permission surface; no configurable tool allowlist for main sessions) are documented and reported upstream; the supervisor exists precisely because the platform underneath does not provide these controls.
+
+## Evidence card gate internals
+
+The gate is intentionally dumb and strict — it checks, in order:
+
+1. schema completeness (required fields, types)
+2. `hyp_id` exists and was registered **before** the experiment window opened
+3. `snapshot_sha256` matches the manifest of an immutable as-of snapshot
+4. factor window ⊆ snapshot window; evaluation uses only data at or before each decision point (no look-ahead)
+5. engine version pinned; metrics recomputed on a sampled basis against the raw slice
+6. verdict honesty: a `fail` with real metrics beats a fabricated `pass` — the gate cannot detect every fabrication, but the settlement ledger eventually can (see [BENCHMARK.md](BENCHMARK.md) for the adversarial side)
+
+## Reproducibility
+
+- The forge emulation is deterministic; data snapshots are immutable and fingerprinted.
+- Variance decomposition protocol: run the same order K times; data plane and gate are expected to be zero-variance, model-path decisions are not. The protocol separates the two and reports per-stage variance (pilot infrastructure logs every event append-only to make this measurable).
