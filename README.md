@@ -2,9 +2,9 @@
 
 **A verifiable agentic quant research factory — machine-checked evidence, honest settlement, bounded autonomy.**
 
-![status](https://img.shields.io/badge/status-research%20skeleton-orange) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.11%2B-blue) ![benchmark](https://img.shields.io/badge/benchmark-fabrication--injection%20v0--spec-red)
+![status](https://img.shields.io/badge/status-v0.2%20evidence%20plane-green) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![benchmark](https://img.shields.io/badge/benchmark-fabrication--injection%20v0--spec-red)
 
-> **Status: research skeleton (v0.1).** This repository publishes the design, benchmark specification, and roadmap of a quant research agent system validated in internal pilots. The codebase is being migrated out of our internal pilot environment and will land here phase by phase (see [Roadmap](docs/ROADMAP.md)). Research use only — not financial advice.
+> **Status: v0.2 — evidence plane is runnable.** The design, benchmark specification, and roadmap were validated in internal pilots; the evidence plane (card schemas, verify gate, synthetic snapshots, deterministic forge emulation) now runs from this repository with zero dependencies — see [Quickstart](#quickstart). Higher layers (research loop, roles, settlement) migrate phase by phase (see [Roadmap](docs/ROADMAP.md)). Research use only — not financial advice.
 
 ---
 
@@ -125,13 +125,34 @@ Full version: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Quickstart
 
-Nothing executable is wired for the public repo yet (v0.1 is design + specs). Watch this section — v0.2 lands the gate and a toy dataset so anyone can run an order through `issue → evidence cards → verify → PR` in under ten minutes.
+v0.2 is runnable: pure Python ≥ 3.10 standard library, zero dependencies, fully offline and deterministic. The demo drives the whole lifecycle — `order issue → hypothesis card → toy experiment → experiment card → verify gate as CI → PR → merge under branch protection` — in seconds:
 
 ```bash
 git clone https://github.com/0x1512/quant-super-agent.git
 cd quant-super-agent
-# v0.2: make init && make demo-order
+python examples/run_lifecycle.py            # honest run (on toy data the verdict is usually fail — and it merges)
+python examples/run_lifecycle.py --fib 7    # inject a silent-pass fabrication; the gate blocks the merge
+python -m unittest discover -s tests -v     # 31 tests: gate, FIB injections, determinism, forge
 ```
+
+What the honest run prints (abbreviated):
+
+```
+[1] snapshot   toy synthetic, 1080 rows, window 20240102:20240506, sha 7b81decd7fdc…
+[3] hypothesis H-0001 registered (admission pre-committed)
+[5] experiment E-0001  rankic_mean=-0.014606 …
+    honest verdict = fail (rankic_mean=-0.014606 fails pre-registered >= 0.02)
+[6] push       … -> CI 'verify' = success
+[7] merge      MERGED
+```
+
+A negative result with a green gate merges; a positive lie does not. That is the whole idea. The gate CLI also stands alone:
+
+```bash
+python -m qsa.verify --hypothesis cards/H.json --result cards/E.json --snapshot snapshot/
+```
+
+Chapter and verse in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); acceptance evidence in [docs/EVIDENCE.md](docs/EVIDENCE.md).
 
 ## Documentation
 

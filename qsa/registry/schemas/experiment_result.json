@@ -1,0 +1,52 @@
+{
+  "type": "object",
+  "required": [
+    "schema",
+    "exp_id",
+    "hyp_id",
+    "window",
+    "snapshot_hash",
+    "engine",
+    "metrics",
+    "verdict",
+    "settled_at"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "enum": ["experiment_result"]
+    },
+    "exp_id": {
+      "type": "string",
+      "pattern": "^E-[0-9]{3,}$"
+    },
+    "hyp_id": {
+      "type": "string"
+    },
+    "window": {
+      "type": "string",
+      "pattern": "^[0-9]{8}:[0-9]{8}$"
+    },
+    "snapshot_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "engine": {
+      "type": "string"
+    },
+    "metrics": {
+      "type": "object"
+    },
+    "attribution": {
+      "type": "object"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["pass", "fail", "inconclusive"]
+    },
+    "settled_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}"
+    }
+  }
+}

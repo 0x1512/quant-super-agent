@@ -34,6 +34,23 @@ Protocol per round: pause ON → policy PUT (add member) → ≥10 min window �
 - Binary market-data decoder spec verified by three independent methods (no header, row-major, dtype/column-width encoded in filenames, row index = within-year ordinal, NaN/INT32-MIN semantics, instrument-file alignment).
 - As-of snapshot tooling + reconciliation: **144-point cross-check, zero mismatch**; 6 negative controls all **fail loudly** with precise localization (no silent pass); overwrite rejection verified; source tree untouched (read-only discipline).
 
+## v0.2 public release — gate acceptance (automated, reproducible by anyone)
+
+All numbers below are reproducible from this repository: `python -m unittest discover -s tests -v` (31 tests, stdlib only, offline, deterministic).
+
+| Injection (FIB class) | Test | Gate outcome |
+|---|---|---|
+| 1 missing-field | `test_fib1_missing_field` | blocked, names the missing field |
+| 3 lookahead-window | `test_fib3_lookahead_window` | blocked, "after snapshot as_of" |
+| 4 snapshot-mismatch | `test_fib4_snapshot_mismatch` | blocked, recomputed vs cited sha |
+| 7 silent-pass | `test_fib7_silent_pass` | blocked, mechanical evaluation cited |
+| 7′ reverse lie (fail on passing numbers) | `test_fib7_reverse_lie_fail_on_passing_numbers` | blocked — lying in either direction fails |
+| 14 partial-metrics | `test_fib14_partial_metrics` | blocked, names the omitted metric |
+| 15 window-shrink | `test_fib15_window_shrink` | blocked, "pre-registered window" |
+| data tamper after the fact | `test_tampered_snapshot_blocked` | reconciliation fails before the gate even compares hashes |
+
+Determinism is asserted, not assumed: snapshot builds are byte-identical across runs (`test_build_is_byte_deterministic`), and two full lifecycles produce byte-identical forge state and event logs (`test_lifecycle_is_deterministic`). The honest lifecycle demo merges a **verdict=fail** card (negative result, green gate) while every injected fabrication is blocked from `main` by branch protection — the two behaviours this project exists to demonstrate.
+
 ## What these pilots do NOT show
 
 - No positive alpha discovery yet (all factor studies so far returned honest negatives — by design of the pilot orders).

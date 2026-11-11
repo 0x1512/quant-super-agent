@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quant-super-agent"
+version = "0.2.0"
+description = "A verifiable agentic quant research factory: evidence cards, a mechanical admission gate, and supervised autonomy"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["quantitative-finance", "llm-agents", "agent-safety", "evidence", "reproducibility"]
+
+[project.urls]
+Homepage = "https://github.com/0x1512/quant-super-agent"
+Documentation = "https://github.com/0x1512/quant-super-agent/tree/main/docs"
+
+[tool.setuptools]
+packages = ["qsa"]
+
+[tool.setuptools.package-data]
+qsa = ["registry/schemas/*.json"]

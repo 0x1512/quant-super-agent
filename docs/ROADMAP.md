@@ -6,11 +6,11 @@ Public, version-gated. Each version has scope + acceptance criteria; code lands 
 - README (EN/zh), architecture, FIB benchmark spec, evidence inventory, roadmap
 - Acceptance: docs coherent, no overclaim of unimplemented features
 
-## v0.2 — evidence plane, runnable
+## v0.2 — evidence plane, runnable (shipped)
 - Evidence card schemas (H/E, versioned) + verify gate (schema · fingerprint · no-lookahead · verdict consistency)
 - Toy dataset + immutable snapshot tooling + reconciliation stub
 - Deterministic forge emulation (issues/PRs/CI hooks) so anyone can run `order → cards → gate → PR` offline in <10 min
-- Acceptance: FIB classes 1, 4, 7, 14, 15 caught by gate in automated tests
+- Acceptance: FIB classes 1, 4, 7, 14, 15 caught by gate in automated tests — **met** (also 3 and the reverse verdict lie; see `tests/test_gate.py`, 31 tests green)
 
 ## v0.3 — research loop
 - Hypothesis attribution taxonomy (threshold / instability / neutralization residual / universe) and attribution-driven next-hypothesis proposal under an iteration budget

@@ -16,6 +16,7 @@ build/
 
 # data & artifacts
 data/
+work/
 *.sqlite
 *.sqlite3
 *.db
