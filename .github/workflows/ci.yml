@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: gate, forge and determinism tests (stdlib unittest, no deps)
+        run: python -m unittest discover -s tests -v
+      - name: lifecycle demo — honest run must merge
+        run: python examples/run_lifecycle.py --work "$RUNNER_TEMP/demo-honest"
+      - name: lifecycle demo — FIB 7 silent-pass must be blocked
+        run: python examples/run_lifecycle.py --work "$RUNNER_TEMP/demo-fib7" --fib 7
+      - name: mining demo — budget-bounded honest negative chain (it2/it3 deflation)
+        run: python examples/run_mining.py
+      - name: ingest round-trip — user CSV must become a legal snapshot
+        run: |
+          python - <<'EOF'
+          import csv
+          with open("ci-prices.csv", "w", newline="") as f:
+              w = csv.writer(f)
+              w.writerow(["date", "ticker", "close"])
+              for i in range(60):
+                  d = f"2024-{(i // 28) + 1:02d}-{(i % 28) + 1:02d}"
+                  for j, tk in enumerate(["AAA", "BBB", "CCC"]):
+                      w.writerow([d, tk, 100.0 + i + j])
+          EOF
+          python -m qsa.ingest ci-prices.csv "$RUNNER_TEMP/ci-snapshot"

@@ -100,6 +100,15 @@ def main() -> int:
                   f"attribution={r.get('attribution', {}).get('class')}")
     print(f"\nfinal_verdict: {summary['final_verdict']} — an honest negative "
           f"chain under budget, every card gate-checked and settled.")
+    # regression contract: it1 misses the pre-registered bar, it2/it3 are the
+    # bar-lowering retries the deflation floor rejects; nothing merges.
+    expected = ["threshold_miss", "deflation", "deflation"]
+    got = [r.get("attribution", {}).get("class") for r in summary["iterations"]
+           if not r.get("blocked")]
+    if summary["final_verdict"] != "fail" or got != expected:
+        print(f"REGRESSION: expected {expected} -> fail, got {got} -> "
+              f"{summary['final_verdict']}")
+        return 1
     return 0
 
 
