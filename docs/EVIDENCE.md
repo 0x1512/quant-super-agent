@@ -71,7 +71,7 @@ The mining demo (`examples/run_mining.py`) is deliberately a negative result: it
 
 Reproducible from this repository: `python examples/run_ablation.py` (~15 s, offline, deterministic) and `python -m unittest discover -s tests -v` (110 tests).
 
-The ablation measures what each gating layer costs and buys. The **persona policy is identical in every configuration** (same hypothesis, same factor code, same bull/bear arguments), so differences between rows are the machinery, not the script. Planted worlds carry a real 1-day reversal (strength 0.15 → the policy's factor sits near rank IC ≈ 0.12); noise worlds carry nothing — an admission there is a false positive by construction.
+The ablation measures what each gating layer costs and buys. The **persona policy is identical in every configuration** (same hypothesis, same factor code, same bull/bear arguments), so differences between rows are the machinery, not the script. Planted worlds carry a real 1-day reversal (strength 0.15 → the policy's factor measures rank IC 0.117 / 0.122 / 0.160 on the three worlds, mean ≈ 0.13, t ≈ 4.2); noise worlds carry nothing — an admission there is a false positive by construction.
 
 | config | roles | debate rounds | discovery (planted) | false positives (noise) | mean trials planted | mean trials noise |
 |---|---|---|---|---|---|---|
@@ -98,6 +98,6 @@ Reading it honestly:
 
 ## What these pilots do NOT show
 
-- No positive alpha discovery yet (all factor studies so far returned honest negatives — by design of the pilot orders).
-- No multi-role ablation, no debate gate, no settlement ledger yet — these are v0.4/v0.5 scope.
+- No positive alpha discovery in the *production* mining loop yet (its pilots returned honest negatives by design); the ablation's planted worlds are synthetic ground truth, not market alpha.
+- No settlement ledger yet — claimed-vs-realized settlement and calibration reporting are v0.5 scope (the two noise false positives that survive every v0.4 layer are its first customers).
 - Watchdog latency is an injected calibration, not a natural recurrence (the risk is probabilistic; 19 observed windows without the protection layers active produced one real-world occurrence earlier).
