@@ -98,7 +98,7 @@ Reading it honestly:
 
 ## v0.5 public release — settlement ledger + calibration acceptance (automated, reproducible by anyone)
 
-Reproducible from this repository: `python examples/run_calibration.py` (~15 s, offline, deterministic) and `python -m unittest discover -s tests -v` (128 tests).
+Reproducible from this repository: `python examples/run_calibration.py` (~15 s, offline, deterministic) and `python -m unittest discover -s tests -v` (141 tests).
 
 The sweep runs the production stack (data+factor+risk roles, 1 debate round, the same scripted persona policy on every world) over 64 planted worlds (reversal strengths 0.05–0.30 × 8 seeds) and 24 pure-noise worlds, settles every admitted claim on a 90-day horizon — as long as the claim's own window — and audits the ledger.
 
@@ -136,6 +136,57 @@ Reading it honestly:
 | dropping a justified tightening / claiming a rosier multiplier / unverifiable calibration block | `test_gate_rejects_calibration_lies` | gate errors |
 | the reflection rule only tightens | `test_rule_only_tightens`, `test_next_order_tightens_and_gate_accepts` | ×1.25 after ≥5 settled claims with >50% shortfalls; spotless or mixed history never relaxes |
 | settlement determinism | `test_settlement_is_deterministic_byte_for_byte`, `test_full_sweep_is_deterministic_and_meets_bar` | byte-identical ledgers and reports across runs; ≥50 claims |
+
+## P5 — FIB harness run (v0.6)
+
+`python examples/run_fib.py` — 16 scenarios (honest control + 14 official
+classes + code pin) × 3 judges × K=3 repeats = 144 rows, all asserted
+byte-identical across repeats. Raw rows and metrics dump to `work/fib/`;
+the published raw log is committed at
+[fib_v06_run.json](fib_v06_run.json) and byte-pinned by
+`tests/test_fib.py::TestPublishedArtifact`; definitions in
+[RUBRICS.md](RUBRICS.md).
+
+| judge | catch rate | honesty | silent-pass | asymmetry | localization |
+|---|---|---|---|---|---|
+| ungated (single agent) | 0.000 | 1.000 | 1.000 | +0 | — |
+| schema-only | 0.200 | 1.000 | 0.800 | +9 | 1.000 |
+| full-stack (qsa gate) | **1.000** | 1.000 | **0.000** | +45 | 1.000 |
+
+What each layer actually contributes (the ablation is the point):
+
+- **schema-only** catches exactly the three structural lies — a missing
+  required field (1), a broken hyp link (12), a code-hash mismatch (21) —
+  and is blind to every number-level fabrication: phantom metrics (2),
+  snapshot lies (4), rescaled units (9), dropped unfavorable metrics (14),
+  verdict lies (7) all merge silently.
+- **full-stack** catches all 15 injections, and the *first* error names the
+  touched field in every case: recomputation (`factor_code` re-runs, the
+  number nobody computed cannot survive — 2, 9, 15), fingerprint (4),
+  registry (6, 13), mechanical verdict evaluation with deflation (7, 11),
+  window alignment vs the snapshot (3), engine pin (16), and the settlement
+  ledger's hash chain (19).
+- **honesty is preserved everywhere**: the honest control — an honest
+  negative result — merges under all three judges. The gate's asymmetry
+  (+45) points entirely at injections, never at honest fails.
+- Class 11 (threshold-drift) is caught by *deflation*, not by the bar: the
+  attacker lowers the t-stat bar after seeing the result, but the
+  Bonferroni floor multiplies whatever bar ships, so the lowered bar still
+  fails mechanically; the `verdict=pass` on it then trips consistency.
+
+Honest limits of this run, stated before anyone else does:
+
+- The two baselines are scripted review policies published *with* the
+  harness, not external systems measured by it. The 16 scenario builders
+  are importable and framework-agnostic; running them against third-party
+  agent frameworks is the announced next step, not a completed one.
+- 6 of the 20 classes (5, 8, 10, 17, 18, and the sycophancy half of 20)
+  are outside the harness: they need recon, repair ordering, universe
+  pinning, seed policy, isolation, or a real LLM. No catch is claimed.
+- Every scenario mutates exactly one thing in an otherwise honest pair.
+  Composed attacks (a verdict lie *and* a window trim *and* a code edit in
+  one PR) are caught by the same layers independently, but the harness
+  does not enumerate compositions.
 
 ## What these pilots do NOT show
 

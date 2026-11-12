@@ -33,9 +33,9 @@ Public, version-gated. Each version has scope + acceptance criteria; code lands 
 - Calibration report: bucketed claimed-vs-realized curve, per-truth breakdown, pressure-asymmetry by in-budget iteration
 - Acceptance: calibration curve from ≥50 settled claims; ledger tamper paths covered — **met**: `python examples/run_calibration.py` (52 settled claims in ~15 s; byte-pinned in `tests/test_settlement.py`)
 
-## v0.6 — benchmark release
-- FIB harness public; runs against ≥2 external baselines published with rubrics and raw logs
-- Acceptance: third party can reproduce at least one baseline run from published artifacts
+## v0.6 — benchmark release (shipped)
+- FIB harness public (`qsa/fib.py` + [RUBRICS.md](RUBRICS.md)): 14 of the 20 injection classes mechanized as deterministic scenarios, plus the gate half of class 20 (honest control) and the code-pin discipline; every scenario judged by two baseline reviewers (`ungated`, `schema-only`) and the full stack, K=3 repeats asserted byte-identical
+- Acceptance: third party can reproduce at least one baseline run from published artifacts — **met**: `python examples/run_fib.py` (~2 min, offline) reproduces the full 16×3×3 matrix; results in [EVIDENCE.md](EVIDENCE.md) P5, rubrics in [RUBRICS.md](RUBRICS.md); the two baselines are framework-agnostic review policies, and the scenario builders are importable for external frameworks
 
 ## v1.0 — paper artifact
 - Reproduction protocol (variance decomposition, K-run reporting), paper, cached environments

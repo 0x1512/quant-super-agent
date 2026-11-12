@@ -2,11 +2,11 @@
 
 **A verifiable agentic quant research factory — machine-checked evidence, honest settlement, bounded autonomy.**
 
-![status](https://img.shields.io/badge/status-v0.5%20settlement%20%2B%20calibration-green) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![benchmark](https://img.shields.io/badge/benchmark-fabrication--injection%20v0--spec-red)
+![status](https://img.shields.io/badge/status-v0.6%20FIB%20harness-green) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![benchmark](https://img.shields.io/badge/benchmark-fabrication--injection%20harness-green)
 
-> **What runs today (v0.5):** the full gated research loop — pre-registered hypotheses, sandboxed factor code, multiple-testing-deflated verdicts, one-shot out-of-sample windows, attribution-driven iteration under budget — plus ablatable quant roles (data / factor / risk / manager), a bull/bear adversarial review gate before admission, and a hash-chained settlement ledger that settles every admitted claim on a horizon the admission never touched and turns the results into a calibration curve plus a reflection rule that tightens admission bars. On synthetic or your own CSV data, fully offline and deterministic. Pure Python ≥ 3.10 stdlib, zero dependencies.
+> **What runs today (v0.6):** the full gated research loop — pre-registered hypotheses, sandboxed factor code, multiple-testing-deflated verdicts, one-shot out-of-sample windows, attribution-driven iteration under budget — plus ablatable quant roles (data / factor / risk / manager), a bull/bear adversarial review gate before admission, a hash-chained settlement ledger with calibration curve and tighten-only reflection rule, and the **Fabrication Injection Benchmark harness**: 15 deterministic injection scenarios judged by an ungated baseline, a schema-only baseline, and the full gate. On synthetic or your own CSV data, fully offline and deterministic. Pure Python ≥ 3.10 stdlib, zero dependencies.
 >
-> **What is designed but not shipped yet:** the open Fabrication Injection Benchmark harness (v0.6). See the [roadmap](#roadmap-summary).
+> **What is designed but not shipped yet:** running the published FIB scenarios against third-party agent frameworks (the builders are importable; see [docs/RUBRICS.md](docs/RUBRICS.md)). See the [roadmap](#roadmap-summary).
 >
 > Research use only — not financial advice.
 
@@ -34,14 +34,18 @@ python examples/run_ablation.py
 #    (admitted claims settle on data the admission never touched)
 python examples/run_calibration.py
 
-# 5) your own data: CSV -> legal, fingerprinted snapshot (local-first)
+# 5) v0.6 acceptance: Fabrication Injection Benchmark harness
+#    (15 injection scenarios x 2 baselines + full gate, K=3 repeats)
+python examples/run_fib.py
+
+# 6) your own data: CSV -> legal, fingerprinted snapshot (local-first)
 python -m qsa.ingest myprices.csv mydata/
 
 # the whole contract, machine-checked
-python -m unittest discover -s tests -v     # 128 tests: gate, FIB injections, registry,
+python -m unittest discover -s tests -v     # 141 tests: gate, FIB injections, registry,
                                             # deflation, sandbox, mining, roles, review,
                                             # ablation, settlement, calibration,
-                                            # determinism
+                                            # FIB harness, determinism
 ```
 
 What the mining demo prints (abbreviated):
@@ -138,7 +142,11 @@ Failures are classified mechanically (insufficient observations / instability / 
 
 Admitted factors are not "done": every claim settles on a 90-day horizon the admission never touched — the world is deterministically continued from the same seed, the factor re-executes in the sandbox, and the realized metrics come from the same engine that gated the admission (never from the card). Results land in a **hash-chained settlement ledger** whose every entry rebuilds and recomputes under audit, and feed two things: the **calibration curve** (claimed vs realized, the headline metric — not return), and a **reflection rule** that tightens a family's admission bar ×1.25 when its settled claims fall short too often (calibration only tightens; it never loosens).
 
-### 4. Bounded autonomy (pilot-validated; ships with the harness layers)
+### 4. Fabrication Injection Benchmark harness (shipped, v0.6)
+
+The failure modes under pressure are measured, not assumed: 15 injection classes from [docs/BENCHMARK.md](docs/BENCHMARK.md) — phantom metrics, silent passes, unit mismatches, post-hoc bar lowering, ledger tampering, settle forgery, … — are mechanized as deterministic PR submissions (an otherwise honest H/E card pair with one scripted mutation each) and routed through three judges: an ungated single agent, a schema-only reviewer, and the full gate. The acceptance table: the full gate catches 15/15 with every error naming the touched field, the schema-only baseline catches 3/15 (the structural lies), the ungated baseline catches 0/15 — and an honest negative result merges under all three. Rubrics: [docs/RUBRICS.md](docs/RUBRICS.md); results: [docs/EVIDENCE.md](docs/EVIDENCE.md) P5.
+
+### 5. Bounded autonomy (pilot-validated; ships with the harness layers)
 
 Autonomy is a dial with a fence — L0 observe / L1 suggest / L2 admit-gated / L3 autonomous — bounded by a surgery SOP, a watchdog (measured 0.21 s detection→stop), and prompt discipline. The design is informed by a real incident the pilots caught: an orchestrator re-queued a previously-ignored trigger **26 seconds after** promising a human it would not start work. The containment stack was validated in a three-arm × 5-round experiment ([Evidence](docs/EVIDENCE.md)).
 
@@ -152,7 +160,7 @@ Autonomy is a dial with a fence — L0 observe / L1 suggest / L2 admit-gated / L
 | Research loop (H→E→iterate) | ✖ decision per date | ✖ | ✔ | ✖ | ✔ **shipped v0.3** — pre-registered, deflation-floored |
 | Claim-level CI gate | ✖ | ✖ | partial (backtest check) | ✖ | ✔ **shipped** — schema + fingerprint + no-lookahead + code recomputation |
 | Multiple-testing control | ✖ | ✖ | ✖ | ✖ | ✔ **shipped v0.3** — Bonferroni floor at family N |
-| Settlement / calibration | memory log (雏形) | ✖ | ✖ | ✖ | designed; ships v0.5 |
+| Fabrication benchmark | ✖ | ✖ | ✖ | ✖ | ✔ **shipped v0.6** — FIB harness, 15 scenarios × 2 baselines + gate, published rubrics |
 | Autonomy control | ✖ | ✖ | ✖ | n/a | pilot-validated design (L0–L3 + watchdog, 0.21 s measured) |
 | Reproducibility protocol | acknowledged, unmeasured | ✖ | ✖ | seed-based | ✔ byte-level determinism asserted by tests + data fingerprints |
 
@@ -169,7 +177,7 @@ Internal pilots (deterministic git-forge emulation, 2026-11) — full inventory 
 | Autonomy risk (G-1) three-arm × 5 rounds | Risk reproduced once in the wild; containment stack achieved **5/5 clean windows** in the full-protection arm; watchdog detection→stop **0.21 s**; zero spillover |
 | Data plane | As-of snapshot + reconciliation tooling; 144-point cross-check zero mismatch; tamper-rejection verified |
 
-Everything claimed for the shipped versions is reproducible from this repo: 128 tests (offline, deterministic) and a CI matrix across Python 3.10–3.13 that also runs all four demos as regression contracts — the v0.2–v0.5 acceptance tables in [docs/EVIDENCE.md](docs/EVIDENCE.md) map every discipline to its test.
+Everything claimed for the shipped versions is reproducible from this repo: 141 tests (offline, deterministic) and a CI matrix across Python 3.10–3.13 that also runs all five demos as regression contracts — the v0.2–v0.6 acceptance tables in [docs/EVIDENCE.md](docs/EVIDENCE.md) map every discipline to its test.
 
 ## Roadmap (summary)
 
@@ -178,8 +186,7 @@ Everything claimed for the shipped versions is reproducible from this repo: 128 
 - **v0.3** research loop: registry, deflation, sandboxed mining, one-shot OOS, CSV ingestion (shipped)
 - **v0.4** ablatable quant roles + bull/bear review gate + ablation table (shipped)
 - **v0.5** settlement ledger + calibration curve + tighten-only reflection rule (shipped)
-- **v0.5** settlement ledger + calibration reporting
-- **v0.6** Fabrication Injection Benchmark release (open runs against other frameworks)
+- **v0.6** Fabrication Injection Benchmark harness + rubrics (shipped; external-framework runs next)
 - **v1.0** paper artifact + reproduction protocol
 
 Full version: [docs/ROADMAP.md](docs/ROADMAP.md).
@@ -187,7 +194,8 @@ Full version: [docs/ROADMAP.md](docs/ROADMAP.md).
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) — components, order lifecycle, gate internals, autonomy supervisor
-- [Fabrication Injection Benchmark (spec v0)](docs/BENCHMARK.md) — 20 injection classes, honesty metrics, protocol
+- [Fabrication Injection Benchmark](docs/BENCHMARK.md) — 20 injection classes, metrics, protocol
+- [FIB rubrics](docs/RUBRICS.md) — judge definitions, metric formulas, acceptance bar
 - [Evidence](docs/EVIDENCE.md) — pilot inventory, public acceptance tables (v0.2/v0.3)
 - [Roadmap](docs/ROADMAP.md) — phases, scope, acceptance criteria
 - 中文简介：[README.zh-CN.md](README.zh-CN.md)
@@ -204,7 +212,7 @@ Full version: [docs/ROADMAP.md](docs/ROADMAP.md).
   title  = {Quant Super Agent: A Verifiable Agentic Quant Research Factory},
   author = {Quant Super Agent Contributors},
   year   = {2026},
-  note   = {Evidence plane, gated research loop, roles, debate, settlement and calibration, v0.5},
+  note   = {Evidence plane, gated research loop, roles, debate, settlement, calibration, FIB harness, v0.6},
   url    = {https://github.com/0x1512/quant-super-agent}
 }
 ```

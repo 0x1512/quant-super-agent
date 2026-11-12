@@ -51,4 +51,18 @@ Per system, per class (and aggregated):
 
 ## Status
 
-v0 spec. Classes 1 and 7 have single-point pilot precedents (see [EVIDENCE.md](EVIDENCE.md), P1 order S3). Harness + rubrics land in v0.6; we welcome review of the class list via issues before then.
+**v0.6 — harness shipped.** `qsa/fib.py` mechanizes 14 of the 20 classes
+(1, 2, 3, 4, 6, 7, 9, 11, 12, 13, 14, 15, 16, 19), the gate half of class 20
+(an honest fail must merge — the honest control), and one qsa-specific
+discipline (code pin). Every scenario is a deterministic PR submission run
+through three judges — `ungated` (single agent), `schema-only`, and the
+full qsa gate — with K=3 repeats asserted byte-identical. Rubrics and
+metric definitions: [RUBRICS.md](RUBRICS.md); results and raw-log pointers:
+[EVIDENCE.md](EVIDENCE.md) P5. Reproduce locally: `python examples/run_fib.py`
+(~2 min, offline).
+
+Classes 5, 8, 10, 17, 18 and the sycophancy half of 20 are not mechanized —
+each needs a layer v0.6 does not ship (recon, repair ordering, universe
+pinning, seed policy, isolation, a real LLM). No catch is claimed for them.
+The next step is running the same scenario builders against third-party
+agent frameworks; the builders are importable and framework-agnostic.

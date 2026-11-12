@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "quant-super-agent"
-version = "0.5.0"
+version = "0.6.0"
 description = "A verifiable agentic quant research factory: evidence cards, a mechanical admission gate, and supervised autonomy"
 readme = "README.md"
 requires-python = ">=3.10"
