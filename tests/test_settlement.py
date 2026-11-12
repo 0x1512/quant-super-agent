@@ -44,6 +44,13 @@ class TestWorldExtension(unittest.TestCase):
         c = extend_world(self.root / "ea", self.root / "base", 90)
         self.assertEqual(c.manifest_hash, a.manifest_hash)
 
+    def test_compact_start_date_accepted(self):
+        # manifests store YYYYMMDD; date.fromisoformat only accepts it from
+        # 3.11 on — build_snapshot must normalize on every supported version
+        a = build_snapshot(self.root / "ca", seed=5, start="20240102")
+        b = build_snapshot(self.root / "cb", seed=5, start="2024-01-02")
+        self.assertEqual(a.manifest_hash, b.manifest_hash)
+
     def test_real_data_world_refuses_extension(self):
         build_snapshot(self.root / "w", seed=3, tickers=12, days=90)
         m = json.loads((self.root / "w/MANIFEST.json").read_text("utf-8"))

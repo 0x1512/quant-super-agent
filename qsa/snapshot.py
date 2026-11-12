@@ -70,6 +70,8 @@ def build_snapshot(out_dir: Path, *, seed: int = 42, tickers: int = 12,
     """
     if plant is not None and plant.get("effect") != "reversal":
         raise ValueError(f"unknown plant effect {plant.get('effect')!r}")
+    if len(start) == 8:  # compact YYYYMMDD (manifest format) — accepted, and
+        start = f"{start[:4]}-{start[4:6]}-{start[6:]}"  # 3.10 needs dashed
     out_dir = Path(out_dir)
     (out_dir / "daily").mkdir(parents=True, exist_ok=True)
 
