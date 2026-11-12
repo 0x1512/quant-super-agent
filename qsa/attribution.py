@@ -23,8 +23,8 @@ from __future__ import annotations
 from typing import Any
 
 CLASSES = ("insufficient_observations", "instability", "threshold_miss",
-           "deflation", "oos_miss", "neutralization_residual", "universe",
-           "unknown")
+           "deflation", "oos_miss", "review_veto", "neutralization_residual",
+           "universe", "unknown")
 
 
 def classify(e_card: dict[str, Any], h_card: dict[str, Any],
@@ -42,9 +42,15 @@ def classify(e_card: dict[str, Any], h_card: dict[str, Any],
         evidence.append(f"n_dates={n} < min_observations={min_obs}")
     elif any("deflation" in r for r in reasons):
         cls = "deflation"
-    elif (e_card.get("oos") or {}).get("verdict") == "fail":
+    elif (e_card.get("review") or {}).get("admitted") is False:
+        cls = "review_veto"
+        upheld = (e_card.get("review") or {}).get("upheld_objections") or []
+        evidence.append("bear objection verified mechanically: "
+                        + (upheld[0].get("check") if upheld else "structure error"))
+    elif (e_card.get("oos") or {}).get("verdict") != "pass" and e_card.get("oos"):
         cls = "oos_miss"
-        evidence.append("held in-sample, failed the pre-registered OOS window")
+        evidence.append("held in-sample, missed the pre-registered OOS window: "
+                        + "; ".join((e_card.get("oos") or {}).get("reasons") or [])[:160])
     elif attribution.get("neighborhood_stable") is False:
         cls = "instability"
         neighborhood = attribution.get("neighborhood_rankic", {})

@@ -83,6 +83,26 @@ class Registry:
     def has_hypothesis(self, hyp_id: str) -> bool:
         return hyp_id in self._hyp_ids
 
+    def record_review(self, r: dict[str, Any]) -> None:
+        """Append a debate R card (bull/bear) — evidence trail, not a trial.
+
+        Reviews never count toward family trial counts; they are the audit
+        record of *how* a candidate was admitted or vetoed.
+        """
+        rid = r.get("review_id")
+        if not rid:
+            raise RegistryError("review has no review_id")
+        if any(en.get("review_id") == rid for en in self.entries
+               if en.get("type") == "review"):
+            raise RegistryError(f"review_id {rid!r} already recorded")
+        self._append({"type": "review", "review_id": rid,
+                      "exp_id": r.get("exp_id"), "side": r.get("side"),
+                      "round": r.get("round")})
+
+    def next_review_id(self) -> str:
+        n = sum(1 for en in self.entries if en.get("type") == "review")
+        return f"R-{n + 1:04d}"
+
     def n_trials(self, family: str = "default") -> int:
         """Number of experiments already settled in *family*."""
         return len(self._families.get(family, []))

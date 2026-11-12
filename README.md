@@ -2,11 +2,11 @@
 
 **A verifiable agentic quant research factory — machine-checked evidence, honest settlement, bounded autonomy.**
 
-![status](https://img.shields.io/badge/status-v0.3%20research%20loop-green) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![benchmark](https://img.shields.io/badge/benchmark-fabrication--injection%20v0--spec-red)
+![status](https://img.shields.io/badge/status-v0.4%20roles%20%2B%20debate-green) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![benchmark](https://img.shields.io/badge/benchmark-fabrication--injection%20v0--spec-red)
 
-> **What runs today (v0.3):** the full gated research loop — pre-registered hypotheses, sandboxed factor code, multiple-testing-deflated verdicts, one-shot out-of-sample windows, attribution-driven iteration under budget — on synthetic or your own CSV data, fully offline and deterministic. Pure Python ≥ 3.10 stdlib, zero dependencies.
+> **What runs today (v0.4):** the full gated research loop — pre-registered hypotheses, sandboxed factor code, multiple-testing-deflated verdicts, one-shot out-of-sample windows, attribution-driven iteration under budget — plus ablatable quant roles (data / factor / risk / manager) and a bull/bear adversarial review gate before admission, with a reproducible ablation table. On synthetic or your own CSV data, fully offline and deterministic. Pure Python ≥ 3.10 stdlib, zero dependencies.
 >
-> **What is designed but not shipped yet:** multi-role workers and the bull/bear debate gate (v0.4), the settlement ledger and calibration reporting (v0.5), the open Fabrication Injection Benchmark harness (v0.6). See the [roadmap](#roadmap-summary).
+> **What is designed but not shipped yet:** the settlement ledger and calibration reporting (v0.5), the open Fabrication Injection Benchmark harness (v0.6). See the [roadmap](#roadmap-summary).
 >
 > Research use only — not financial advice.
 
@@ -26,12 +26,17 @@ python examples/run_lifecycle.py --fib 7    # inject a silent-pass fabrication: 
 #    the registry and the deflation floor discipline every retry
 python examples/run_mining.py
 
-# 3) your own data: CSV -> legal, fingerprinted snapshot (local-first)
+# 3) v0.4 acceptance: roles x debate-rounds ablation table
+#    (planted-signal worlds -> discovery, noise worlds -> false positives)
+python examples/run_ablation.py
+
+# 4) your own data: CSV -> legal, fingerprinted snapshot (local-first)
 python -m qsa.ingest myprices.csv mydata/
 
 # the whole contract, machine-checked
-python -m unittest discover -s tests -v     # 79 tests: gate, FIB injections, registry,
-                                            # deflation, sandbox, mining, determinism
+python -m unittest discover -s tests -v     # 110 tests: gate, FIB injections, registry,
+                                            # deflation, sandbox, mining, roles, review,
+                                            # ablation, determinism
 ```
 
 What the mining demo prints (abbreviated):
@@ -83,11 +88,11 @@ A real E card from the mining demo (`work/mining/cards/` after you run it; value
   "hyp_id": "H-0002",
   "window": "20240102:20240506",
   "snapshot_hash": "7b81decd7fdc32d63ef60f22944cbe348a6c052b3fd48ba13f01824aef08053d",
-  "engine": "qsa-eval-0.3.0",
+  "engine": "qsa-eval-0.4.0",
   "factor_code": "def factor(closes, tickers, dates, i): … (full source)",
   "factor_code_sha256": "e1c0d7e6b6bd95bd2dc5c6366227bc4f7042056676fb1a61f243fb9b0c94d000",
   "metrics": {"rankic_mean": -0.006586, "rankic_tstat": -0.219072,
-              "quintile_spread": 0.000051, "monotonicity_proxy": 0.1, "n_dates": 86},
+              "quintile_spread": 5.1e-05, "monotonicity_proxy": 0.1, "n_dates": 86},
   "verdict": "fail",
   "settled_at": "2024-05-06"
 }
@@ -95,7 +100,7 @@ A real E card from the mining demo (`work/mining/cards/` after you run it; value
 
 The gate is deliberately dumb and strict: schema completeness → hypothesis registered before the experiment → snapshot fingerprint match → window alignment (no look-ahead) → engine pin, ledger discipline, deflated verdict, and **re-execution of `factor_code` in a sandbox with metrics required to match**. A claim that cannot be machine-verified does not exist. Fabricated cards are blocked from `main` by branch protection; honest negatives merge.
 
-### 2. Research loop — a loop that cannot p-hack itself (shipped, v0.3)
+### 2. Research loop — a loop that cannot p-hack itself (shipped, v0.3 + v0.4)
 
 ```mermaid
 flowchart LR
@@ -106,7 +111,9 @@ flowchart LR
     E -- fail --> F[Attribution<br/>threshold · instability · deflation · oos]
     E -- in-sample pass --> G{One-shot OOS window}
     G -- fail --> F
-    G -- pass --> H[Verify gate as forge CI<br/>recomputes factor_code]
+    G -- pass --> V{Roles + bull/bear review<br/>risk: half-split stability veto<br/>debate: checkable claims verified}
+    V -- veto --> F
+    V -- admitted --> H[Verify gate as forge CI<br/>recomputes factor_code + vetoes]
     F -- next hypothesis<br/>budget-bounded --> B
     H --> I[PR + merge under<br/>branch protection]
 ```
@@ -117,6 +124,8 @@ Four disciplines make retry pressure harmless:
 - **Multiple-testing deflation** — with N settled looks in a family, the t-statistic must clear the Bonferroni floor for N. The 10th "new idea" faces a bar the 1st did not; bar-lowering retries fail mechanically (FIB class 11).
 - **Sandboxed factor code** — LLM-written factors run under an AST whitelist with a truncated-view contract: `factor(closes≤t, tickers, dates≤t, i)`. Look-ahead needs a sandbox escape, not a bug (FIB class 2: metrics that don't match the code are rejected by recomputation).
 - **One-shot OOS windows** — an out-of-sample window that produced a pass is burned in the ledger; reuse is refused at registration (FIB class 13).
+- **Ablatable roles with mechanical duties** (v0.4) — the data role blocks underpowered designs before they burn a trial; the risk role vetoes on measured half-split instability. A role is a persona prompt *plus* a function: ablating it removes a check, not a vibe.
+- **Bull/bear review before admission** (v0.4, rounds configurable) — reviewers emit structured R cards; a bear objection is upheld only if its check verifiably fails, bull rhetoric never admits, and every R card lands in the append-only ledger. The gate also verifies *claimed vetoes* recompute from source — a fabricated veto is as much a lie as a fabricated pass.
 
 Failures are classified mechanically (insufficient observations / instability / threshold miss / deflation / OOS miss) and the class feeds the next-hypothesis prompt — with an explicit no-bar-lowering instruction the loop is required to ignore under pressure.
 
@@ -132,7 +141,8 @@ Autonomy is a dial with a fence — L0 observe / L1 suggest / L2 admit-gated / L
 
 | | TradingAgents | ai-hedge-fund | RD-Agent (Qlib) | FinRL | **Quant Super Agent** |
 |---|---|---|---|---|---|
-| Multi-role agents | ✔ analysts + debate | ✔ persona agents | ✔ research/dev loop | ✖ (RL, not agentic workflow) | designed, v0.4 |
+| Multi-role agents | ✔ analysts + debate | ✔ persona agents | ✔ research/dev loop | ✖ (RL, not agentic workflow) | ✔ **shipped v0.4** — ablatable roles with mechanical duties |
+| Adversarial review gate | ✔ debate rounds | ✖ | ✖ | n/a | ✔ **shipped v0.4** — checkable-claim verification, claimed-veto recomputation |
 | Research loop (H→E→iterate) | ✖ decision per date | ✖ | ✔ | ✖ | ✔ **shipped v0.3** — pre-registered, deflation-floored |
 | Claim-level CI gate | ✖ | ✖ | partial (backtest check) | ✖ | ✔ **shipped** — schema + fingerprint + no-lookahead + code recomputation |
 | Multiple-testing control | ✖ | ✖ | ✖ | ✖ | ✔ **shipped v0.3** — Bonferroni floor at family N |
@@ -153,14 +163,14 @@ Internal pilots (deterministic git-forge emulation, 2026-11) — full inventory 
 | Autonomy risk (G-1) three-arm × 5 rounds | Risk reproduced once in the wild; containment stack achieved **5/5 clean windows** in the full-protection arm; watchdog detection→stop **0.21 s**; zero spillover |
 | Data plane | As-of snapshot + reconciliation tooling; 144-point cross-check zero mismatch; tamper-rejection verified |
 
-Everything claimed for the shipped versions is reproducible from this repo: 79 tests (offline, deterministic) and a CI matrix across Python 3.10–3.13 that also runs both demos as regression contracts — the v0.2/v0.3 acceptance tables in [docs/EVIDENCE.md](docs/EVIDENCE.md) map every discipline to its test.
+Everything claimed for the shipped versions is reproducible from this repo: 110 tests (offline, deterministic) and a CI matrix across Python 3.10–3.13 that also runs all three demos as regression contracts — the v0.2/v0.3/v0.4 acceptance tables in [docs/EVIDENCE.md](docs/EVIDENCE.md) map every discipline to its test.
 
 ## Roadmap (summary)
 
 - **v0.1** design + benchmark spec + evidence docs (shipped)
 - **v0.2** evidence plane: cards + verify gate + deterministic forge (shipped)
 - **v0.3** research loop: registry, deflation, sandboxed mining, one-shot OOS, CSV ingestion (shipped)
-- **v0.4** quant roles + adversarial (bull/bear) review gate
+- **v0.4** ablatable quant roles + bull/bear review gate + ablation table (shipped)
 - **v0.5** settlement ledger + calibration reporting
 - **v0.6** Fabrication Injection Benchmark release (open runs against other frameworks)
 - **v1.0** paper artifact + reproduction protocol
@@ -187,7 +197,7 @@ Full version: [docs/ROADMAP.md](docs/ROADMAP.md).
   title  = {Quant Super Agent: A Verifiable Agentic Quant Research Factory},
   author = {Quant Super Agent Contributors},
   year   = {2026},
-  note   = {Evidence plane and gated research loop, v0.3},
+  note   = {Evidence plane, gated research loop, roles and debate, v0.4},
   url    = {https://github.com/0x1512/quant-super-agent}
 }
 ```

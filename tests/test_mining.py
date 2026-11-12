@@ -61,6 +61,10 @@ class TestMining(unittest.TestCase):
 
     def _run(self, work: Path, responses, **kw):
         llm = ScriptedLLM(responses, run_log=work.parent / f"{work.name}-runs.jsonl")
+        # v0.3 semantics unless a test opts into roles/debate explicitly: the
+        # pre-review path (data+factor only, no debate) is what these assert.
+        kw.setdefault("roles", ("data", "factor"))
+        kw.setdefault("debate_rounds", 0)
         return run_order(work, self.snap_dir, ORDER, llm,
                          family="test", verbose=False, **kw)
 
@@ -175,3 +179,122 @@ class TestAttribution(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestV04Layers(unittest.TestCase):
+    """Roles + adversarial review wired into the loop (default configs)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.snap = self.root / "snap"
+        build_snapshot(self.snap, seed=42, tickers=12, days=90)
+        self.dates = engine_dates(self.snap)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _run(self, work, responses, snap=None, **kw):
+        llm = ScriptedLLM(responses, run_log=work.parent / f"{work.name}-runs.jsonl")
+        return run_order(work, snap or self.snap, ORDER, llm,
+                         family="v04", verbose=False, **kw)
+
+    def test_risk_veto_records_instability(self):
+        # lax bar passes in-sample; default roles include risk -> the halves
+        # disagree (seed 42 momentum) -> honest fail with class instability
+        summary = self._run(self.root / "w1",
+                            [H_PASS_MOST, F_MOM10, H_PASS_MOST, F_MOM10])
+        r = summary["iterations"][0]
+        self.assertEqual(r["verdict"], "fail")
+        self.assertEqual(r["attribution"]["class"], "instability")
+        card = json.loads((self.root / "w1" / "cards" / "E-0001.json").read_text())
+        self.assertFalse(card["attribution"]["neighborhood_stable"])
+        self.assertIn("first_half", card["attribution"]["neighborhood_rankic"])
+
+    def test_review_admits_a_stable_passing_candidate(self):
+        planted = self.root / "planted"
+        build_snapshot(planted, seed=11, tickers=12, days=90,
+                       plant={"effect": "reversal", "strength": 0.15})
+        ds = engine_dates(planted)
+        h = json.dumps({
+            "mechanism": "1-day reversal: losers bounce",
+            "falsifiable_condition": "mean rank IC <= 0",
+            "oos_window": f"{ds[-15]}:{ds[-1]}",
+            "admission": {"required_metrics": ["rankic_mean", "rankic_tstat",
+                                               "quintile_spread",
+                                               "monotonicity_proxy", "n_dates"],
+                          "thresholds": {"rankic_mean": {"op": ">=",
+                                                         "value": 0.02}},
+                          "min_observations": 10}})
+        bull = json.dumps({"side": "bull", "claims": [
+            {"kind": "mechanism", "statement": "documented reversal",
+             "checkable": False}]})
+        bear = json.dumps({"side": "bear", "claims": [
+            {"kind": "robustness", "statement": "halves disagree",
+             "checkable": True, "check": "halves_stability"}]})
+        summary = self._run(self.root / "w2", [h, F_REV_1D, bull, bear],
+                            snap=planted, debate_rounds=1)
+        self.assertEqual(summary["final_verdict"], "pass")
+        card = json.loads((self.root / "w2" / "cards" / "E-0001.json").read_text())
+        self.assertTrue(card["review"]["admitted"])
+        self.assertEqual(len(card["review"]["review_ids"]), 2)
+        # R cards exist on disk and in the ledger
+        self.assertTrue((self.root / "w2" / "cards" / "R-0001.json").exists())
+        ledger = [json.loads(l) for l in
+                  (self.root / "w2" / "registry.jsonl").read_text().splitlines()]
+        self.assertEqual(sum(1 for x in ledger if x.get("type") == "review"), 2)
+
+    def test_review_vetoes_the_unstable_noise_passer(self):
+        noise = self.root / "noise8"
+        build_snapshot(noise, seed=8, tickers=12, days=90)
+        ds = engine_dates(noise)
+        h = json.dumps({
+            "mechanism": "1-day reversal: losers bounce",
+            "falsifiable_condition": "mean rank IC <= 0",
+            "oos_window": f"{ds[-15]}:{ds[-1]}",
+            "admission": {"required_metrics": ["rankic_mean", "rankic_tstat",
+                                               "quintile_spread",
+                                               "monotonicity_proxy", "n_dates"],
+                          "thresholds": {"rankic_mean": {"op": ">=",
+                                                         "value": 0.02}},
+                          "min_observations": 10}})
+        bull = json.dumps({"side": "bull", "claims": [
+            {"kind": "mechanism", "statement": "documented reversal",
+             "checkable": False}]})
+        bear = json.dumps({"side": "bear", "claims": [
+            {"kind": "robustness", "statement": "halves disagree",
+             "checkable": True, "check": "halves_stability"}]})
+        # no risk role: only the debate (bear claim verified by the gate's own
+        # mechanics) can catch seed 8's unstable but IS+OOS-passing noise
+        summary = self._run(self.root / "w3", [h, F_REV_1D, bull, bear],
+                            snap=noise, roles=("data", "factor"),
+                            debate_rounds=1)
+        self.assertEqual(summary["final_verdict"], "fail")
+        card = json.loads((self.root / "w3" / "cards" / "E-0001.json").read_text())
+        self.assertFalse(card["review"]["admitted"])
+        self.assertEqual(card["review"]["upheld_objections"][0]["check"],
+                         "halves_stability")
+        r = summary["iterations"][0]
+        self.assertEqual(r["attribution"]["class"], "review_veto")
+
+
+def engine_dates(snap_dir):
+    from qsa import engine
+    return engine.load_frame(snap_dir).dates
+
+
+F_REV_1D = '''def factor(closes, tickers, dates, i):
+    if i < 1:
+        return {}
+    out = {}
+    t = dates[i]
+    lag = dates[i - 1]
+    for tk in tickers:
+        row = closes[tk]
+        a = row.get(t)
+        b = row.get(lag)
+        if a is None or b is None or b == 0:
+            continue
+        out[tk] = -(a / b - 1.0)
+    return out
+'''

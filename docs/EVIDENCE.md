@@ -67,6 +67,35 @@ Reproducible from this repository: `python -m unittest discover -s tests -v` (79
 
 The mining demo (`examples/run_mining.py`) is deliberately a negative result: iteration 1 misses its pre-registered bar (attribution `threshold_miss`), iteration 2 proposes a lower-bar variant that the deflation floor rejects (`deflation`), iteration 3 same — final verdict **fail**, every card gate-checked and settled. The loop's contract is that honest negatives are first-class outcomes; the gate and the deflation floor, not the agent, decide the verdict.
 
+## v0.4 public release — roles + adversarial review acceptance (automated, reproducible by anyone)
+
+Reproducible from this repository: `python examples/run_ablation.py` (~15 s, offline, deterministic) and `python -m unittest discover -s tests -v` (110 tests).
+
+The ablation measures what each gating layer costs and buys. The **persona policy is identical in every configuration** (same hypothesis, same factor code, same bull/bear arguments), so differences between rows are the machinery, not the script. Planted worlds carry a real 1-day reversal (strength 0.15 → the policy's factor sits near rank IC ≈ 0.12); noise worlds carry nothing — an admission there is a false positive by construction.
+
+| config | roles | debate rounds | discovery (planted) | false positives (noise) | mean trials planted | mean trials noise |
+|---|---|---|---|---|---|---|
+| factor-only/0 | data+factor | 0 | 3/3 | 3/8 | 1.00 | 2.25 |
+| factor+risk/0 | data+factor+risk | 0 | 3/3 | 2/8 | 1.00 | 2.50 |
+| factor-only/1 | data+factor | 1 | 3/3 | 2/8 | 1.00 | 2.50 |
+| factor+risk/1 | data+factor+risk | 1 | 3/3 | 2/8 | 1.00 | 2.50 |
+| factor+risk/2 | data+factor+risk | 2 | 3/3 | 2/8 | 1.00 | 2.50 |
+
+Reading it honestly:
+
+- **No layer costs discovery** — 3/3 in every configuration on planted worlds.
+- **The risk veto and one debate round each remove one of three noise admissions** (seed 8: passes IS and OOS on luck, but its halves disagree). Beyond the first round, additional debate rounds add nothing here — the scripted bear has only one checkable objection, and the gate verifies facts, not stamina.
+- **Two false positives survive every layer** (seeds 1 and 4: stable-looking noise that also passed a one-shot OOS window). This is the honest headline: mechanical gating suppresses most but not all false discovery — the survivors are exactly what the v0.5 settlement ledger exists to catch.
+
+| Discipline | Test | Gate/loop outcome |
+|---|---|---|
+| fabricated risk veto (claims instability that does not recompute) | `test_risk_veto_records_instability` + gate rule | blocked — `E.attribution.neighborhood_stable=false` must recompute from `factor_code` |
+| review block lying (admitted=true while unstable; admitted=false without a verifiable objection) | `test_review_admits_a_stable_passing_candidate`, `test_review_vetoes_the_unstable_noise_passer` | blocked by the gate's review-consistency rules |
+| bear rhetoric trying to veto | `test_rhetoric_never_decides` | admitted — only checkable, verified objections block |
+| OOS honesty (IS pass + OOS fail must be an acceptable `fail`, not "inconsistent") | `test_oos_window_burned_after_pass`, gate extension | honest `oos_miss` cards merge; their OOS metrics are recomputed from source |
+| planted/default snapshot byte-freeze | `test_default_path_is_byte_frozen`, `test_planted_snapshot_is_deterministic_and_declared` | the plant feature never changes a byte of the default generator; planted manifests declare their world |
+| ablation reproducibility | `test_table_is_pinned_byte_for_byte`, `test_full_matrix_is_deterministic` | the acceptance table is pinned byte-for-byte and reproduces exactly |
+
 ## What these pilots do NOT show
 
 - No positive alpha discovery yet (all factor studies so far returned honest negatives — by design of the pilot orders).

@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from . import admission, engine, deflation, registry, snapshot
+from . import admission, engine, deflation, registry, roles, snapshot
 from .sandbox import SandboxError, run_factor
 from .snapshot import sha256_bytes
 from .validate import validate_card
@@ -129,6 +129,62 @@ def gate(hypothesis_path: Path, result_path: Path, snapshot_dir: Path,
             else:
                 expected, reasons = admission.evaluate(
                     h["admission"], e.get("metrics", {}))
+            # an OOS block changes the expected verdict: a candidate that
+            # passes in-sample but fails its pre-registered OOS window is an
+            # honest fail (class oos_miss) — the gate must expect that, not
+            # brand it inconsistent
+            oos_block = e.get("oos") if isinstance(e.get("oos"), dict) else None
+            if expected == "pass" and oos_block:
+                oos_expected, oos_reasons = deflation.deflated_evaluate(
+                    h["admission"], oos_block.get("metrics", {}), 1)
+                if oos_expected != "pass":
+                    expected = "fail"
+                    reasons = list(reasons) + [
+                        f"oos window {oos_block.get('window')}: "
+                        f"{'; '.join(oos_reasons)}"]
+            # a *claimed* risk veto must recompute: the card records
+            # half-split instability (attribution.neighborhood_stable=false)
+            # only if the attached factor code verifiably exhibits it — a
+            # fabricated veto is as much a lie as a fabricated pass
+            stability = None
+            claimed_veto = (isinstance(e.get("attribution"), dict)
+                            and e["attribution"].get("neighborhood_stable")
+                            is False)
+            rb = e.get("review") if isinstance(e.get("review"), dict) else None
+            if (claimed_veto or rb) and e.get("factor_code"):
+                try:
+                    stability = roles.risk_check(
+                        e["factor_code"], snapshot_dir, h,
+                        e.get("metrics", {})).get("neighborhood_stable")
+                except (SandboxError, ValueError):
+                    stability = None  # the recompute block below will complain
+            if claimed_veto:
+                if stability is not False:
+                    errs.append("E.attribution.neighborhood_stable=false does "
+                                "not recompute from factor_code — fabricated "
+                                "veto")
+                else:
+                    expected = "fail"
+                    reasons = list(reasons) + [
+                        "risk veto verified: half-split instability"]
+            # a review block must agree with the facts: admission requires
+            # stability; a veto requires a verified objection
+            if rb is not None:
+                for obj in rb.get("upheld_objections") or []:
+                    fact = {"halves_stability": stability}.get(obj.get("check"))
+                    if fact is not False:
+                        errs.append(
+                            f"E.review.upheld_objections: {obj.get('check')!r} "
+                            f"does not verify — a fabricated veto is a lie")
+                if rb.get("admitted") and stability is False:
+                    errs.append("E.review.admitted=true but the candidate is "
+                                "unstable across halves — veto was mandatory")
+                if not rb.get("admitted") and not (rb.get("upheld_objections")
+                                                   or []):
+                    errs.append("E.review.admitted=false without a verifiable "
+                                "upheld objection")
+                if not rb.get("admitted") and rb.get("upheld_objections"):
+                    expected = "fail"
             for r in reasons:
                 if expected is None:
                     errs.append(f"E.metrics: {r}")
@@ -150,9 +206,13 @@ def gate(hypothesis_path: Path, result_path: Path, snapshot_dir: Path,
             errs.append("E.factor_code_sha256 does not match the attached code")
         else:
             try:
+                # the signal is a function of the snapshot (truncated-view
+                # sandbox: values at t depend only on closes <= t); windows
+                # select which dates to score, warmup uses pre-window data
+                full_frame = engine.load_frame(snapshot_dir)
+                signal = run_factor(e["factor_code"], full_frame.closes,
+                                    full_frame.tickers, full_frame.dates)
                 frame = engine.load_frame(snapshot_dir, e.get("window"))
-                signal = run_factor(e["factor_code"], frame.closes,
-                                    frame.tickers, frame.dates)
                 recomputed = engine.evaluate_signal(frame, signal)
             except (SandboxError, ValueError) as exc:
                 errs.append(f"factor_code does not recompute: {exc}")
@@ -169,6 +229,24 @@ def gate(hypothesis_path: Path, result_path: Path, snapshot_dir: Path,
                             f"E.metrics.{key}: card says {claimed[key]}, "
                             f"recomputation from factor_code says "
                             f"{recomputed[key]} (phantom or rescaled metric)")
+                oos_blk = e.get("oos") if isinstance(e.get("oos"), dict) else None
+                if oos_blk and oos_blk.get("window"):
+                    try:
+                        oos_frame = engine.load_frame(snapshot_dir,
+                                                      oos_blk["window"])
+                        oos_recomputed = engine.evaluate_signal(oos_frame,
+                                                                signal)
+                    except (SandboxError, ValueError) as exc:
+                        errs.append(f"E.oos does not recompute: {exc}")
+                    else:
+                        for key, val in sorted((oos_blk.get("metrics") or {}).items()):
+                            if key not in oos_recomputed:
+                                errs.append(f"E.oos.metrics.{key}: not a harness "
+                                            f"metric")
+                            elif val != oos_recomputed[key]:
+                                errs.append(
+                                    f"E.oos.metrics.{key}: card says {val}, "
+                                    f"recomputation says {oos_recomputed[key]}")
     return (not errs), errs
 
 

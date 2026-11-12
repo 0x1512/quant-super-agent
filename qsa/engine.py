@@ -20,7 +20,7 @@ from typing import Any, Callable
 
 from .snapshot import SnapshotInfo, fingerprint, load_closes
 
-EVAL_ID = "qsa-eval-0.3.0"
+EVAL_ID = "qsa-eval-0.4.0"
 ENGINE_ID = "qsa-toy-momentum-0.2.0"  # kept: the toy factor's historical id
 
 SignalMatrix = dict[str, dict[str, float]]

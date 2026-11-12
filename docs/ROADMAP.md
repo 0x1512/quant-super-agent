@@ -19,10 +19,12 @@ Public, version-gated. Each version has scope + acceptance criteria; code lands 
 - Real-data ingestion: user CSV → legal snapshot (local-first, schema-validated)
 - Acceptance: a seeded negative result produces a correctly-classified attribution and a budget-bounded retry chain, all gated — **met** (`examples/run_mining.py`; 79 tests green)
 
-## v0.4 — roles + adversarial review
-- Quant roles (data / factor / risk / manager) as ablatable workers
-- Bull/bear review gate before admission (rounds configurable)
-- Acceptance: ablation table — role specialization and debate rounds vs discovery rate and false-positive rate
+## v0.4 — roles + adversarial review (shipped)
+- Quant roles (data / factor / risk / manager) as **ablatable workers** — each role is a persona prompt *plus* a mechanical duty (data: provenance + power feasibility pre-registration; risk: half-split stability veto at admission), so ablating a role removes a check, not a vibe
+- Bull/bear **review gate before admission**, rounds configurable (0–10): reviewers emit structured R cards whose checkable claims are verified against facts the gate computes itself — rhetoric never vetoes, and an unverified bull claim admits nothing; R cards are append-only ledger entries
+- Gate extensions: a claimed risk veto must recompute from `factor_code` (a fabricated veto is a lie); an `E.oos` block now feeds the expected-verdict consistency check and its metrics are recomputed from source
+- Ablation harness: identical scripted persona policy across configurations, planted-signal worlds (real but modest reversal, strength 0.15) for discovery, pure-noise worlds for false positives; byte-reproducible table
+- Acceptance: ablation table — role specialization and debate rounds vs discovery rate and false-positive rate — **met**: `python examples/run_ablation.py` (pinned byte-for-byte in `tests/test_ablation.py`)
 
 ## v0.5 — settlement ledger + calibration
 - Horizon settlement (simulator-authoritative realized performance), reflection loop feeding admissions

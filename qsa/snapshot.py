@@ -56,8 +56,20 @@ def _business_days(start: str, days: int) -> list[str]:
 
 
 def build_snapshot(out_dir: Path, *, seed: int = 42, tickers: int = 12,
-                   days: int = 90, start: str = "2024-01-02") -> SnapshotInfo:
-    """Generate the toy snapshot deterministically. Pure synthetic data."""
+                   days: int = 90, start: str = "2024-01-02",
+                   plant: dict[str, Any] | None = None) -> SnapshotInfo:
+    """Generate the toy snapshot deterministically. Pure synthetic data.
+
+    ``plant`` optionally injects a *known* cross-sectional effect so that
+    discovery is measurable in ablations: ``{"effect": "reversal", "strength":
+    s}`` makes each day's log-return carry ``-s * z`` of the previous day's
+    cross-sectionally standardized return (a real 1-day reversal that a
+    ``-(prev return)`` factor can discover). ``plant=None`` (default) is
+    byte-identical to the historical generator; planted manifests record the
+    plant parameters so the fingerprint proves which world the data came from.
+    """
+    if plant is not None and plant.get("effect") != "reversal":
+        raise ValueError(f"unknown plant effect {plant.get('effect')!r}")
     out_dir = Path(out_dir)
     (out_dir / "daily").mkdir(parents=True, exist_ok=True)
 
@@ -66,14 +78,32 @@ def build_snapshot(out_dir: Path, *, seed: int = 42, tickers: int = 12,
     rng = random.Random(seed)
     drift = {t: rng.gauss(0.0002, 0.0003) for t in names}
 
+    strength = float(plant["strength"]) if plant else 0.0
+    prev_ret: dict[str, float] | None = None
+
     rows: list[tuple[str, str, str, str]] = []
     closes: dict[str, float] = {t: 100.0 for t in names}
     for d in dates:
+        if prev_ret is not None and strength:
+            mean_r = sum(prev_ret.values()) / tickers
+            sd_r = (sum((v - mean_r) ** 2 for v in prev_ret.values())
+                    / tickers) ** 0.5 or 1e-12
+            z = {t: (prev_ret[t] - mean_r) / sd_r for t in names}
+        else:
+            z = None
+        today_ret: dict[str, float] = {}
         for t in names:
-            logret = drift[t] + rng.gauss(0.0, 0.012)
+            # call order (gauss then uniform, per ticker) matches the
+            # historical generator exactly when strength == 0
+            shock = rng.gauss(0.0, 0.012)
+            logret = drift[t] + shock
+            if z is not None:
+                logret -= strength * 0.012 * z[t]
+            today_ret[t] = logret
             closes[t] *= pow(2.718281828459045, logret)
             volume = int(rng.uniform(1e5, 5e6))
             rows.append((d, t, f"{closes[t]:.4f}", str(volume)))
+        prev_ret = today_ret
 
     csv_path = out_dir / "daily" / "prices.csv"
     with csv_path.open("w", encoding="utf-8", newline="") as fh:
@@ -93,6 +123,9 @@ def build_snapshot(out_dir: Path, *, seed: int = 42, tickers: int = 12,
         "rows": len(rows),
         "files": {"daily/prices.csv": sha256_file(csv_path)},
     }
+    if plant is not None:
+        manifest["plant"] = {"effect": "reversal",
+                             "strength": float(plant["strength"])}
     (out_dir / "MANIFEST.json").write_bytes(canonical_json(manifest) + b"\n")
     return fingerprint(out_dir)
 

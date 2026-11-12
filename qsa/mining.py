@@ -30,7 +30,8 @@ from pathlib import Path
 from typing import Any
 
 from . import attribution as attribution_mod
-from . import deflation, engine, registry as registry_mod, snapshot
+from . import deflation, engine, registry as registry_mod, review as review_mod, \
+    roles as roles_mod, snapshot
 from .forge import Forge
 from .llm import BaseLLM, LLMError, extract_json
 from .sandbox import SandboxError, run_factor
@@ -86,11 +87,16 @@ def _history_block(history: list[dict[str, Any]]) -> str:
 def run_order(work: Path, snapshot_dir: Path, order_text: str, llm: BaseLLM,
               *, budget: int = 3, family: str = "mining",
               registry_path: Path | None = None,
+              roles: tuple[str, ...] | list[str] = roles_mod.DEFAULT_ROLES,
+              debate_rounds: int = 1,
               verbose: bool = True) -> dict[str, Any]:
     work = Path(work)
     if work.exists():
         raise ValueError(f"workdir {work} already exists; mining requires a "
                          f"fresh start (determinism)")
+    roles = roles_mod.check_roles(tuple(roles))
+    if not isinstance(debate_rounds, int) or debate_rounds < 0 or debate_rounds > 10:
+        raise ValueError("debate_rounds must be an int in 0..10")
     log = print if verbose else (lambda *a, **k: None)
 
     info = snapshot.fingerprint(snapshot_dir)
@@ -106,6 +112,7 @@ def run_order(work: Path, snapshot_dir: Path, order_text: str, llm: BaseLLM,
     forge = Forge.init(work / "forge")
     issue = forge.create_issue("Order: factor mining", order_text)
     log(f"[0] order      issue #{issue}, budget={budget}, family={family!r}, "
+        f"roles={list(roles)}, debate_rounds={debate_rounds}, "
         f"snapshot {info.manifest_hash[:12]}…")
 
     history: list[dict[str, Any]] = []
@@ -151,6 +158,14 @@ def run_order(work: Path, snapshot_dir: Path, order_text: str, llm: BaseLLM,
             history.append(record)
             log(f"[{it}] hypothesis  BLOCKED at schema: {errs[0]}")
             continue
+        if "data" in roles:  # mechanical duty of the data role
+            d_errs = roles_mod.data_check(h, snapshot_dir)
+            if d_errs:
+                record.update({"stage": "data_check", "blocked": d_errs})
+                summary_iterations.append(record)
+                history.append(record)
+                log(f"[{it}] data        BLOCKED design: {d_errs[0]}")
+                continue
         try:
             reg.register_hypothesis(h)
         except registry_mod.RegistryError as exc:
@@ -202,6 +217,74 @@ def run_order(work: Path, snapshot_dir: Path, order_text: str, llm: BaseLLM,
             if oos_verdict != "pass":
                 verdict = "fail"
 
+        # -- 4b) risk veto (mechanical duty of the risk role) ----------------
+        risk_result: dict[str, Any] | None = None
+        if verdict == "pass" and "risk" in roles:
+            risk_result = roles_mod.risk_check(code, snapshot_dir, h, metrics)
+            if not risk_result["neighborhood_stable"]:
+                verdict = "fail"
+                reasons = list(reasons) + [
+                    f"risk veto: {risk_result['reason']}"]
+
+        # -- 4c) adversarial review before admission (v0.4) -------------------
+        review_block: dict[str, Any] | None = None
+        review_cards: list[dict[str, Any]] = []
+        if verdict == "pass" and debate_rounds > 0:
+            if risk_result is None:  # risk role absent: compute the fact anyway
+                risk_result = roles_mod.risk_check(code, snapshot_dir, h, metrics)
+            mechanics = {"halves_stability": risk_result["neighborhood_stable"],
+                         "oos_pass": True,  # an OOS fail never reaches review
+                         "window_alignment": True}  # the gate enforces this
+            bull_by = "factor" if "factor" in roles else "manager"
+            bear_by = "risk" if "risk" in roles else "manager"
+            context = (f"Candidate {exp_id} for {h['hyp_id']}: "
+                       f"{h['mechanism']}\nmetrics: {json.dumps(metrics, sort_keys=True)}\n"
+                       f"mechanical facts (computed by the gate, not arguable): "
+                       f"{json.dumps(mechanics, sort_keys=True)}\n"
+                       f"oos: {json.dumps((oos_block or {}), sort_keys=True, default=str)}")
+            try:
+                for rnd in range(1, debate_rounds + 1):
+                    bull = review_mod.parse_review(
+                        llm.complete(review_mod.SYSTEM_BULL,
+                                     f"{context}\nRound {rnd}: make the bull case."),
+                        side="bull", expected_round=rnd, exp_id=exp_id,
+                        reviewer=bull_by, as_of_iso=as_of_iso)
+                    bear = review_mod.parse_review(
+                        llm.complete(review_mod.SYSTEM_BEAR,
+                                     f"{context}\nRound {rnd}: make the bear case."),
+                        side="bear", expected_round=rnd, exp_id=exp_id,
+                        reviewer=bear_by, as_of_iso=as_of_iso)
+                    bull["review_id"] = reg.next_review_id()
+                    reg.record_review(bull)
+                    bear["review_id"] = reg.next_review_id()
+                    reg.record_review(bear)
+                    review_cards += [bull, bear]
+            except LLMError as exc:
+                record.update({"stage": "review", "hyp_id": h["hyp_id"],
+                               "verdict": verdict, "blocked": str(exc)})
+                summary_iterations.append(record)
+                history.append(record)
+                log(f"[{it}] review      BLOCKED at llm: {str(exc)[:90]}")
+                continue
+            for rc in review_cards:
+                (cards_dir / f"{rc['review_id']}.json").write_bytes(
+                    canonical_json(rc) + b"\n")
+            admitted, report = review_mod.review_gate(
+                {"exp_id": exp_id}, h, review_cards, debate_rounds, mechanics)
+            review_block = {"rounds": debate_rounds, "admitted": admitted,
+                            "upheld_objections": report["upheld_objections"],
+                            "review_ids": report["review_ids"]}
+            if not admitted:
+                verdict = "fail"
+                reasons = list(reasons) + [
+                    f"review veto: "
+                    f"{report['upheld_objections'] or report['structure_errors']}"]
+                log(f"[{it}] review      VETO "
+                    f"{report['upheld_objections'] or report['structure_errors']}")
+            else:
+                log(f"[{it}] review      admitted after {debate_rounds} round(s); "
+                    f"dismissed bear objections: {len(report['dismissed_objections'])}")
+
         e = {
             "schema": "experiment_result",
             "exp_id": exp_id,
@@ -216,16 +299,27 @@ def run_order(work: Path, snapshot_dir: Path, order_text: str, llm: BaseLLM,
             "verdict": verdict,
             "settled_at": as_of_iso,
         }
+        if risk_result is not None and verdict == "fail" and \
+                not risk_result["neighborhood_stable"]:
+            e["attribution"]["neighborhood_stable"] = False
+            e["attribution"]["neighborhood_rankic"] = \
+                risk_result["neighborhood_rankic"]
         if oos_block:
             e["oos"] = oos_block
+        if review_block is not None:
+            e["review"] = review_block
         (cards_dir / f"{exp_id}.json").write_bytes(canonical_json(e) + b"\n")
 
         # -- 5) the gate as CI, then merge, then settle ---------------------
         branch = f"research/{h['hyp_id']}"
-        forge.commit(branch, f"cards: {h['hyp_id']} + {e['exp_id']}", {
+        committed = {
             f"cards/{h['hyp_id']}.json": (cards_dir / f"{hyp_id}.json").read_text("utf-8"),
             f"cards/{e['exp_id']}.json": (cards_dir / f"{exp_id}.json").read_text("utf-8"),
-        })
+        }
+        for rc in review_cards:
+            committed[f"cards/{rc['review_id']}.json"] = \
+                (cards_dir / f"{rc['review_id']}.json").read_text("utf-8")
+        forge.commit(branch, f"cards: {h['hyp_id']} + {e['exp_id']}", committed)
         root = Path(__file__).resolve().parents[1]
         ci_cmd = [sys.executable, "-m", "qsa.verify",
                   "--hypothesis", str(cards_dir / f"{hyp_id}.json"),
@@ -272,4 +366,5 @@ def run_order(work: Path, snapshot_dir: Path, order_text: str, llm: BaseLLM,
     log(f"[+] done       iterations={len(summary_iterations)}, "
         f"verdicts={verdicts or 'none'}, ledger={work / 'registry.jsonl'}")
     return {"iterations": summary_iterations, "final_verdict":
-            verdicts[-1] if verdicts else None, "issue": issue}
+            verdicts[-1] if verdicts else None, "issue": issue,
+            "admitted": bool(verdicts and verdicts[-1] == "pass")}

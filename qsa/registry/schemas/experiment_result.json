@@ -50,6 +50,9 @@
     "oos": {
       "type": "object"
     },
+    "review": {
+      "type": "object"
+    },
     "verdict": {
       "type": "string",
       "enum": ["pass", "fail", "inconclusive"]
