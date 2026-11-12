@@ -15,7 +15,7 @@ python examples/run_mining.py               # v0.3 研究 loop：LLM 因子挖�
 python examples/run_ablation.py             # v0.4 验收：角色 x 评审轮数消融表（种植信号→发现率，噪声→假阳率）
 python examples/run_calibration.py          # v0.5 验收：结算台账 + 校准曲线（准入主张在未见过的数据上结算）
 python -m qsa.ingest prices.csv mydata/    # 真实用户数据 → 合法快照
-python -m unittest discover -s tests -v     # 127 项测试：门禁、FIB 注入、登记簿、惩罚、沙盒、挖掘、角色、评审、消融、结算、校准、确定性
+python -m unittest discover -s tests -v     # 128 项测试：门禁、FIB 注入、登记簿、惩罚、沙盒、挖掘、角色、评审、消融、结算、校准、确定性
 ```
 
 ## 为什么做这个

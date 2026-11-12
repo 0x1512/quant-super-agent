@@ -38,7 +38,7 @@ python examples/run_calibration.py
 python -m qsa.ingest myprices.csv mydata/
 
 # the whole contract, machine-checked
-python -m unittest discover -s tests -v     # 127 tests: gate, FIB injections, registry,
+python -m unittest discover -s tests -v     # 128 tests: gate, FIB injections, registry,
                                             # deflation, sandbox, mining, roles, review,
                                             # ablation, settlement, calibration,
                                             # determinism
@@ -169,7 +169,7 @@ Internal pilots (deterministic git-forge emulation, 2026-11) — full inventory 
 | Autonomy risk (G-1) three-arm × 5 rounds | Risk reproduced once in the wild; containment stack achieved **5/5 clean windows** in the full-protection arm; watchdog detection→stop **0.21 s**; zero spillover |
 | Data plane | As-of snapshot + reconciliation tooling; 144-point cross-check zero mismatch; tamper-rejection verified |
 
-Everything claimed for the shipped versions is reproducible from this repo: 127 tests (offline, deterministic) and a CI matrix across Python 3.10–3.13 that also runs all four demos as regression contracts — the v0.2–v0.5 acceptance tables in [docs/EVIDENCE.md](docs/EVIDENCE.md) map every discipline to its test.
+Everything claimed for the shipped versions is reproducible from this repo: 128 tests (offline, deterministic) and a CI matrix across Python 3.10–3.13 that also runs all four demos as regression contracts — the v0.2–v0.5 acceptance tables in [docs/EVIDENCE.md](docs/EVIDENCE.md) map every discipline to its test.
 
 ## Roadmap (summary)
 

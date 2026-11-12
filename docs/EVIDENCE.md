@@ -98,7 +98,7 @@ Reading it honestly:
 
 ## v0.5 public release — settlement ledger + calibration acceptance (automated, reproducible by anyone)
 
-Reproducible from this repository: `python examples/run_calibration.py` (~15 s, offline, deterministic) and `python -m unittest discover -s tests -v` (127 tests).
+Reproducible from this repository: `python examples/run_calibration.py` (~15 s, offline, deterministic) and `python -m unittest discover -s tests -v` (128 tests).
 
 The sweep runs the production stack (data+factor+risk roles, 1 debate round, the same scripted persona policy on every world) over 64 planted worlds (reversal strengths 0.05–0.30 × 8 seeds) and 24 pure-noise worlds, settles every admitted claim on a 90-day horizon — as long as the claim's own window — and audits the ledger.
 
