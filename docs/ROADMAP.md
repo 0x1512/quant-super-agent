@@ -12,10 +12,12 @@ Public, version-gated. Each version has scope + acceptance criteria; code lands 
 - Deterministic forge emulation (issues/PRs/CI hooks) so anyone can run `order → cards → gate → PR` offline in <10 min
 - Acceptance: FIB classes 1, 4, 7, 14, 15 caught by gate in automated tests — **met** (also 3 and the reverse verdict lie; see `tests/test_gate.py`, 31 tests green)
 
-## v0.3 — research loop
-- Hypothesis attribution taxonomy (threshold / instability / neutralization residual / universe) and attribution-driven next-hypothesis proposal under an iteration budget
-- Experiment registry (append-only, unique IDs, pre-registration order enforced)
-- Acceptance: a seeded negative result produces a correctly-classified attribution and a budget-bounded retry chain, all gated
+## v0.3 — research loop (shipped)
+- Experiment registry: append-only JSONL ledger, unique IDs, hypothesis-before-experiment ordering enforced, one-shot OOS windows (a window that produced a pass is burned — reuse refused at registration)
+- Multiple-testing deflation: Bonferroni t-stat floor at the family trial count, direction-aware — bar-lowering retries fail mechanically
+- LLM factor mining under budget: sandboxed factor code (AST whitelist, truncated-view contract `factor(closes≤t, …)` so look-ahead needs a sandbox escape, not a bug), attribution-classified failures feeding next-hypothesis prompts, gate recomputes `factor_code` from source (FIB 2/9)
+- Real-data ingestion: user CSV → legal snapshot (local-first, schema-validated)
+- Acceptance: a seeded negative result produces a correctly-classified attribution and a budget-bounded retry chain, all gated — **met** (`examples/run_mining.py`; 79 tests green)
 
 ## v0.4 — roles + adversarial review
 - Quant roles (data / factor / risk / manager) as ablatable workers

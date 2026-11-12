@@ -2,16 +2,18 @@
 
 **可验证的 agentic 量化研究工厂——机器可查的证据、诚实结算、受控自主性。**
 
-> 状态：v0.2——证据平面已可运行。设计与基准规格经内部试点验证；证据平面（证据卡 schema、verify 门禁、合成快照、确定性 forge 模拟）已零依赖落地本仓库（见下"快速开始"）。更高层（研究 loop、角色、结算）按路线图分阶段迁移（见 [Roadmap](docs/ROADMAP.md)）。仅供研究，不构成投资建议。
+> 状态：v0.3——研究 loop 已可运行。设计与基准规格经内部试点验证；证据平面（证据卡 schema、verify 门禁、合成快照、确定性 forge 模拟）v0.2 已落地，v0.3 新增门禁化研究 loop——实验登记簿（预注册顺序、一次性 OOS 窗口）、多重检验惩罚、受沙盒约束的 LLM 因子挖掘（预算内、归因驱动迭代）、真实数据 CSV 导入。零依赖（见下"快速开始"）。更高层（角色、结算）按路线图分阶段迁移（见 [Roadmap](docs/ROADMAP.md)）。仅供研究，不构成投资建议。
 
-## 快速开始（v0.2）
+## 快速开始（v0.3）
 
-纯 Python ≥ 3.10 标准库，零第三方依赖，全程离线、确定性。demo 完整走一遍 `订单 issue → 假设卡 → toy 实验 → 实验卡 → verify 门禁即 CI → PR → 分支保护下合并`：
+纯 Python ≥ 3.10 标准库，零第三方依赖，全程离线、确定性。两个 demo 覆盖已交付范围：
 
 ```bash
-python examples/run_lifecycle.py            # 正路（toy 数据上结论通常为 fail——照样合并）
+python examples/run_lifecycle.py            # v0.2 全生命周期：订单→卡→门禁即 CI→PR→合并（toy 数据上结论通常为 fail——照样合并）
 python examples/run_lifecycle.py --fib 7    # 注入"静默通过"造假，看门禁拦下合并
-python -m unittest discover -s tests -v     # 31 项测试：门禁、FIB 注入、确定性、forge
+python examples/run_mining.py               # v0.3 研究 loop：LLM 因子挖掘、多重检验惩罚、归因驱动迭代
+python -m qsa.ingest prices.csv mydata/    # 真实用户数据 → 合法快照
+python -m unittest discover -s tests -v     # 79 项测试：门禁、FIB 注入、登记簿、惩罚、沙盒、挖掘、确定性
 ```
 
 ## 为什么做这个

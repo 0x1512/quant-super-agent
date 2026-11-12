@@ -26,7 +26,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from . import admission, snapshot
+from . import admission, engine, deflation, registry, snapshot
+from .sandbox import SandboxError, run_factor
+from .snapshot import sha256_bytes
 from .validate import validate_card
 
 
@@ -34,8 +36,17 @@ def _load(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def gate(hypothesis_path: Path, result_path: Path, snapshot_dir: Path) -> tuple[bool, list[str]]:
-    """Full linked gate. Returns (ok, errors)."""
+def gate(hypothesis_path: Path, result_path: Path, snapshot_dir: Path,
+         registry_path: Path | None = None) -> tuple[bool, list[str]]:
+    """Full linked gate. Returns (ok, errors).
+
+    Without *registry_path* the gate checks the pair in isolation (schema,
+    linkage, fingerprint, windows, verdict consistency). With a registry it
+    additionally enforces ledger disciplines: pre-registration order, ID
+    uniqueness, OOS one-shot windows, multiple-testing deflation — and if the
+    E card carries ``factor_code`` it *recomputes* every metric from that
+    code, so numbers that were never computed cannot survive (FIB 2/9).
+    """
     errs: list[str] = []
     h = _load(hypothesis_path)
     e = _load(result_path)
@@ -78,14 +89,46 @@ def gate(hypothesis_path: Path, result_path: Path, snapshot_dir: Path) -> tuple[
                     f"E.window start {w_start} is before snapshot start "
                     f"{info.manifest['start']}")
 
-    # partial-metrics (FIB 14) + verdict consistency (FIB 7)
+    # partial-metrics (FIB 14) + verdict consistency (FIB 7), deflated when
+    # the ledger is present (the ledger knows how many trials came before)
+    n_trials = 1
+    if registry_path is not None:
+        try:
+            reg = registry.Registry(Path(registry_path))
+        except (OSError, json.JSONDecodeError) as exc:
+            errs.append(f"registry: unreadable ({exc})")
+            reg = None
+        if reg is not None and isinstance(e, dict) and isinstance(h, dict):
+            if e.get("exp_id") and reg.entries:
+                settled = {en.get("exp_id") for en in reg.entries
+                           if en.get("type") == "experiment"}
+                if e.get("exp_id") in settled:
+                    errs.append(f"E.exp_id {e['exp_id']!r} is already settled — "
+                                f"IDs are unique forever (no resubmission)")
+            if not reg.has_hypothesis(h.get("hyp_id", "")):
+                errs.append(f"H.hyp_id {h.get('hyp_id')!r} is not registered — "
+                            f"hypotheses pre-register before experiments settle")
+            oos_win = (e.get("oos") or {}).get("window")
+            if oos_win:
+                try:
+                    reg.check_oos_available(oos_win)
+                except registry.RegistryError as exc:
+                    errs.append(f"ledger: {exc}")
+            family = h.get("family", "default")
+            n_trials = reg.n_trials(family) + 1
+
     if isinstance(h, dict) and isinstance(e, dict) and "admission" in h:
         try:
             admission.parse_thresholds(h["admission"])
         except ValueError as exc:
             errs.append(f"H.admission: {exc}")
         else:
-            expected, reasons = admission.evaluate(h["admission"], e.get("metrics", {}))
+            if registry_path is not None:
+                expected, reasons = deflation.deflated_evaluate(
+                    h["admission"], e.get("metrics", {}), n_trials)
+            else:
+                expected, reasons = admission.evaluate(
+                    h["admission"], e.get("metrics", {}))
             for r in reasons:
                 if expected is None:
                     errs.append(f"E.metrics: {r}")
@@ -94,6 +137,38 @@ def gate(hypothesis_path: Path, result_path: Path, snapshot_dir: Path) -> tuple[
                     f"E.verdict {e.get('verdict')!r} is inconsistent with the "
                     f"pre-registered criteria — mechanical evaluation of "
                     f"E.metrics says '{expected}' ({'; '.join(reasons)})")
+
+    # recomputation (FIB 2 phantom-metric / 9 unit-mismatch): if the card
+    # carries its factor code, every metric must be reproducible from it
+    if isinstance(e, dict) and e.get("factor_code"):
+        if e.get("engine") != engine.EVAL_ID:
+            errs.append(f"E.engine {e.get('engine')!r} != evaluation harness "
+                        f"{engine.EVAL_ID!r} (version pin)")
+        claimed_sha = e.get("factor_code_sha256", "")
+        actual_sha = sha256_bytes(e["factor_code"].encode("utf-8"))
+        if claimed_sha != actual_sha:
+            errs.append("E.factor_code_sha256 does not match the attached code")
+        else:
+            try:
+                frame = engine.load_frame(snapshot_dir, e.get("window"))
+                signal = run_factor(e["factor_code"], frame.closes,
+                                    frame.tickers, frame.dates)
+                recomputed = engine.evaluate_signal(frame, signal)
+            except (SandboxError, ValueError) as exc:
+                errs.append(f"factor_code does not recompute: {exc}")
+            else:
+                claimed = e.get("metrics", {})
+                if set(claimed) != set(recomputed):
+                    errs.append(
+                        f"E.metrics keys {sorted(claimed)} != recomputed keys "
+                        f"{sorted(recomputed)} — metrics must be exactly what "
+                        f"the harness produces")
+                for key in sorted(set(claimed) & set(recomputed)):
+                    if claimed[key] != recomputed[key]:
+                        errs.append(
+                            f"E.metrics.{key}: card says {claimed[key]}, "
+                            f"recomputation from factor_code says "
+                            f"{recomputed[key]} (phantom or rescaled metric)")
     return (not errs), errs
 
 
@@ -114,11 +189,13 @@ def main(argv: list[str]) -> int:
         except KeyError as exc:
             print(f"missing option {exc}", file=sys.stderr)
             return 2
+        reg = Path(opts["--registry"]) if "--registry" in opts else None
         try:
-            ok, errs = gate(h, e, snap)
+            ok, errs = gate(h, e, snap, registry_path=reg)
         except (json.JSONDecodeError, OSError) as exc:
             ok, errs = False, [f"unreadable card: {exc}"]
-        print(("PASS " if ok else "FAIL ") + f"gate: {e.name} vs {h.name}")
+        print(("PASS " if ok else "FAIL ") + f"gate: {e.name} vs {h.name}"
+              + (" [ledger]" if reg else ""))
         for line in errs:
             print("  - " + line)
         return 0 if ok else 1

@@ -51,6 +51,22 @@ All numbers below are reproducible from this repository: `python -m unittest dis
 
 Determinism is asserted, not assumed: snapshot builds are byte-identical across runs (`test_build_is_byte_deterministic`), and two full lifecycles produce byte-identical forge state and event logs (`test_lifecycle_is_deterministic`). The honest lifecycle demo merges a **verdict=fail** card (negative result, green gate) while every injected fabrication is blocked from `main` by branch protection — the two behaviours this project exists to demonstrate.
 
+## v0.3 public release — research loop acceptance (automated, reproducible by anyone)
+
+Reproducible from this repository: `python -m unittest discover -s tests -v` (79 tests, stdlib only, offline, deterministic) and `python examples/run_mining.py`.
+
+| Discipline (FIB class) | Test | Gate/loop outcome |
+|---|---|---|
+| 2 falsified `factor_code` (metrics from different code) | `test_phantom_metric_blocked_by_recomputation`, `test_rescaled_metric_blocked`, `test_code_sha_mismatch_blocked` | blocked — gate re-executes the card's `factor_code` in the sandbox and rejects any metric drift or sha mismatch |
+| 9 post-hoc hypothesis edit | `test_unregistered_hypothesis_blocked`, `test_duplicate_exp_id_blocked`, `test_hypothesis_before_experiment` | blocked — `hyp_id` must be registered in the ledger *before* its experiment settles; duplicated IDs refused |
+| 11 multiple-testing bar-lowering retry | `test_mining_history_raises_the_bar`, `test_deflation_flips_verdict_expectation` | blocked — Bonferroni t-stat floor at family trial count N; the 2nd/3rd retry fails the deflated threshold even when raw metrics pass |
+| 13 OOS-window reuse | `test_oos_one_shot`, `test_oos_window_burned_after_pass`, `test_oos_consumption_blocked_at_gate` | a one-shot OOS window that produced a pass is burned in the ledger; a second order reusing it is refused at hypothesis registration |
+| sandbox look-ahead factor | `test_future_data_cannot_be_named` | factor code may only see `closes[ticker][date]` for `date ≤ t` (truncated-view contract); a factor reaching into future closes raises `SandboxError` |
+| ingest schema violation | `test_missing_column_rejected`, `test_bad_number_rejected_with_row`, `test_duplicate_pair_rejected` | malformed user CSV refused with row/column localization before snapshot creation (no partial artifacts) |
+| mining determinism | `test_full_run_is_deterministic` | two identical runs produce byte-identical forge state, run logs, and registry ledgers |
+
+The mining demo (`examples/run_mining.py`) is deliberately a negative result: iteration 1 misses its pre-registered bar (attribution `threshold_miss`), iteration 2 proposes a lower-bar variant that the deflation floor rejects (`deflation`), iteration 3 same — final verdict **fail**, every card gate-checked and settled. The loop's contract is that honest negatives are first-class outcomes; the gate and the deflation floor, not the agent, decide the verdict.
+
 ## What these pilots do NOT show
 
 - No positive alpha discovery yet (all factor studies so far returned honest negatives — by design of the pilot orders).

@@ -80,7 +80,7 @@ The gate is intentionally dumb and strict — it checks, in order:
 2. `hyp_id` exists and was registered **before** the experiment window opened
 3. `snapshot_sha256` matches the manifest of an immutable as-of snapshot
 4. factor window ⊆ snapshot window; evaluation uses only data at or before each decision point (no look-ahead)
-5. engine version pinned; metrics recomputed on a sampled basis against the raw slice
+5. engine version pinned; with a ledger (`--registry`, v0.3): hypothesis-before-experiment ordering, family trial counts, one-shot OOS windows, and the deflated (multiple-testing-adjusted) verdict; when the card carries `factor_code`, the gate re-executes it in the AST-whitelist sandbox and requires the recomputed metrics to match — sampled recomputation becomes exhaustive
 6. verdict honesty: a `fail` with real metrics beats a fabricated `pass` — the gate cannot detect every fabrication, but the settlement ledger eventually can (see [BENCHMARK.md](BENCHMARK.md) for the adversarial side)
 
 ## Reproducibility

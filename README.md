@@ -2,9 +2,9 @@
 
 **A verifiable agentic quant research factory — machine-checked evidence, honest settlement, bounded autonomy.**
 
-![status](https://img.shields.io/badge/status-v0.2%20evidence%20plane-green) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![benchmark](https://img.shields.io/badge/benchmark-fabrication--injection%20v0--spec-red)
+![status](https://img.shields.io/badge/status-v0.3%20research%20loop-green) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![benchmark](https://img.shields.io/badge/benchmark-fabrication--injection%20v0--spec-red)
 
-> **Status: v0.2 — evidence plane is runnable.** The design, benchmark specification, and roadmap were validated in internal pilots; the evidence plane (card schemas, verify gate, synthetic snapshots, deterministic forge emulation) now runs from this repository with zero dependencies — see [Quickstart](#quickstart). Higher layers (research loop, roles, settlement) migrate phase by phase (see [Roadmap](docs/ROADMAP.md)). Research use only — not financial advice.
+> **Status: v0.3 — the research loop is runnable.** The design, benchmark specification, and roadmap were validated in internal pilots; the evidence plane (card schemas, verify gate, synthetic snapshots, deterministic forge emulation) shipped in v0.2, and v0.3 adds the gated research loop — experiment registry with pre-registration ordering and one-shot OOS windows, multiple-testing deflation, sandboxed LLM factor mining under budget with attribution-driven iteration, and real-data CSV ingestion. Zero dependencies — see [Quickstart](#quickstart). Higher layers (roles, settlement) migrate phase by phase (see [Roadmap](docs/ROADMAP.md)). Research use only — not financial advice.
 
 ---
 
@@ -113,9 +113,9 @@ All numbers below are from our internal pilot environment (deterministic git-for
 
 ## Roadmap (summary)
 
-- **v0.1 (now)** design + benchmark spec + evidence docs public
-- **v0.2** evidence cards + verify gate + sim forge (ported from pilot)
-- **v0.3** research loop + hypothesis attribution + experiment registry
+- **v0.1** design + benchmark spec + evidence docs public (shipped)
+- **v0.2** evidence cards + verify gate + sim forge (shipped)
+- **v0.3** research loop: experiment registry (pre-registration ordering, one-shot OOS windows), multiple-testing deflation, sandboxed LLM factor mining with attribution-driven iteration, CSV ingestion (shipped)
 - **v0.4** quant roles + adversarial (bull/bear) review gate
 - **v0.5** settlement ledger + calibration reporting
 - **v0.6** Fabrication Injection Benchmark release (open runs against other frameworks)
@@ -125,17 +125,24 @@ Full version: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Quickstart
 
-v0.2 is runnable: pure Python ≥ 3.10 standard library, zero dependencies, fully offline and deterministic. The demo drives the whole lifecycle — `order issue → hypothesis card → toy experiment → experiment card → verify gate as CI → PR → merge under branch protection` — in seconds:
+v0.3 is runnable: pure Python ≥ 3.10 standard library, zero dependencies, fully offline and deterministic. Two demos cover the shipped scope:
 
 ```bash
 git clone https://github.com/0x1512/quant-super-agent.git
 cd quant-super-agent
+
+# v0.2 lifecycle: order issue → cards → verify gate as CI → PR → merge
 python examples/run_lifecycle.py            # honest run (on toy data the verdict is usually fail — and it merges)
 python examples/run_lifecycle.py --fib 7    # inject a silent-pass fabrication; the gate blocks the merge
-python -m unittest discover -s tests -v     # 31 tests: gate, FIB injections, determinism, forge
+
+# v0.3 research loop: LLM factor mining under budget, deflated verdicts,
+# attribution-driven iteration, every card gate-checked and settled
+python examples/run_mining.py
+python -m qsa.ingest myprices.csv mydata/    # real user data -> legal snapshot
+python -m unittest discover -s tests -v     # 79 tests: gate, FIB injections, registry, deflation, sandbox, mining, determinism
 ```
 
-What the honest run prints (abbreviated):
+What the honest lifecycle run prints (abbreviated):
 
 ```
 [1] snapshot   toy synthetic, 1080 rows, window 20240102:20240506, sha 7b81decd7fdc…
@@ -146,10 +153,19 @@ What the honest run prints (abbreviated):
 [7] merge      MERGED
 ```
 
-A negative result with a green gate merges; a positive lie does not. That is the whole idea. The gate CLI also stands alone:
+What the mining demo prints (abbreviated):
+
+```
+[1] settled     E-0001 verdict=fail (N=1) attribution=threshold_miss
+[2] settled     E-0002 verdict=fail (N=2) attribution=deflation
+[3] settled     E-0003 verdict=fail (N=3) attribution=deflation
+final_verdict: fail — an honest negative chain under budget, every card gate-checked and settled.
+```
+
+Iteration 1 fails its pre-registered bar; iteration 2 proposes a "lower bar" variant — the deflated t-stat floor catches it mechanically. A negative result with a green gate merges; a positive lie does not. The gate CLI also stands alone (`--registry` enables ledger + deflation + `factor_code` recomputation checks):
 
 ```bash
-python -m qsa.verify --hypothesis cards/H.json --result cards/E.json --snapshot snapshot/
+python -m qsa.verify --hypothesis cards/H.json --result cards/E.json --snapshot snapshot/ --registry registry.jsonl
 ```
 
 Chapter and verse in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); acceptance evidence in [docs/EVIDENCE.md](docs/EVIDENCE.md).
