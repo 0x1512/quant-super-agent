@@ -48,6 +48,14 @@
       "type": "string",
       "pattern": "^[0-9]{8}:[0-9]{8}$"
     },
+    "family": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+    },
+    "oos_window": {
+      "type": "string",
+      "pattern": "^[0-9]{8}:[0-9]{8}$"
+    },
     "ttl_days": {
       "type": "integer",
       "minimum": 1,

@@ -40,6 +40,16 @@
     "attribution": {
       "type": "object"
     },
+    "factor_code": {
+      "type": "string"
+    },
+    "factor_code_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "oos": {
+      "type": "object"
+    },
     "verdict": {
       "type": "string",
       "enum": ["pass", "fail", "inconclusive"]
