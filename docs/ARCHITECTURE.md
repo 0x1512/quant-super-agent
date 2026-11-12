@@ -49,7 +49,7 @@ A factor study is an **order**. Each order walks:
 5. **Evidence cards** — the deliverable is never prose; it is H/E cards (JSON, schema-versioned).
 6. **CI verify gate** — a push hook runs the gate: schema completeness, snapshot fingerprint match, window alignment (no look-ahead), engine version pinning, and metric recomputation on a sampled basis. **A failing card can never be marked ready** — the agent must report failure as failure.
 7. **Review & admission** — humans (L1/L2) or the manager (L3) admit or reject. Admission writes to the registry.
-8. **Settlement** — at horizon end, realized performance is computed by the simulator and written to the ledger against the claim. Reflections feed back into future admissions.
+8. **Settlement** (shipped, v0.5) — at horizon end the world is deterministically continued from its seed, the factor re-executes in the sandbox, and realized performance is written to the hash-chained ledger against the claim. The calibration curve and a tighten-only reflection rule (family bar ×1.25 after repeated shortfalls) feed back into future admissions.
 
 ## Worker roles
 
@@ -60,7 +60,7 @@ A factor study is an **order**. Each order walks:
 | risk & attribution | robustness, kill criteria | neighborhood stability, capacity/turnover notes, veto cards |
 | research manager | prioritization, admission proposals, iteration budget | next-hypothesis proposals, debate synthesis |
 
-Roles are a **dial, not dogma**: the pilot ran a single generic worker successfully; the multi-role split is an ablation axis for the paper (does role specialization improve discovery rate and statistical rigor?).
+Roles are a **dial, not dogma**: the pilot ran a single generic worker successfully; v0.4 shipped the split as an ablation axis — measured, the risk duty and one debate round each remove a third of noise-world false positives at zero cost to discovery (see [EVIDENCE.md](EVIDENCE.md)).
 
 ## Autonomy supervisor
 
@@ -81,7 +81,9 @@ The gate is intentionally dumb and strict — it checks, in order:
 3. `snapshot_sha256` matches the manifest of an immutable as-of snapshot
 4. factor window ⊆ snapshot window; evaluation uses only data at or before each decision point (no look-ahead)
 5. engine version pinned; with a ledger (`--registry`, v0.3): hypothesis-before-experiment ordering, family trial counts, one-shot OOS windows, and the deflated (multiple-testing-adjusted) verdict; when the card carries `factor_code`, the gate re-executes it in the AST-whitelist sandbox and requires the recomputed metrics to match — sampled recomputation becomes exhaustive
-6. verdict honesty: a `fail` with real metrics beats a fabricated `pass` — the gate cannot detect every fabrication, but the settlement ledger eventually can (see [BENCHMARK.md](BENCHMARK.md) for the adversarial side)
+6. role duties and review (v0.4, shipped): the data role's feasibility pre-registration and the risk role's half-split stability veto are mechanical functions; a claimed risk veto must recompute from `factor_code` (a fabricated veto is a lie), an OOS block feeds the expected-verdict consistency check and its metrics are recomputed from source, and a review block must agree with the verifiable checks — a bear objection is upheld only if its check actually fails, bull rhetoric never admits
+7. settlement ledger (v0.5, shipped): with `--settlement`, the ledger's hash chain must hold and every entry's realized metrics and outcome must recompute from the world spec + factor code it carries (FIB 19); an H card's `calibration` block must match the ledger-derived tighten-only reflection rule — dropping a justified tightening or claiming a rosier multiplier is a gate error
+8. verdict honesty: a `fail` with real metrics beats a fabricated `pass` — the gate cannot detect every fabrication, but the settlement ledger eventually can (see [BENCHMARK.md](BENCHMARK.md) for the adversarial side)
 
 ## Reproducibility
 

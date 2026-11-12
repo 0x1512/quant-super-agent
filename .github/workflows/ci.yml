@@ -24,6 +24,10 @@ jobs:
         run: python examples/run_lifecycle.py --work "$RUNNER_TEMP/demo-fib7" --fib 7
       - name: mining demo — budget-bounded honest negative chain (it2/it3 deflation)
         run: python examples/run_mining.py
+      - name: v0.4 ablation acceptance (roles x debate rounds)
+        run: python examples/run_ablation.py
+      - name: v0.5 settlement + calibration acceptance
+        run: python examples/run_calibration.py
       - name: ingest round-trip — user CSV must become a legal snapshot
         run: |
           python - <<'EOF'
