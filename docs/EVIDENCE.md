@@ -96,8 +96,49 @@ Reading it honestly:
 | planted/default snapshot byte-freeze | `test_default_path_is_byte_frozen`, `test_planted_snapshot_is_deterministic_and_declared` | the plant feature never changes a byte of the default generator; planted manifests declare their world |
 | ablation reproducibility | `test_table_is_pinned_byte_for_byte`, `test_full_matrix_is_deterministic` | the acceptance table is pinned byte-for-byte and reproduces exactly |
 
+## v0.5 public release — settlement ledger + calibration acceptance (automated, reproducible by anyone)
+
+Reproducible from this repository: `python examples/run_calibration.py` (~15 s, offline, deterministic) and `python -m unittest discover -s tests -v` (127 tests).
+
+The sweep runs the production stack (data+factor+risk roles, 1 debate round, the same scripted persona policy on every world) over 64 planted worlds (reversal strengths 0.05–0.30 × 8 seeds) and 24 pure-noise worlds, settles every admitted claim on a 90-day horizon — as long as the claim's own window — and audits the ledger.
+
+**52 claims settled** (49 planted discoveries + 3 noise false positives), every realized metric recomputed from the world spec + factor code:
+
+| claimed rank IC bin | n | mean claimed | mean realized | mean gap (realized-claimed) | held |
+|---|---|---|---|---|---|
+| [0.02,0.05) | 1 | 0.027416 | 0.051544 | 0.024128 | 1/1 |
+| [0.05,0.08) | 7 | 0.067648 | 0.058447 | -0.009201 | 6/7 |
+| [0.08,0.11) | 7 | 0.095211 | 0.096151 | 0.00094 | 7/7 |
+| [0.11,0.15) | 9 | 0.130775 | 0.139406 | 0.008632 | 9/9 |
+| [0.15,0.20) | 11 | 0.171011 | 0.169882 | -0.001129 | 11/11 |
+| [0.20,1.00) | 17 | 0.245078 | 0.235585 | -0.009493 | 17/17 |
+
+By ground truth (known because the worlds are synthetic and self-describing):
+
+- **planted**: n=49, mean claimed 0.168, mean realized 0.167, mean gap −0.001, held 49/49 — real effects settle on the identity line;
+- **noise**: n=3, mean claimed 0.055, mean realized 0.028, mean gap −0.028, held 2/3 — false discoveries decay toward zero in aggregate.
+
+Reading it honestly:
+
+- The curve is the instrument, not the single verdict. On a 90-day horizon a pure-noise world's realized rank IC has measured sd ≈ 0.034, so a small false claim (bar 0.02) can hold by luck — two of the three noise survivors did. What settlement kills is the *aggregate* illusion: the noise cluster realizes half of what it claims, while the planted cluster is dead-on. Killing an individual small false positive with certainty needs either longer horizons or bars above the noise floor — the report quantifies exactly that trade.
+- The reflection rule fired nowhere in this sweep (1/52 fell short — nowhere near the >50% trigger). Its trigger path is covered by a dedicated end-to-end test: six settled shortfalls tighten the next order's bar ×1.25, the H card records the adjustment, and the gate re-derives it from the ledger.
+- Pressure asymmetry had nothing to measure here: the scripted policy passes on iteration 1 everywhere, so there is no late-budget claiming behavior to track. The instrument exists; the honest data will come from production loops.
+- One known limitation, stated plainly: deleting the *tail* of a hash chain yields a valid shorter chain — mid-ledger tampering breaks it, but tail truncation is only visible against an external anchor (the registry cross-check catches phantom entries, not a silently shortened history).
+
+| Discipline | Test | Gate/loop outcome |
+|---|---|---|
+| payload edit anywhere in the ledger | `test_edit_breaks_chain` | chain break detected |
+| mid-ledger deletion / reordering | `test_mid_ledger_deletion_breaks_chain`, `test_reorder_breaks_chain` | chain break detected |
+| competent adversary rechains after editing realized metrics or outcome | `test_rechained_lie_fails_recompute`, `test_rechained_outcome_lie_fails_recompute` | realized/outcome do not recompute from world spec + factor code |
+| settling a claim nobody made | `test_phantom_exp_id_caught_with_registry` | registry cross-check refuses |
+| extension drift (generator no longer a prefix) | `test_extension_is_prefix_and_deterministic` | `extend_world` refuses to settle on a foreign world |
+| real-data worlds must not be "settled" by invention | `test_real_data_world_refuses_extension` | refused — real data settles when new data arrives |
+| dropping a justified tightening / claiming a rosier multiplier / unverifiable calibration block | `test_gate_rejects_calibration_lies` | gate errors |
+| the reflection rule only tightens | `test_rule_only_tightens`, `test_next_order_tightens_and_gate_accepts` | ×1.25 after ≥5 settled claims with >50% shortfalls; spotless or mixed history never relaxes |
+| settlement determinism | `test_settlement_is_deterministic_byte_for_byte`, `test_full_sweep_is_deterministic_and_meets_bar` | byte-identical ledgers and reports across runs; ≥50 claims |
+
 ## What these pilots do NOT show
 
-- No positive alpha discovery in the *production* mining loop yet (its pilots returned honest negatives by design); the ablation's planted worlds are synthetic ground truth, not market alpha.
-- No settlement ledger yet — claimed-vs-realized settlement and calibration reporting are v0.5 scope (the two noise false positives that survive every v0.4 layer are its first customers).
+- No positive alpha discovery in the *production* mining loop yet (its pilots returned honest negatives by design); the ablation's and the calibration sweep's planted worlds are synthetic ground truth, not market alpha.
+- Real-data settlement is designed but unexercised: ingested worlds have no simulator, so they settle only when new data arrives — no pilot has run that path against a real CSV append yet.
 - Watchdog latency is an injected calibration, not a natural recurrence (the risk is probabilistic; 19 observed windows without the protection layers active produced one real-world occurrence earlier).

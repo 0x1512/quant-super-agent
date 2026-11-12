@@ -154,6 +154,70 @@ def fingerprint(out_dir: Path) -> SnapshotInfo:
     return SnapshotInfo(out_dir, sha256_bytes(canonical_json(manifest)), manifest)
 
 
+def extend_world(out_dir: Path, base_dir: Path, extension_days: int,
+                 *, cache: bool = True) -> SnapshotInfo:
+    """Deterministically continue a synthetic world past its ``as_of`` (v0.5).
+
+    Settlement needs data the admission never touched. For synthetic worlds
+    the generator is the simulator: rebuilding with ``days + extension_days``
+    from the same seed replays the identical draws day by day, so the base
+    snapshot is a strict prefix of the extension (asserted byte-for-byte on
+    the price rows — a drifted generator fails loudly, it never settles
+    silently). Real (ingested) data has no simulator: those worlds settle
+    only when new data arrives, never by invention.
+
+    ``cache=True`` reuses an existing extension whose fingerprint matches —
+    deterministic worlds rebuild identically, so caching is safe.
+    """
+    if extension_days <= 0:
+        raise ValueError("extension_days must be positive")
+    base = fingerprint(base_dir)
+    m = base.manifest
+    if "seed" not in m:
+        raise ValueError(
+            f"{base_dir}: not a synthetic world (no generator seed in the "
+            f"manifest) — real data settles when new data arrives, not by "
+            f"simulating an extension")
+    out_dir = Path(out_dir)
+    expected_days = m["days"] + extension_days
+    p = m.get("plant")
+    if p is None:
+        plant = None
+    elif (isinstance(p, dict) and p.get("effect") == "reversal"
+            and isinstance(p.get("strength"), (int, float))):
+        plant = {"effect": "reversal", "strength": float(p["strength"])}
+    else:
+        raise ValueError("manifest plant block is malformed")
+    if cache and (out_dir / "MANIFEST.json").exists():
+        try:
+            info = fingerprint(out_dir)
+            if (info.manifest.get("days") == expected_days
+                    and info.manifest.get("seed") == m["seed"]):
+                _assert_prefix(base_dir, out_dir)
+                return info
+        except ValueError:
+            pass  # stale cache: rebuild below
+    info = build_snapshot(out_dir, seed=m["seed"], tickers=m["tickers"],
+                          days=expected_days, start=m["start"], plant=plant)
+    _assert_prefix(base_dir, out_dir)
+    return info
+
+
+def _assert_prefix(base_dir: Path, ext_dir: Path) -> None:
+    base_rows = (Path(base_dir) / "daily" / "prices.csv").read_text(
+        encoding="utf-8").splitlines()
+    ext_rows = (Path(ext_dir) / "daily" / "prices.csv").read_text(
+        encoding="utf-8").splitlines()
+    if len(ext_rows) <= len(base_rows):
+        raise ValueError("extension is not a prefix of the base world")
+    for i in range(1, len(base_rows)):
+        if ext_rows[i] != base_rows[i]:
+            raise ValueError(
+                f"extension row {i} diverges from the base world at "
+                f"{base_rows[i].split(',')[0]} — the generator drifted; "
+                f"refusing to settle on a foreign world")
+
+
 def load_closes(out_dir: Path) -> dict[str, dict[str, float]]:
     """Return {ticker: {date: close}} from the snapshot's price file."""
     snap = fingerprint(out_dir)  # refuse to load anything that fails recon

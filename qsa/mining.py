@@ -31,7 +31,7 @@ from typing import Any
 
 from . import attribution as attribution_mod
 from . import deflation, engine, registry as registry_mod, review as review_mod, \
-    roles as roles_mod, snapshot
+    roles as roles_mod, settlement as settlement_mod, snapshot
 from .forge import Forge
 from .llm import BaseLLM, LLMError, extract_json
 from .sandbox import SandboxError, run_factor
@@ -89,6 +89,7 @@ def run_order(work: Path, snapshot_dir: Path, order_text: str, llm: BaseLLM,
               registry_path: Path | None = None,
               roles: tuple[str, ...] | list[str] = roles_mod.DEFAULT_ROLES,
               debate_rounds: int = 1,
+              settlement_ledger: Path | None = None,
               verbose: bool = True) -> dict[str, Any]:
     work = Path(work)
     if work.exists():
@@ -97,6 +98,12 @@ def run_order(work: Path, snapshot_dir: Path, order_text: str, llm: BaseLLM,
     roles = roles_mod.check_roles(tuple(roles))
     if not isinstance(debate_rounds, int) or debate_rounds < 0 or debate_rounds > 10:
         raise ValueError("debate_rounds must be an int in 0..10")
+    # the reflection loop (v0.5): settlement history tightens the family's
+    # admission bar — computed from the ledger here, recomputed by the gate
+    cal_mult, cal_basis = 1.0, "no settlement history for this family"
+    if settlement_ledger is not None:
+        cal_mult, cal_basis = settlement_mod.admission_multiplier(
+            settlement_mod.SettlementLedger(Path(settlement_ledger)), family)
     log = print if verbose else (lambda *a, **k: None)
 
     info = snapshot.fingerprint(snapshot_dir)
@@ -149,6 +156,12 @@ def run_order(work: Path, snapshot_dir: Path, order_text: str, llm: BaseLLM,
             "status": "registered",
             "created_at": as_of_iso,
         }
+        if settlement_ledger is not None:
+            if cal_mult != 1.0:  # the reflection loop tightens; never loosens
+                for spec in (h["admission"].get("thresholds") or {}).values():
+                    if isinstance(spec.get("value"), (int, float)):
+                        spec["value"] = round(spec["value"] * cal_mult, 6)
+            h["calibration"] = {"multiplier": cal_mult, "basis": cal_basis}
         if draft.get("oos_window"):
             h["oos_window"] = draft["oos_window"]  # schema-validated next
         errs = validate_card(h, hyp_id)
@@ -326,6 +339,8 @@ def run_order(work: Path, snapshot_dir: Path, order_text: str, llm: BaseLLM,
                   "--result", str(cards_dir / f"{exp_id}.json"),
                   "--snapshot", str(snapshot_dir),
                   "--registry", str(reg.path)]
+        if settlement_ledger is not None:
+            ci_cmd += ["--settlement", str(settlement_ledger)]
         check = forge.push(branch, ci_cmd, cwd=root)
         pr = forge.create_pr(f"{h['hyp_id']}: {h['mechanism'][:60]}", head=branch)
         merged = forge.merge_pr(pr)

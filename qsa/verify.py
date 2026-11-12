@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from . import admission, engine, deflation, registry, roles, snapshot
+from . import admission, engine, deflation, registry, roles, settlement, snapshot
 from .sandbox import SandboxError, run_factor
 from .snapshot import sha256_bytes
 from .validate import validate_card
@@ -37,7 +37,8 @@ def _load(path: Path) -> Any:
 
 
 def gate(hypothesis_path: Path, result_path: Path, snapshot_dir: Path,
-         registry_path: Path | None = None) -> tuple[bool, list[str]]:
+         registry_path: Path | None = None,
+         settlement_path: Path | None = None) -> tuple[bool, list[str]]:
     """Full linked gate. Returns (ok, errors).
 
     Without *registry_path* the gate checks the pair in isolation (schema,
@@ -46,12 +47,53 @@ def gate(hypothesis_path: Path, result_path: Path, snapshot_dir: Path,
     uniqueness, OOS one-shot windows, multiple-testing deflation — and if the
     E card carries ``factor_code`` it *recomputes* every metric from that
     code, so numbers that were never computed cannot survive (FIB 2/9).
+
+    With *settlement_path* (v0.5) the settlement ledger's hash chain and
+    every realized metric must recompute (FIB 19), and an H card that claims
+    a calibration adjustment must match the ledger's own rule — a rosier
+    history than the ledger supports is a lie, and so is omitting a
+    tightening the ledger demands.
     """
     errs: list[str] = []
     h = _load(hypothesis_path)
     e = _load(result_path)
     errs.extend(validate_card(h, "H"))
     errs.extend(validate_card(e, "E"))
+
+    # settlement ledger (v0.5, FIB 19): the chain must hold and every
+    # realized metric must recompute from the world spec + factor code each
+    # entry carries; a calibration block on H must match the ledger's rule
+    if settlement_path is not None:
+        errs.extend(settlement.audit_ledger(settlement_path))
+        if isinstance(h, dict):
+            led = settlement.SettlementLedger(Path(settlement_path))
+            exp_mult, exp_basis = settlement.admission_multiplier(
+                led, h.get("family", "default"))
+            cal = h.get("calibration")
+            if cal is None:
+                if exp_mult != 1.0:
+                    errs.append(
+                        f"H.calibration missing but the settlement ledger "
+                        f"demands x{exp_mult} for family "
+                        f"{h.get('family', 'default')!r} — a tightening the "
+                        f"ledger justifies cannot be dropped")
+            elif not isinstance(cal, dict):
+                errs.append("H.calibration must be an object "
+                            "{multiplier, basis}")
+            else:
+                if cal.get("multiplier") != exp_mult:
+                    errs.append(
+                        f"H.calibration.multiplier {cal.get('multiplier')} "
+                        f"!= the ledger's rule x{exp_mult} for family "
+                        f"{h.get('family', 'default')!r} — claiming a rosier "
+                        f"history than the ledger supports is a lie")
+                if cal.get("basis") != exp_basis:
+                    errs.append(f"H.calibration.basis does not match the "
+                                f"ledger-derived basis {exp_basis!r}")
+    elif isinstance(h, dict) and isinstance(h.get("calibration"), dict):
+        errs.append("H.calibration is present but no settlement ledger was "
+                    "given — an unverifiable calibration claim")
+
 
     # linkage
     if isinstance(h, dict) and isinstance(e, dict) \
@@ -268,8 +310,9 @@ def main(argv: list[str]) -> int:
             print(f"missing option {exc}", file=sys.stderr)
             return 2
         reg = Path(opts["--registry"]) if "--registry" in opts else None
+        stl = Path(opts["--settlement"]) if "--settlement" in opts else None
         try:
-            ok, errs = gate(h, e, snap, registry_path=reg)
+            ok, errs = gate(h, e, snap, registry_path=reg, settlement_path=stl)
         except (json.JSONDecodeError, OSError) as exc:
             ok, errs = False, [f"unreadable card: {exc}"]
         print(("PASS " if ok else "FAIL ") + f"gate: {e.name} vs {h.name}"

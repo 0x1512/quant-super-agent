@@ -11,6 +11,6 @@ adversarial review gate before admission.
 Zero third-party dependencies: Python >= 3.10 standard library only.
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 from .admission import evaluate  # noqa: F401  (re-exported for convenience)
