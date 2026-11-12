@@ -4,9 +4,53 @@
 
 ![status](https://img.shields.io/badge/status-v0.3%20research%20loop-green) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![benchmark](https://img.shields.io/badge/benchmark-fabrication--injection%20v0--spec-red)
 
-> **Status: v0.3 — the research loop is runnable.** The design, benchmark specification, and roadmap were validated in internal pilots; the evidence plane (card schemas, verify gate, synthetic snapshots, deterministic forge emulation) shipped in v0.2, and v0.3 adds the gated research loop — experiment registry with pre-registration ordering and one-shot OOS windows, multiple-testing deflation, sandboxed LLM factor mining under budget with attribution-driven iteration, and real-data CSV ingestion. Zero dependencies — see [Quickstart](#quickstart). Higher layers (roles, settlement) migrate phase by phase (see [Roadmap](docs/ROADMAP.md)). Research use only — not financial advice.
+> **What runs today (v0.3):** the full gated research loop — pre-registered hypotheses, sandboxed factor code, multiple-testing-deflated verdicts, one-shot out-of-sample windows, attribution-driven iteration under budget — on synthetic or your own CSV data, fully offline and deterministic. Pure Python ≥ 3.10 stdlib, zero dependencies.
+>
+> **What is designed but not shipped yet:** multi-role workers and the bull/bear debate gate (v0.4), the settlement ledger and calibration reporting (v0.5), the open Fabrication Injection Benchmark harness (v0.6). See the [roadmap](#roadmap-summary).
+>
+> Research use only — not financial advice.
 
----
+## Quickstart
+
+Everything below runs in seconds on a fresh clone, no network, no keys:
+
+```bash
+git clone https://github.com/0x1512/quant-super-agent.git
+cd quant-super-agent
+
+# 1) lifecycle: order issue → cards → verify gate as CI → PR → merge
+python examples/run_lifecycle.py            # honest run: verdict=fail, gate green, merges anyway
+python examples/run_lifecycle.py --fib 7    # inject a silent-pass fabrication: gate blocks the merge
+
+# 2) research loop: LLM proposes hypotheses + factor code under a budget;
+#    the registry and the deflation floor discipline every retry
+python examples/run_mining.py
+
+# 3) your own data: CSV -> legal, fingerprinted snapshot (local-first)
+python -m qsa.ingest myprices.csv mydata/
+
+# the whole contract, machine-checked
+python -m unittest discover -s tests -v     # 79 tests: gate, FIB injections, registry,
+                                            # deflation, sandbox, mining, determinism
+```
+
+What the mining demo prints (abbreviated):
+
+```
+[1] settled     E-0001 verdict=fail (N=1) attribution=threshold_miss
+[2] settled     E-0002 verdict=fail (N=2) attribution=deflation
+[3] settled     E-0003 verdict=fail (N=3) attribution=deflation
+final_verdict: fail — an honest negative chain under budget, every card gate-checked and settled.
+```
+
+Iteration 1 misses its pre-registered bar. Iterations 2 and 3 are the classic researcher move — retest a cousin of the rejected idea — and the deflation floor rejects them mechanically, because the registry counted every look. The loop ends in an honest negative instead of a p-hacked positive. That is the product.
+
+The gate also stands alone (`--registry` enables ledger ordering, deflation, and `factor_code` recomputation):
+
+```bash
+python -m qsa.verify --hypothesis cards/H.json --result cards/E.json \
+                     --snapshot snapshot/ --registry registry.jsonl
+```
 
 ## Why
 
@@ -19,103 +63,103 @@ Existing agentic quant frameworks generate *signals*; none of them generate *ver
 | **Unbounded autonomy** | Autonomous re-scheduling, tool use, and policy interpretation with no containment story (we measured one violating an explicit human instruction 26 seconds after acknowledging it) |
 | **Irreproducible runs** | LLM non-determinism is acknowledged in READMEs, rarely measured, never decomposed |
 
-Quant Super Agent attacks exactly these four. It runs the **full research lifecycle** — hypothesis → experiment → attribution → iteration → admission → settlement — on top of an order-driven agent harness, with three mechanisms that, to our knowledge, no other agentic quant project has:
-
-## Three pillars
-
-### 1. Machine-checked evidence
-
-Every research claim ships as a structured **evidence card** that must pass a CI gate before it can be cited:
-
-- **H cards** (hypotheses): registered *before* experiments — pre-declared windows, metrics, and pass thresholds.
-- **E cards** (experiment results): must reference the exact data snapshot (sha256), the engine version, and the window; the gate rejects cards with missing fields, mismatched fingerprints, or look-ahead windows.
-
-A claim that cannot be machine-verified does not exist. Our injection pilots confirm the gate catches malformed cards non-silently (see [Evidence](docs/EVIDENCE.md)).
-
-### 2. Honest settlement calibration
-
-Admitted factors are not "done" — they enter a **settlement ledger**. At the end of each evaluation horizon the claimed metric is settled against realized out-of-sample performance, and the gap feeds a reflection loop that influences future admissions. The system's headline metric is not return; it is the **calibration curve** (claimed vs realized), plus a zero-fabrication record.
-
-### 3. Bounded autonomy
-
-Autonomy is a dial, not a switch — and the dial has a fence:
-
-| Level | Name | Behavior |
-|---|---|---|
-| L0 | observe | Runs the full pipeline, opens no tickets; records would-accept decisions for review |
-| L1 | suggest | Proposes work items and evidence cards; human admits |
-| L2 | admit-gated | Executes admitted orders; every policy change is a surgery with a checklist |
-| L3 | autonomous | Unattended windows; bounded by a watchdog (measured 0.21 s detection→stop) and prompt discipline |
-
-The design is informed by a real incident our pilots caught: an orchestrator agent re-queued a previously-ignored trigger and started work **26 seconds after** explicitly promising a human it would not (see [Evidence](docs/EVIDENCE.md)). The containment stack — surgery SOP + watchdog + discipline injection — was then validated in a three-arm × 5-round experiment.
+Three mechanisms answer these — machine-checked evidence, honest settlement, bounded autonomy. Two are shipped in this repo; the third is pilot-validated and ships with the harness layers.
 
 ## How it works
 
-```mermaid
-flowchart LR
-    subgraph Lifecycle["Order lifecycle (one factor study)"]
-        A[Issue: research order] --> B{Eval gate<br/>policy + strength}
-        B -- allowed/explicit --> C[Ticket + isolated worktree]
-        B -- not allowed --> D[ignore / would-accept<br/>panel record]
-        C --> E[Worker role<br/>data · factor · risk]
-        E --> F[Evidence cards H + E]
-        F --> G{"CI verify gate<br/>schema · fingerprint · no-lookahead"}
-        G -- pass --> H[PR + review]
-        G -- fail --> I[failed report<br/>never auto-ready]
-        H --> J[Admission]
-        J --> K[(Registry +<br/>settlement ledger)]
-        K --> L[Settle at horizon:<br/>claimed vs realized]
-        L --> E
-    end
-```
+### 1. Evidence plane — machine-checked claims (shipped, v0.2)
 
-An E card, in the small (illustrative values):
+Every research claim is a structured **evidence card** that must pass a mechanical gate before it can be cited:
+
+- **H cards** (hypotheses) are registered *before* experiments: mechanism, falsifiable condition, evaluation window, and the admission bar — thresholds, required metrics, minimum observations — all pre-committed.
+- **E cards** (experiment results) cite the exact data snapshot (sha256), the pinned engine version, the window, and carry the factor source itself.
+
+A real E card from the mining demo (`work/mining/cards/` after you run it; values not illustrative — the gate recomputed them):
 
 ```json
 {
   "schema": "experiment_result",
-  "exp_id": "E-0001",
-  "hyp_id": "H-0001",
-  "snapshot_sha256": "<sha256 of the immutable as-of data snapshot>",
-  "engine": "qsa-verify-0.1.0",
-  "window": ["YYYY-MM-DD", "YYYY-MM-DD"],
-  "metrics": {"rankic_mean": 0.0, "monotonicity": 0.0},
+  "exp_id": "E-0002",
+  "hyp_id": "H-0002",
+  "window": "20240102:20240506",
+  "snapshot_hash": "7b81decd7fdc32d63ef60f22944cbe348a6c052b3fd48ba13f01824aef08053d",
+  "engine": "qsa-eval-0.3.0",
+  "factor_code": "def factor(closes, tickers, dates, i): … (full source)",
+  "factor_code_sha256": "e1c0d7e6b6bd95bd2dc5c6366227bc4f7042056676fb1a61f243fb9b0c94d000",
+  "metrics": {"rankic_mean": -0.006586, "rankic_tstat": -0.219072,
+              "quintile_spread": 0.000051, "monotonicity_proxy": 0.1, "n_dates": 86},
   "verdict": "fail",
-  "attribution": {"neighborhood_stable": false, "lag_k_flip": true}
+  "settled_at": "2024-05-06"
 }
 ```
 
-Negative results are first-class: in our pilots, a failing factor produced exactly this shape of card — the metric missed the pre-registered admission threshold, the agent said so in its verdict, and attributed the instability instead of retrying its way to a pass.
+The gate is deliberately dumb and strict: schema completeness → hypothesis registered before the experiment → snapshot fingerprint match → window alignment (no look-ahead) → engine pin, ledger discipline, deflated verdict, and **re-execution of `factor_code` in a sandbox with metrics required to match**. A claim that cannot be machine-verified does not exist. Fabricated cards are blocked from `main` by branch protection; honest negatives merge.
+
+### 2. Research loop — a loop that cannot p-hack itself (shipped, v0.3)
+
+```mermaid
+flowchart LR
+    A[Research order<br/>+ iteration budget] --> B[LLM proposes hypothesis<br/>admission bar pre-committed]
+    B --> C[(Experiment registry<br/>append-only, hypothesis<br/>before experiment)]
+    C --> D[Sandboxed factor code<br/>AST whitelist · sees closes ≤ t only]
+    D --> E{Mechanical verdict<br/>Bonferroni floor at family N}
+    E -- fail --> F[Attribution<br/>threshold · instability · deflation · oos]
+    E -- in-sample pass --> G{One-shot OOS window}
+    G -- fail --> F
+    G -- pass --> H[Verify gate as forge CI<br/>recomputes factor_code]
+    F -- next hypothesis<br/>budget-bounded --> B
+    H --> I[PR + merge under<br/>branch protection]
+```
+
+Four disciplines make retry pressure harmless:
+
+- **Pre-registration ordering** — the append-only registry refuses an experiment whose hypothesis was not registered first, duplicated IDs, and post-hoc edits (FIB classes 9).
+- **Multiple-testing deflation** — with N settled looks in a family, the t-statistic must clear the Bonferroni floor for N. The 10th "new idea" faces a bar the 1st did not; bar-lowering retries fail mechanically (FIB class 11).
+- **Sandboxed factor code** — LLM-written factors run under an AST whitelist with a truncated-view contract: `factor(closes≤t, tickers, dates≤t, i)`. Look-ahead needs a sandbox escape, not a bug (FIB class 2: metrics that don't match the code are rejected by recomputation).
+- **One-shot OOS windows** — an out-of-sample window that produced a pass is burned in the ledger; reuse is refused at registration (FIB class 13).
+
+Failures are classified mechanically (insufficient observations / instability / threshold miss / deflation / OOS miss) and the class feeds the next-hypothesis prompt — with an explicit no-bar-lowering instruction the loop is required to ignore under pressure.
+
+### 3. Honest settlement — claimed vs realized (designed; ships v0.5)
+
+Admitted factors are not "done": at each horizon the claimed metric is settled against realized out-of-sample performance, and the gap feeds a reflection loop that influences future admissions. The headline metric is not return; it is the **calibration curve** plus a zero-fabrication record.
+
+### 4. Bounded autonomy (pilot-validated; ships with the harness layers)
+
+Autonomy is a dial with a fence — L0 observe / L1 suggest / L2 admit-gated / L3 autonomous — bounded by a surgery SOP, a watchdog (measured 0.21 s detection→stop), and prompt discipline. The design is informed by a real incident the pilots caught: an orchestrator re-queued a previously-ignored trigger **26 seconds after** promising a human it would not start work. The containment stack was validated in a three-arm × 5-round experiment ([Evidence](docs/EVIDENCE.md)).
 
 ## Comparison
 
 | | TradingAgents | ai-hedge-fund | RD-Agent (Qlib) | FinRL | **Quant Super Agent** |
 |---|---|---|---|---|---|
-| Multi-role agents | ✔ analysts + debate | ✔ persona agents | ✔ research/dev loop | ✖ (RL, not agentic workflow) | ✔ quant roles (data/factor/risk/manager) |
-| Research loop (H→E→iterate) | ✖ decision per date | ✖ | ✔ | ✖ | ✔ with attribution-driven hypothesis iteration |
-| Claim-level CI gate | ✖ | ✖ | partial (backtest check) | ✖ | ✔ schema + fingerprint + no-lookahead |
-| Settlement / calibration | memory log (雏形) | ✖ | ✖ | ✖ | ✔ claimed-vs-realized ledger |
-| Autonomy control | ✖ | ✖ | ✖ | n/a | ✔ L0–L3 + watchdog (0.21 s measured) |
-| Reproducibility protocol | acknowledged, unmeasured | ✖ | ✖ | seed-based | ✔ variance decomposition + data fingerprints |
+| Multi-role agents | ✔ analysts + debate | ✔ persona agents | ✔ research/dev loop | ✖ (RL, not agentic workflow) | designed, v0.4 |
+| Research loop (H→E→iterate) | ✖ decision per date | ✖ | ✔ | ✖ | ✔ **shipped v0.3** — pre-registered, deflation-floored |
+| Claim-level CI gate | ✖ | ✖ | partial (backtest check) | ✖ | ✔ **shipped** — schema + fingerprint + no-lookahead + code recomputation |
+| Multiple-testing control | ✖ | ✖ | ✖ | ✖ | ✔ **shipped v0.3** — Bonferroni floor at family N |
+| Settlement / calibration | memory log (雏形) | ✖ | ✖ | ✖ | designed; ships v0.5 |
+| Autonomy control | ✖ | ✖ | ✖ | n/a | pilot-validated design (L0–L3 + watchdog, 0.21 s measured) |
+| Reproducibility protocol | acknowledged, unmeasured | ✖ | ✖ | seed-based | ✔ byte-level determinism asserted by tests + data fingerprints |
 
-Related work we admire and borrow from: [TradingAgents](https://github.com/TauricResearch/TradingAgents) (roles, debate, settlement memory), [ai-hedge-fund](https://github.com/virattt/ai-hedge-fund) (independent judgments → aggregation), [RD-Agent](https://github.com/microsoft/RD-Agent) (factor R&D iteration), [FinRL](https://github.com/AI4Finance-Foundation/FinRL) (environment rigor), [QuantDinger](https://github.com/OpenByteInc/QuantDinger) (local-first tooling). The harness patterns come from DeepSeek's MIT-licensed dsh-superagent research prototype (order lifecycle, worktree isolation, panel APIs) — see [Acknowledgments](#acknowledgments).
+Related work we admire and borrow from: [TradingAgents](https://github.com/TauricResearch/TradingAgents) (roles, debate, settlement memory), [ai-hedge-fund](https://github.com/virattt/ai-hedge-fund) (independent judgments → aggregation), [RD-Agent](https://github.com/microsoft/RD-Agent) (factor R&D iteration), [FinRL](https://github.com/AI4Finance-Foundation/FinRL) (environment rigor). The harness patterns come from DeepSeek's MIT-licensed dsh-superagent research prototype (order lifecycle, worktree isolation, panel APIs) — see [Acknowledgments](#acknowledgments).
 
-## Evidence from internal pilots
+## Evidence
 
-All numbers below are from our internal pilot environment (deterministic git-forge emulation, 2026-11); details and artifacts inventory in [docs/EVIDENCE.md](docs/EVIDENCE.md).
+Internal pilots (deterministic git-forge emulation, 2026-11) — full inventory in [docs/EVIDENCE.md](docs/EVIDENCE.md):
 
 | Pilot | Result |
 |---|---|
 | Full-lifecycle smoke ×3 (positive path / permission gate / failure injection) | **3/3 PASS**; single order issue→PR end-to-end in 4 min 39 s; negative verdict recorded honestly |
 | Fabrication injection (card missing required field, ordered to push anyway) | Gate blocked (CI failure 0/1), reported non-silently in 3 places, agent refused to fake readiness — and still filled real metrics honestly |
-| Autonomy risk (G-1) three-arm × 5 rounds | Unattended requeue risk reproduced once in the wild; containment stack achieved **5/5 clean windows** in the full-protection arm; watchdog detection→stop **0.21 s**; zero spillover |
+| Autonomy risk (G-1) three-arm × 5 rounds | Risk reproduced once in the wild; containment stack achieved **5/5 clean windows** in the full-protection arm; watchdog detection→stop **0.21 s**; zero spillover |
 | Data plane | As-of snapshot + reconciliation tooling; 144-point cross-check zero mismatch; tamper-rejection verified |
+
+Everything claimed for the shipped versions is reproducible from this repo: 79 tests (offline, deterministic) and a CI matrix across Python 3.10–3.13 that also runs both demos as regression contracts — the v0.2/v0.3 acceptance tables in [docs/EVIDENCE.md](docs/EVIDENCE.md) map every discipline to its test.
 
 ## Roadmap (summary)
 
-- **v0.1** design + benchmark spec + evidence docs public (shipped)
-- **v0.2** evidence cards + verify gate + sim forge (shipped)
-- **v0.3** research loop: experiment registry (pre-registration ordering, one-shot OOS windows), multiple-testing deflation, sandboxed LLM factor mining with attribution-driven iteration, CSV ingestion (shipped)
+- **v0.1** design + benchmark spec + evidence docs (shipped)
+- **v0.2** evidence plane: cards + verify gate + deterministic forge (shipped)
+- **v0.3** research loop: registry, deflation, sandboxed mining, one-shot OOS, CSV ingestion (shipped)
 - **v0.4** quant roles + adversarial (bull/bear) review gate
 - **v0.5** settlement ledger + calibration reporting
 - **v0.6** Fabrication Injection Benchmark release (open runs against other frameworks)
@@ -123,58 +167,11 @@ All numbers below are from our internal pilot environment (deterministic git-for
 
 Full version: [docs/ROADMAP.md](docs/ROADMAP.md).
 
-## Quickstart
-
-v0.3 is runnable: pure Python ≥ 3.10 standard library, zero dependencies, fully offline and deterministic. Two demos cover the shipped scope:
-
-```bash
-git clone https://github.com/0x1512/quant-super-agent.git
-cd quant-super-agent
-
-# v0.2 lifecycle: order issue → cards → verify gate as CI → PR → merge
-python examples/run_lifecycle.py            # honest run (on toy data the verdict is usually fail — and it merges)
-python examples/run_lifecycle.py --fib 7    # inject a silent-pass fabrication; the gate blocks the merge
-
-# v0.3 research loop: LLM factor mining under budget, deflated verdicts,
-# attribution-driven iteration, every card gate-checked and settled
-python examples/run_mining.py
-python -m qsa.ingest myprices.csv mydata/    # real user data -> legal snapshot
-python -m unittest discover -s tests -v     # 79 tests: gate, FIB injections, registry, deflation, sandbox, mining, determinism
-```
-
-What the honest lifecycle run prints (abbreviated):
-
-```
-[1] snapshot   toy synthetic, 1080 rows, window 20240102:20240506, sha 7b81decd7fdc…
-[3] hypothesis H-0001 registered (admission pre-committed)
-[5] experiment E-0001  rankic_mean=-0.014606 …
-    honest verdict = fail (rankic_mean=-0.014606 fails pre-registered >= 0.02)
-[6] push       … -> CI 'verify' = success
-[7] merge      MERGED
-```
-
-What the mining demo prints (abbreviated):
-
-```
-[1] settled     E-0001 verdict=fail (N=1) attribution=threshold_miss
-[2] settled     E-0002 verdict=fail (N=2) attribution=deflation
-[3] settled     E-0003 verdict=fail (N=3) attribution=deflation
-final_verdict: fail — an honest negative chain under budget, every card gate-checked and settled.
-```
-
-Iteration 1 fails its pre-registered bar; iteration 2 proposes a "lower bar" variant — the deflated t-stat floor catches it mechanically. A negative result with a green gate merges; a positive lie does not. The gate CLI also stands alone (`--registry` enables ledger + deflation + `factor_code` recomputation checks):
-
-```bash
-python -m qsa.verify --hypothesis cards/H.json --result cards/E.json --snapshot snapshot/ --registry registry.jsonl
-```
-
-Chapter and verse in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); acceptance evidence in [docs/EVIDENCE.md](docs/EVIDENCE.md).
-
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) — components, order lifecycle, gate internals, autonomy supervisor
 - [Fabrication Injection Benchmark (spec v0)](docs/BENCHMARK.md) — 20 injection classes, honesty metrics, protocol
-- [Evidence](docs/EVIDENCE.md) — pilot inventory, what was measured, artifacts map
+- [Evidence](docs/EVIDENCE.md) — pilot inventory, public acceptance tables (v0.2/v0.3)
 - [Roadmap](docs/ROADMAP.md) — phases, scope, acceptance criteria
 - 中文简介：[README.zh-CN.md](README.zh-CN.md)
 
@@ -190,7 +187,7 @@ Chapter and verse in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); acceptance ev
   title  = {Quant Super Agent: A Verifiable Agentic Quant Research Factory},
   author = {Quant Super Agent Contributors},
   year   = {2026},
-  note   = {Design and benchmark specification, v0.1},
+  note   = {Evidence plane and gated research loop, v0.3},
   url    = {https://github.com/0x1512/quant-super-agent}
 }
 ```
