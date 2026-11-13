@@ -51,7 +51,7 @@ python -m unittest discover -s tests -v     # 141 项测试：门禁、FIB 注�
 
 ## 文档
 
-[English README](README.md) · [架构](docs/ARCHITECTURE.md) · [造假注入基准规格](docs/BENCHMARK.md) · [FIB 评审细则](docs/RUBRICS.md) · [试点证据](docs/EVIDENCE.md) · [路线图](docs/ROADMAP.md)
+[English README](README.md) · [命题文档 THESIS](docs/THESIS.md)（英文） · [架构](docs/ARCHITECTURE.md) · [造假注入基准规格](docs/BENCHMARK.md) · [FIB 评审细则](docs/RUBRICS.md) · [试点证据](docs/EVIDENCE.md) · [路线图](docs/ROADMAP.md)
 
 ## 许可与声明
 

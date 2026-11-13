@@ -6,6 +6,8 @@
 
 > **What runs today (v0.6):** the full gated research loop — pre-registered hypotheses, sandboxed factor code, multiple-testing-deflated verdicts, one-shot out-of-sample windows, attribution-driven iteration under budget — plus ablatable quant roles (data / factor / risk / manager), a bull/bear adversarial review gate before admission, a hash-chained settlement ledger with calibration curve and tighten-only reflection rule, and the **Fabrication Injection Benchmark harness**: 15 deterministic injection scenarios judged by an ungated baseline, a schema-only baseline, and the full gate. On synthetic or your own CSV data, fully offline and deterministic. Pure Python ≥ 3.10 stdlib, zero dependencies.
 >
+> **Thesis** ([docs/THESIS.md](docs/THESIS.md)): *throughput is cheap; verification is the constraint* — the deployable information ratio factors into stage efficiencies that compose multiplicatively, and the field's budget terminates before the binding terms.
+>
 > **What is designed but not shipped yet:** running the published FIB scenarios against third-party agent frameworks (the builders are importable; see [docs/RUBRICS.md](docs/RUBRICS.md)). See the [roadmap](#roadmap-summary).
 >
 > Research use only — not financial advice.
@@ -187,7 +189,7 @@ Everything claimed for the shipped versions is reproducible from this repo: 141 
 - **v0.4** ablatable quant roles + bull/bear review gate + ablation table (shipped)
 - **v0.5** settlement ledger + calibration curve + tighten-only reflection rule (shipped)
 - **v0.6** Fabrication Injection Benchmark harness + rubrics (shipped; external-framework runs next)
-- **v0.7** instrument-grade quant plane: OHLCV factors, costs/turnover, walk-forward, exposure neutralization, universe pinning, portfolio cards, composites, FIB externalization, CLI + variance protocol (planned)
+- **v0.7** instrument-grade quant plane, re-anchored to the transfer theory (breadth / precision / transfer / meta-drift each gain capability + estimator): OHLCV factors, walk-forward, universe pinning, neutralization, cost-capacity accounting, portfolio cards, composites, real-data settlement, FIB externalization, CLI + variance protocol (planned)
 - **v1.0** paper artifact + reproduction protocol
 
 Full version: [docs/ROADMAP.md](docs/ROADMAP.md).
@@ -195,6 +197,7 @@ Full version: [docs/ROADMAP.md](docs/ROADMAP.md).
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) — components, order lifecycle, gate internals, autonomy supervisor
+- [Thesis](docs/THESIS.md) — the transfer theory: budget equation, propositions, estimator protocol
 - [Fabrication Injection Benchmark](docs/BENCHMARK.md) — 20 injection classes, metrics, protocol
 - [FIB rubrics](docs/RUBRICS.md) — judge definitions, metric formulas, acceptance bar
 - [Evidence](docs/EVIDENCE.md) — pilot inventory, public acceptance tables (v0.2/v0.3)

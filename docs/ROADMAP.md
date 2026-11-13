@@ -37,38 +37,37 @@ Public, version-gated. Each version has scope + acceptance criteria; code lands 
 - FIB harness public (`qsa/fib.py` + [RUBRICS.md](RUBRICS.md)): 14 of the 20 injection classes mechanized as deterministic scenarios, plus the gate half of class 20 (honest control) and the code-pin discipline; every scenario judged by two baseline reviewers (`ungated`, `schema-only`) and the full stack, K=3 repeats asserted byte-identical
 - Acceptance: third party can reproduce at least one baseline run from published artifacts — **met**: `python examples/run_fib.py` (~2 min, offline) reproduces the full 16×3×3 matrix; results in [EVIDENCE.md](EVIDENCE.md) P5, rubrics in [RUBRICS.md](RUBRICS.md); the two baselines are framework-agnostic review policies, and the scenario builders are importable for external frameworks
 
-## v0.7 — instrument-grade quant plane (planned)
+## v0.7 — instrument-grade quant plane (planned; re-anchored to the transfer theory)
 
-Theme: **every capability upgrade lands with its verification layer** — the evidence discipline scales to real quant work. Capability without a gate is what the comparison projects already ship.
+Reference: [THESIS.md](THESIS.md). Each workstream is an intervention on one term of the budget equation; each acceptance criterion is that term's estimator. A capability ships only together with the estimator that measures its term.
 
-**A. Data plane v2**
-- OHLCV into the factor contract: `Frame` loads volume (already fingerprinted, invisible to factors today); sandbox contract v2 `factor(closes, volumes, tickers, dates, i)` with v1 factors still running; synthetic worlds gain sectors and a size column
-- Universe pinning — mechanizes FIB 10: membership-as-of schedule in the manifest; the evaluation universe must equal pinned membership; a survivorship-biased favorable subset is a gate error
+**B — breadth (extend the scannable manifold)**
+- OHLCV into the factor contract: `Frame` loads volume (fingerprinted today, invisible to factors); sandbox contract v2 `factor(closes, volumes, tickers, dates, i)` with v1 factors still running
+- Walk-forward folds: rolling evaluation with per-fold metrics on the E card; every fold counts as a trial for deflation; fold-window reuse refused at registration
+- Acceptance: **discovery@B curves** (true discoveries as a function of scan budget, K seeds, byte-deterministic) on planted worlds — reported as curves, not scalars
+
+**P̂ — precision (extend failure-mode coverage)**
+- Universe pinning — mechanizes FIB 10: membership-as-of in the manifest; a survivorship-biased subset is a gate error
+- Exposure + neutralization: worlds gain sectors and size; sector-neutral IC and loadings are computed by the engine and recomputed by the gate; the risk role's veto upgrades to exposure-based (a size-tilted factor is a false discovery in neutralized terms)
+- Acceptance: **FIB ≥ 18 scenarios** (cherry-universe and cost-omission mechanized), all caught with localization, honest control still merges; **α-frontier experiment** — P̂ vs statistical power as gate strictness varies, frontier reported per environment (planted / noise)
+
+**TC — transfer (measure what survives contact with markets)**
+- Cost/turnover/capacity accounting: manifest-declared per-side bps, net-of-cost spreads, ADV-participation capacity; admission bars may be net; the gate recomputes all of it (new FIB class: cost omission — gross sold as net)
+- Portfolio layer: rank-to-weights construction (dollar-neutral, position caps), portfolio return stream, Sharpe/max drawdown; a P card schema with its own gate checks (weights sum, caps, one-shot windows)
+- Acceptance: **TC estimated from settlement** (corr of claimed-net vs realized-net across settled claims); a high-turnover factor that passes gross fails the net bar mechanically
+
+**λℓ − δ — meta-drift (the return leg)**
+- Portfolio claims settle: the ledger accepts P cards; realized portfolio metrics recompute on the extended world
+- Multi-factor composites: pre-registered linear combinations of settled factor IDs, weights on the H card; post-hoc weight drift is a gate error (FIB 11 family)
 - Real-data settlement closure (closes an [EVIDENCE.md](EVIDENCE.md) admission): ingested worlds settle when the adapter appends new rows — recorded fixture test, no network in CI
+- Acceptance: **calibration cohort slope** (λℓ − δ estimator) in the report, deterministic under ScriptedLLM; composite settles end-to-end
 
-**B. Engine realism**
-- Cost/turnover/capacity accounting: turnover, a manifest-declared per-side bps cost model, net-of-cost spreads, ADV-participation capacity; admission bars may be net; the gate recomputes all of it; new FIB class — cost omission (gross sold as net)
-- Exposure + neutralization: sector-neutral IC and size/momentum loadings computed by the engine and recomputed by the gate; the risk role's veto upgrades from half-split stability to exposure-based
-- Walk-forward folds: rolling folds with per-fold metrics on the E card; every fold counts as a look for deflation; fold-window reuse refused at registration
+**Envelope + instrumentation**
+- FIB scenarios export as framework-agnostic order JSON; a reference consumer implementing only the published contract — not the qsa gate — runs them; one external-consumer run published with raw logs
+- `python -m qsa` CLI: order → run → verify → settle → report in one command; K-run variance decomposition (data plane and gate asserted zero-variance; model-path variance measured when a real LLM is attached)
+- Acceptance: one external-consumer run reproduced from published artifacts; cold-start full loop < 10 min from a fresh clone
 
-**C. Portfolio layer**
-- Signal → portfolio: rank-to-weights construction (dollar-neutral, position caps), portfolio return stream, Sharpe / max drawdown; a P card schema with its own gate checks (weights sum, caps, one-shot windows)
-- Portfolio claims settle: the settlement ledger accepts P cards; realized portfolio metrics recompute on the extended world
-- Multi-factor composites: a composite is a pre-registered linear combination of settled factor IDs with weights on the H card; post-hoc weight drift is a gate error (FIB 11 family)
-
-**D. Benchmark externalization**
-- FIB scenarios export as framework-agnostic order JSON (issue body + card contract); a reference consumer implementing only the published contract — not the qsa gate — runs them; one external-consumer run published with raw logs (the deferred v0.6 promise, done properly)
-
-**E. Tooling**
-- `python -m qsa` CLI: order → run → verify → settle → report in one command; cold-start full loop < 10 min from a fresh clone
-- K-run variance decomposition protocol: data plane and gate asserted zero-variance; model-path variance measured and reported when a real LLM is attached (ScriptedLLM stays the CI contract)
-
-Acceptance:
-- FIB harness ≥ 18 scenarios — cherry-universe (10) and cost-omission mechanized and caught with localization; the honest control still merges everywhere
-- a high-turnover factor that passes gross fails the net bar mechanically; a size-tilted factor's raw IC survives while its neutralized IC collapses, exposed in attribution
-- a portfolio claim settles end-to-end on the extended world; a composite settles; post-hoc weight drift blocked
-- real-data settlement exercised on a recorded append fixture (offline)
-- CLI cold-start documented and timed; the variance report is deterministic under ScriptedLLM
+Overall v0.7 acceptance: [EVIDENCE.md](EVIDENCE.md) P6 reports the **budget vector** (ĪC, B_eff, P̂, TC, λℓ − δ) with the envelope axes separate, per environment (planted / noise / real CSV) — the transfer theory's first full instrument readout.
 
 Non-goals (unchanged): no ML/DL training loop, no RL, no news/sentiment planes, no live trading; the LLM stays BYO (`OpenAICompatLLM`) with `ScriptedLLM` as the CI contract.
 
