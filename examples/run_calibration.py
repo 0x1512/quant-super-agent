@@ -47,6 +47,23 @@ def main() -> int:
     print(f"reflection rule for family 'abl-cal' follow-ups: x{mult} — "
           f"{basis}")
 
+    # v0.7: the budget equation's terms, read off the same ledger state
+    from qsa.budget import read_budget
+    terms = read_budget(out / "settlement.jsonl", registry=None)
+    print("\nbudget terms (qsa.budget.read_budget):")
+    print(f"  B (trials settled into the ledger): {terms['B']}")
+    print(f"  ĪC (mean realized rank IC over held claims): {terms['ic_hat']}")
+    print(f"  λℓ−δ proxy (decay slope realized~claimed): "
+          f"{terms['decay_slope']} over {terms['horizon_days']}-day horizons")
+    print(f"  P̂ anchor (planted share of settled claims): "
+          f"{terms['p_hat_planted_anchor']}")
+    tc = terms.get("tc")
+    if tc:
+        print(f"  TC (gross {tc['mean_gross_spread']:+.6f} -> net "
+              f"{tc['mean_net_spread']:+.6f}, turnover "
+              f"{tc['mean_turnover']:.4f}/day, net/gross "
+              f"{tc['net_gross_ratio']:+.4f})")
+
     if report["n_settled"] < MIN_SETTLED:
         print(f"ACCEPTANCE FAILED: {report['n_settled']} settled claims "
               f"< {MIN_SETTLED}")

@@ -37,7 +37,8 @@ def _num(raw: str, where: str) -> float:
 
 def ingest_csv(csv_path: Path, out_dir: Path, *, snapshot_id: str | None = None,
                date_col: str = "date", ticker_col: str = "ticker",
-               close_col: str = "close", volume_col: str | None = None
+               close_col: str = "close", volume_col: str | None = None,
+               per_side_bps: float | None = None
                ) -> SnapshotInfo:
     """Validate a user price CSV and materialize a snapshot directory."""
     csv_path, out_dir = Path(csv_path), Path(out_dir)
@@ -93,6 +94,11 @@ def ingest_csv(csv_path: Path, out_dir: Path, *, snapshot_id: str | None = None,
         "rows": len(rows),
         "files": {"daily/prices.csv": sha256_file(prices)},
     }
+    if per_side_bps is not None:
+        if isinstance(per_side_bps, bool) or not isinstance(per_side_bps, (int, float)) \
+                or per_side_bps < 0:
+            raise ValueError("per_side_bps must be a non-negative number")
+        manifest["costs"] = {"per_side_bps": float(per_side_bps)}
     (out_dir / "MANIFEST.json").write_bytes(canonical_json(manifest) + b"\n")
     return fingerprint(out_dir)
 

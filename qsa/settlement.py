@@ -147,7 +147,8 @@ def settle_claim(ledger: SettlementLedger, e: dict[str, Any], h: dict[str, Any],
     try:
         frame = engine.load_frame(ext_dir, horizon)
         signal = run_factor(e["factor_code"], ext_frame.closes,
-                            ext_frame.tickers, ext_frame.dates)
+                            ext_frame.tickers, ext_frame.dates,
+                            ext_frame.volumes)
         realized = engine.evaluate_signal(frame, signal)
     except (SandboxError, ValueError) as exc:
         realized = None
@@ -171,6 +172,7 @@ def settle_claim(ledger: SettlementLedger, e: dict[str, Any], h: dict[str, Any],
                   "days": base.manifest["days"],
                   "start": base.manifest["start"],
                   "plant": base.manifest.get("plant"),
+                  "costs": base.manifest.get("costs"),
                   "extension_days": extension_days},
         "base_snapshot_hash": base.manifest_hash,
         "extension_hash": ext.manifest_hash,
@@ -184,10 +186,9 @@ def settle_claim(ledger: SettlementLedger, e: dict[str, Any], h: dict[str, Any],
         "settled_at": e.get("settled_at"),
     }
     if realized is not None:
-        core["realized"] = {"window": horizon,
-                            **{k: realized[k] for k in
-                               ("rankic_mean", "rankic_tstat",
-                                "quintile_spread", "n_dates")}}
+        # the full harness metric set, gross and net: TC readouts (turnover,
+        # cost drag, net spread) settle beside the IC they modify (v0.7)
+        core["realized"] = {"window": horizon, **realized}
     return ledger.record(core)
 
 
@@ -333,7 +334,8 @@ def audit_ledger(path: Path, *, registry_path: Path | None = None
                 ext = build_snapshot(ext_dir, seed=w["seed"],
                                      tickers=w["tickers"],
                                      days=w["days"] + w["extension_days"],
-                                     start=w["start"], plant=w.get("plant"))
+                                     start=w["start"], plant=w.get("plant"),
+                                     costs=w.get("costs"))
                 if ext.manifest_hash != en.get("extension_hash"):
                     errs.append(f"settlement {sid}: extension_hash does not "
                                 f"rebuild from the world spec")
@@ -342,7 +344,8 @@ def audit_ledger(path: Path, *, registry_path: Path | None = None
                 dates = ext_frame.dates
                 horizon = f"{dates[w['days']]}:{dates[-1]}"
                 signal = run_factor(en["factor_code"], ext_frame.closes,
-                                    ext_frame.tickers, ext_frame.dates)
+                                    ext_frame.tickers, ext_frame.dates,
+                                    ext_frame.volumes)
                 frame = engine.load_frame(ext_dir, horizon)
                 realized = engine.evaluate_signal(frame, signal)
         except (SandboxError, ValueError, KeyError) as exc:
@@ -451,6 +454,49 @@ def calibration_report(ledger: SettlementLedger) -> dict[str, Any]:
     gaps_all = ([float(en["realized"]["rankic_mean"])
                  - float(en["claimed"]["value"]) for en in settled])
 
+    # λℓ−δ readout (v0.7): the calibration slope — realized regressed on
+    # claimed across claimed-bins (cohorts). A slope < 1 means claims decay
+    # over the settlement horizon ℓ: the (λℓ − δ) exponent in the budget
+    # equation is negative for this pipeline, i.e. claims leak value faster
+    # than the loop compounds it. Slope is OLS over bin means, n-weighted by
+    # bins (each cohort is one point).
+    xs = [b["mean_claimed"] for b in buckets]
+    ys = [b["mean_realized"] for b in buckets]
+    if len(xs) >= 2:
+        mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
+        denom = sum((x - mx) ** 2 for x in xs)
+        decay_slope = (sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+                       / denom) if denom else 0.0
+    else:
+        decay_slope = 0.0
+
+    # TC readout (v0.7): measured cost drag on the settled horizons — gross
+    # vs net spread, turnover, and the bps the world's cost model actually
+    # charged. A pipeline whose net gap eats its gross spread has a TC term
+    # near zero regardless of what its IC says.
+    tc_rows = [en for en in settled
+               if "turnover" in (en.get("realized") or {})
+               and "net_quintile_spread" in (en.get("realized") or {})]
+    tc = None
+    if tc_rows:
+        gross = [float(en["realized"]["quintile_spread"]) for en in tc_rows]
+        net = [float(en["realized"]["net_quintile_spread"]) for en in tc_rows]
+        to = [float(en["realized"]["turnover"]) for en in tc_rows]
+        drag = [g - n for g, n in zip(gross, net)]
+        tc = {
+            "n": len(tc_rows),
+            "mean_turnover": round(sum(to) / len(to), 6),
+            "mean_gross_spread": round(sum(gross) / len(gross), 6),
+            "mean_net_spread": round(sum(net) / len(net), 6),
+            "mean_drag": round(sum(drag) / len(drag), 6),
+            "net_gross_ratio": round((sum(net) / len(net))
+                                     / (sum(gross) / len(gross)), 6)
+            if sum(gross) else 0.0,
+        }
+
+    horizon_days = next((int((en.get("world") or {}).get("extension_days")
+                             or 0) for en in ledger.entries), 0)
+
     by_truth: dict[str, dict[str, Any]] = {}
     for kind, want in (("planted", True), ("noise", False)):
         rows = [en for en in settled
@@ -478,6 +524,9 @@ def calibration_report(ledger: SettlementLedger) -> dict[str, Any]:
         "curve": buckets,
         "pressure_by_iteration": pressure,
         "by_truth": by_truth,
+        "decay_slope": round(decay_slope, 6),
+        "horizon_days": horizon_days,
+        "tc": tc,
     }
 
 
@@ -496,6 +545,16 @@ def report_markdown(report: dict[str, Any]) -> str:
                  f"(held {report['held']}, fell short {report['fell_short']}, "
                  f"unverifiable {report['n_unverifiable']}); "
                  f"mean gap {report['mean_gap']:+.4f}")
+    lines.append(f"decay slope (realized~claimed over "
+                 f"{report.get('horizon_days', 0)}-day horizons): "
+                 f"{report.get('decay_slope', 0.0):+.4f}")
+    tc = report.get("tc")
+    if tc:
+        lines.append(
+            f"transaction costs: n={tc['n']}, mean turnover "
+            f"{tc['mean_turnover']:.4f}/day, gross spread "
+            f"{tc['mean_gross_spread']:+.6f} -> net {tc['mean_net_spread']:+.6f} "
+            f"(drag {tc['mean_drag']:.6f}, net/gross {tc['net_gross_ratio']:+.4f})")
     for kind, row in sorted((report.get("by_truth") or {}).items()):
         lines.append(f"- {kind}: n={row['n']}, mean claimed="
                      f"{row['mean_claimed']}, mean realized="

@@ -57,7 +57,8 @@ def _business_days(start: str, days: int) -> list[str]:
 
 def build_snapshot(out_dir: Path, *, seed: int = 42, tickers: int = 12,
                    days: int = 90, start: str = "2024-01-02",
-                   plant: dict[str, Any] | None = None) -> SnapshotInfo:
+                   plant: dict[str, Any] | None = None,
+                   costs: dict[str, Any] | None = None) -> SnapshotInfo:
     """Generate the toy snapshot deterministically. Pure synthetic data.
 
     ``plant`` optionally injects a *known* cross-sectional effect so that
@@ -128,6 +129,18 @@ def build_snapshot(out_dir: Path, *, seed: int = 42, tickers: int = 12,
     if plant is not None:
         manifest["plant"] = {"effect": "reversal",
                              "strength": float(plant["strength"])}
+    if costs is not None:
+        # v0.7 transaction-cost model (TC estimator): per-side bps the engine
+        # deducts from the gross spread. Optional and *pinned* — a world whose
+        # costs are part of the hypothesis carries them in the fingerprinted
+        # manifest, so the gate recomputes net metrics with the same model the
+        # admission used. Default worlds (costs=None) omit the block: their
+        # manifests stay byte-identical to the historical generator.
+        bps = costs.get("per_side_bps")
+        if not isinstance(bps, (int, float)) or isinstance(bps, bool) \
+                or bps < 0:
+            raise ValueError("costs.per_side_bps must be a non-negative number")
+        manifest["costs"] = {"per_side_bps": float(bps)}
     (out_dir / "MANIFEST.json").write_bytes(canonical_json(manifest) + b"\n")
     return fingerprint(out_dir)
 
@@ -190,6 +203,9 @@ def extend_world(out_dir: Path, base_dir: Path, extension_days: int,
         plant = {"effect": "reversal", "strength": float(p["strength"])}
     else:
         raise ValueError("manifest plant block is malformed")
+    costs = m.get("costs")  # v0.7: the extension must price trades exactly
+    if costs is not None and not isinstance(costs, dict):  # like the base world
+        raise ValueError("manifest costs block is malformed")
     if cache and (out_dir / "MANIFEST.json").exists():
         try:
             info = fingerprint(out_dir)
@@ -200,7 +216,8 @@ def extend_world(out_dir: Path, base_dir: Path, extension_days: int,
         except ValueError:
             pass  # stale cache: rebuild below
     info = build_snapshot(out_dir, seed=m["seed"], tickers=m["tickers"],
-                          days=expected_days, start=m["start"], plant=plant)
+                          days=expected_days, start=m["start"], plant=plant,
+                          costs=costs)
     _assert_prefix(base_dir, out_dir)
     return info
 
@@ -230,3 +247,20 @@ def load_closes(out_dir: Path) -> dict[str, dict[str, float]]:
     if not closes:
         raise ValueError(f"{snap.dir}: snapshot has no rows")
     return closes
+
+
+def load_volumes(out_dir: Path) -> dict[str, dict[str, float]]:
+    """Return {ticker: {date: volume}} — empty when the file has no volume
+    column (ingested worlds may omit it; the engine degrades gracefully)."""
+    fingerprint(out_dir)  # refuse to load anything that fails recon
+    volumes: dict[str, dict[str, float]] = {}
+    with (Path(out_dir) / "daily" / "prices.csv").open(encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        if "volume" not in (reader.fieldnames or []):
+            return volumes
+        for row in reader:
+            v = row.get("volume")
+            if v is None or v == "":
+                continue
+            volumes.setdefault(row["ticker"], {})[row["date"]] = float(v)
+    return volumes

@@ -76,9 +76,14 @@ def check_code(code: str) -> None:
         raise SandboxError("factor code must define exactly one function: "
                            "factor(closes, tickers, dates, i)")
     args = [a.arg for a in defs[0].args.args]
-    if args[:4] != ["closes", "tickers", "dates", "i"]:
-        raise SandboxError("factor(closes, tickers, dates, i) — first four "
-                           "parameters must be closes, tickers, dates, i")
+    if not (args[:4] == ["closes", "tickers", "dates", "i"] and len(args) == 4) \
+            and not (args[:5] == ["closes", "volumes", "tickers", "dates", "i"]
+                     and len(args) == 5):
+        raise SandboxError(
+            "factor signature must be v1 factor(closes, tickers, dates, i) "
+            "or v2 factor(closes, volumes, tickers, dates, i) — parameter "
+            "names are the contract (v2 adds volumes: {ticker: {date: "
+            "volume}}, truncated like closes)")
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Attribute):
@@ -106,18 +111,50 @@ def check_code(code: str) -> None:
                                f"(line {getattr(node, 'lineno', '?')})")
 
 
+def contract_of(code: str) -> str:
+    """Return the sandbox contract a factor declares: 'v1' (closes-only) or
+    'v2' (closes + volumes). Raises SandboxError on any other signature."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as exc:
+        raise SandboxError(f"factor code does not parse: {exc}") from exc
+    defs = [n for n in tree.body if isinstance(n, ast.FunctionDef)]
+    if len(defs) != 1 or defs[0].name != "factor":
+        raise SandboxError("factor code must define exactly one function: "
+                           "factor(closes, tickers, dates, i)")
+    args = [a.arg for a in defs[0].args.args]
+    if args[:5] == ["closes", "volumes", "tickers", "dates", "i"] \
+            and len(args) == 5:
+        return "v2"
+    if args[:4] == ["closes", "tickers", "dates", "i"] and len(args) == 4:
+        return "v1"
+    raise SandboxError("factor signature must be v1 factor(closes, tickers, "
+                       "dates, i) or v2 factor(closes, volumes, tickers, "
+                       "dates, i)")
+
+
 def run_factor(code: str, closes: dict[str, dict[str, float]], tickers: list[str],
-               dates: list[str]) -> dict[str, dict[str, float]]:
+               dates: list[str],
+               volumes: dict[str, dict[str, float]] | None = None
+               ) -> dict[str, dict[str, float]]:
     """AST-check, execute and validate a factor; returns the signal matrix.
 
     The lookahead defence is structural: the factor function is called once
-    per date *i* with **truncated inputs** — ``closes`` and ``dates`` contain
-    only what existed up to and including date *i*. A factor that wants
-    tomorrow's price simply cannot name it. (Cost: O(D) calls with O(D·N)
-    copies each — fine at research scale; streaming evaluation lands with
-    the portfolio plane.)
+    per date *i* with **truncated inputs** — ``closes`` and ``dates`` (and
+    ``volumes``, for a v2 factor) contain only what existed up to and
+    including date *i*. A factor that wants tomorrow's price simply cannot
+    name it. (Cost: O(D) calls with O(D·N) copies each — fine at research
+    scale; streaming evaluation lands with the portfolio plane.)
+
+    v2 factors (``factor(closes, volumes, tickers, dates, i)``) get the
+    volume panel under the same truncation rule; a v2 factor with no volumes
+    supplied is a contract violation, refused loudly.
     """
     check_code(code)
+    contract = contract_of(code)
+    if contract == "v2" and volumes is None:
+        raise SandboxError("v2 factor declares volumes but none were supplied "
+                           "— the frame has no volume data for this world")
     namespace: dict[str, Any] = {"__builtins__": SAFE_BUILTINS}
     try:
         exec(compile(code, "<factor>", "exec"), namespace)  # noqa: S102 (whitelisted above)
@@ -131,8 +168,16 @@ def run_factor(code: str, closes: dict[str, dict[str, float]], tickers: list[str
     for i, d in enumerate(dates):
         truncated = {tk: {dd: v for dd, v in row.items() if dd <= d}
                      for tk, row in closes.items()}
+        truncated_volumes = None
+        if contract == "v2":
+            truncated_volumes = {tk: {dd: v for dd, v in row.items() if dd <= d}
+                                 for tk, row in (volumes or {}).items()}
         try:
-            values = fn(truncated, tickers, dates[:i + 1], i)
+            if contract == "v2":
+                values = fn(truncated, truncated_volumes, tickers,
+                            dates[:i + 1], i)
+            else:
+                values = fn(truncated, tickers, dates[:i + 1], i)
         except SandboxError:
             raise
         except Exception as exc:  # noqa: BLE001

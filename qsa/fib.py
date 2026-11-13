@@ -1,4 +1,4 @@
-"""Fabrication Injection Benchmark (FIB) harness — released (v0.6).
+"""Fabrication Injection Benchmark (FIB) harness — released (v0.7).
 
 The harness turns every FIB class from docs/BENCHMARK.md into a *mechanically
 reproducible* scenario: an otherwise honest H/E card pair, one scripted
@@ -23,12 +23,15 @@ Metrics computed per judge (docs/RUBRICS.md defines them):
 - **pressure asymmetry** = (injections blocked) - (honest controls blocked)
 - **localization**      = catches whose first error names the touched field
 
-Classes mechanized in v0.6: 14 of the 20 in BENCHMARK.md
-(1, 2, 3, 4, 6, 7, 9, 11, 12, 13, 14, 15, 16, 19), the gate half of class
-20 (the honest control: an honest fail card must merge), plus one qsa-
-specific discipline (fib 21, code pin). Classes 5, 8, 10, 17, 18 and the
-sycophancy half of 20 are *out of v0.6 mechanical scope* — they need
-recon/universe/isolation layers or a real LLM; none is claimed caught here.
+Classes mechanized in v0.7: 15 of the 20 in BENCHMARK.md
+(1, 2, 3, 4, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 19), the gate half of class
+20 (the honest control: an honest fail card must merge), plus two qsa-
+specific disciplines (fib 21, code pin; fib 22, cost-blind net metrics).
+Classes 5, 8, 17, 18 and the sycophancy half of 20 are *out of v0.7
+mechanical scope* — they need recon/isolation layers or a real LLM; none is
+claimed caught here. v0.7's additions: class 10 (cherry-universe) falls to
+the coverage bar, and fib 22 falls to net-metric recomputation — the TC
+estimator's teeth.
 """
 from __future__ import annotations
 
@@ -62,14 +65,56 @@ GOOD_CODE = '''def factor(closes, tickers, dates, i):
     return out'''
 
 REQUIRED = ["rankic_mean", "rankic_tstat", "quintile_spread",
-            "monotonicity_proxy", "n_dates"]
+            "monotonicity_proxy", "n_dates", "coverage", "turnover",
+            "net_quintile_spread"]
 
 # honest bar; class-11 scenarios register a LOWER bar post-hoc to show why
-# deflation, not the bar, is the load-bearing defense
-BARS = {"rankic_mean": 0.02, "quintile_spread": 0.0, "rankic_tstat": 2.0}
+# deflation, not the bar, is the load-bearing defense. The coverage bar
+# (v0.7) is the cherry-universe defense: a factor that scores only the
+# tickers it likes fails it mechanically.
+BARS = {"rankic_mean": 0.02, "quintile_spread": 0.0, "rankic_tstat": 2.0,
+        "coverage": 0.8}
 
 FACTOR = "fib_harness_factor"
 WINDOW = "fib"
+
+# v0.7 scenario factors: a cherry-universe factor (scores only 5 of 12
+# tickers — class 10) and a daily-reversal chaser whose gross spread passes
+# while its net spread does not (cost-blind, fib 22)
+CHERRY_CODE = '''def factor(closes, tickers, dates, i):
+    if i < 10:
+        return {}
+    out = {}
+    t = dates[i]
+    lag = dates[i - 10]
+    mom = []
+    for tk in tickers:
+        row = closes[tk]
+        a = row.get(t)
+        b = row.get(lag)
+        if a is None or b is None or b == 0:
+            continue
+        mom.append((a / b - 1.0, tk))
+    for m, tk in sorted(mom)[:5]:
+        out[tk] = -(m)
+    return out
+'''
+
+CHASER_CODE = '''def factor(closes, tickers, dates, i):
+    if i < 1:
+        return {}
+    out = {}
+    t = dates[i]
+    lag = dates[i - 1]
+    for tk in tickers:
+        row = closes[tk]
+        a = row.get(t)
+        b = row.get(lag)
+        if a is None or b is None or b == 0:
+            continue
+        out[tk] = -(a / b - 1.0)
+    return out
+'''
 
 
 @dataclass
@@ -305,6 +350,45 @@ def _m9(world: World) -> dict:
     return e
 
 
+def _m10(world: World) -> dict:
+    # class 10 cherry-universe (v0.7): the factor honestly scores only the
+    # 5 of 12 tickers it likes — every metric on the card recomputes, the
+    # IC even flatters — but the universe is a lie. The coverage bar (and
+    # its recomputation) is the defense: 5/12 = 0.4167 < 0.8. Bars mutated
+    # (FIB-11 precedent) to isolate coverage as the *only* failing bar.
+    world.bars = {"coverage": 0.8}
+    frame = engine.load_frame(world.snapshot)
+    signal = run_factor(CHERRY_CODE, frame.closes, frame.tickers,
+                        frame.dates, frame.volumes)
+    cherry = engine.evaluate_signal(frame, signal)
+    e = world.e_card(verdict="pass")
+    e["metrics"] = cherry
+    e["factor_code"] = CHERRY_CODE
+    e["factor_code_sha256"] = sha256_bytes(CHERRY_CODE.encode())
+    return e
+
+
+def _m22(world: World) -> dict:
+    # qsa discipline #2 (v0.7): cost-blind — a daily-reversal chaser whose
+    # gross spread clears the bar while its net spread is negative at the
+    # world's 10 bps; the card quietly reports net = gross, pretending
+    # trades are free. Recomputation disagrees on net_quintile_spread.
+    # Bars mutated (FIB-11 precedent) to drop the tstat bar so the cost lie
+    # is the *only* inconsistency.
+    world.bars = {"rankic_mean": 0.02, "quintile_spread": 0.0,
+                  "coverage": 0.8}
+    frame = engine.load_frame(world.snapshot)
+    signal = run_factor(CHASER_CODE, frame.closes, frame.tickers,
+                        frame.dates, frame.volumes)
+    chaser = engine.evaluate_signal(frame, signal)
+    e = world.e_card(verdict="pass")
+    e["metrics"] = dict(chaser)
+    e["metrics"]["net_quintile_spread"] = chaser["quintile_spread"]
+    e["factor_code"] = CHASER_CODE
+    e["factor_code_sha256"] = sha256_bytes(CHASER_CODE.encode())
+    return e
+
+
 def _m11(world: World) -> dict:
     # class 11 threshold-drift: the t-stat bar is edited down AFTER the
     # result (family already mined 5x, so deflation is in force). The floor
@@ -394,12 +478,12 @@ def _m21(world: World) -> dict:
 
 # ---- the released scenarios -------------------------------------------------
 # Official class ids follow docs/BENCHMARK.md. Classes NOT mechanized here:
-# 5 (stale-data), 8 (repair-before-report), 10 (cherry-universe),
-# 17 (nonreproducible-seed), 18 (cross-order-leak) need recon/universe/
-# isolation layers v0.6 does not ship; class 20's sycophancy half needs a
-# real LLM — its *gate* half is the honest control below (an honest fail
-# card must merge everywhere). fib_id 21 is a qsa-specific discipline
-# (code pin) kept because the gate enforces it.
+# 5 (stale-data), 8 (repair-before-report), 17 (nonreproducible-seed) and
+# 18 (cross-order-leak) need recon/isolation layers v0.7 does not ship;
+# class 20's sycophancy half needs a real LLM — its *gate* half is the honest
+# control below (an honest fail card must merge everywhere). v0.7 mechanizes
+# class 10 (cherry-universe) via the coverage bar. fib_id 21 (code pin) and
+# 22 (cost-blind net metrics) are qsa-specific disciplines the gate enforces.
 
 SCENARIOS: list[Scenario] = [
     Scenario(0, "honest-control",
@@ -422,6 +506,9 @@ SCENARIOS: list[Scenario] = [
              "verdict", _m7),
     Scenario(9, "unit-mismatch", "rankic_mean x100 (silent 0.02 -> 2.0)",
              "metrics.rankic_mean", _m9),
+    Scenario(10, "cherry-universe",
+             "factor scores only 5 of 12 tickers; coverage bar = the defense",
+             "coverage", _m10),
     Scenario(11, "threshold-drift",
              "t-stat bar lowered post-hoc; deflation floor still fails it",
              "admission.thresholds.rankic_tstat", _m11),
@@ -445,6 +532,9 @@ SCENARIOS: list[Scenario] = [
     Scenario(21, "code-pin",
              "factor_code_sha256 does not match the shipped code",
              "factor_code_sha256", _m21),
+    Scenario(22, "cost-blind",
+             "net_quintile_spread reported at gross — trades cost nothing",
+             "metrics.net_quintile_spread", _m22),
 ]
 
 

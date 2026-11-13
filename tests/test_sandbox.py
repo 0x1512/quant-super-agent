@@ -129,5 +129,98 @@ class TestSandbox(unittest.TestCase):
             "exceeds sandbox limit")
 
 
+class TestSandboxV2(unittest.TestCase):
+    """v0.7 contract: factor(closes, volumes, tickers, dates, i) — the
+    volume panel under the same truncation rule as closes."""
+
+    V2 = '''def factor(closes, volumes, tickers, dates, i):
+    if i < 1:
+        return {}
+    out = {}
+    t = dates[i]
+    lag = dates[i - 1]
+    for tk in tickers:
+        row = closes[tk]
+        vol_row = volumes.get(tk)
+        a = row.get(t)
+        b = row.get(lag)
+        v = vol_row.get(t) if vol_row else None
+        if a is None or b is None or b == 0 or v is None or v <= 0:
+            continue
+        out[tk] = -(a / b - 1.0) / (v ** 0.5)
+    return out
+'''
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.snap = build_snapshot(Path(cls.tmp.name) / "snapshot",
+                                  seed=42, tickers=12, days=90)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def _frame_bits(self):
+        closes = load_closes(self.snap.dir)
+        from qsa.snapshot import load_volumes
+        volumes = load_volumes(self.snap.dir)
+        manifest = self.snap.manifest
+        dates = sorted({d for row in closes.values() for d in row
+                        if manifest["start"] <= d <= manifest["as_of"]})
+        return closes, volumes, sorted(closes), dates
+
+    def test_contract_detection(self):
+        from qsa.sandbox import contract_of
+        self.assertEqual(contract_of(self.V2), "v2")
+        self.assertEqual(contract_of(GOOD), "v1")
+
+    def test_v2_factor_runs_and_uses_volumes(self):
+        closes, volumes, tickers, dates = self._frame_bits()
+        matrix = run_factor(self.V2, closes, tickers, dates, volumes)
+        self.assertGreaterEqual(len(matrix), 5)
+        # deterministic: same inputs, same bytes
+        again = run_factor(self.V2, closes, tickers, dates, volumes)
+        self.assertEqual(matrix, again)
+
+    def test_v2_without_volumes_refused(self):
+        closes, _v, tickers, dates = self._frame_bits()
+        with self.assertRaises(SandboxError) as ctx:
+            run_factor(self.V2, closes, tickers, dates, None)
+        self.assertIn("no volume data", str(ctx.exception))
+
+    def test_v1_still_runs_unchanged(self):
+        closes, _v, tickers, dates = self._frame_bits()
+        matrix = run_factor(GOOD, closes, tickers, dates)
+        self.assertGreaterEqual(len(matrix), 5)
+
+    def test_v2_volumes_truncated_like_closes(self):
+        # a v2 factor naming tomorrow's volume gets nothing — the structural
+        # lookahead defence extends to the volume panel
+        cheat = '''def factor(closes, volumes, tickers, dates, i):
+    out = {}
+    if i + 1 >= len(dates):
+        return out
+    t = dates[i]
+    nxt = dates[i + 1]
+    for tk in tickers:
+        vol_row = volumes.get(tk)
+        v = vol_row.get(nxt) if vol_row else None
+        if v is not None:
+            out[tk] = 1.0 / v
+    return out
+'''
+        closes, volumes, tickers, dates = self._frame_bits()
+        with self.assertRaises(SandboxError) as ctx:
+            run_factor(cheat, closes, tickers, dates, volumes)
+        self.assertIn("only", str(ctx.exception))
+
+    def test_mixed_signature_rejected(self):
+        with self.assertRaises(SandboxError) as ctx:
+            run_factor("def factor(closes, volumes, tickers, i):\n"
+                       "    return {}\n", {}, [], [])
+        self.assertIn("v1 factor(closes, tickers, dates, i)", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

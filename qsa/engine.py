@@ -15,13 +15,19 @@ byte-stable across platforms.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from statistics import fmean, pstdev
+from statistics import fmean, median, pstdev
 from typing import Any, Callable
 
-from .snapshot import SnapshotInfo, fingerprint, load_closes
+from .snapshot import SnapshotInfo, fingerprint, load_closes, load_volumes
 
-EVAL_ID = "qsa-eval-0.4.0"
+EVAL_ID = "qsa-eval-0.7.0"
 ENGINE_ID = "qsa-toy-momentum-0.2.0"  # kept: the toy factor's historical id
+
+#: Default per-side transaction cost (bps of traded notional) used when the
+#: snapshot manifest carries no ``costs`` block. The value used is *recorded*
+#: in the metrics (``cost_bps_used``), so a card can never inherit a silent
+#: cost assumption the gate cannot recompute.
+DEFAULT_COST_BPS = 10.0
 
 SignalMatrix = dict[str, dict[str, float]]
 SignalFn = Callable[[dict[str, dict[str, float]], list[str], list[str]], SignalMatrix]
@@ -63,17 +69,23 @@ def _parse_window(window: str) -> tuple[str, str]:
 
 @dataclass(frozen=True)
 class Frame:
-    """A validated evaluation frame: closes + window-bounded calendar."""
+    """A validated evaluation frame: closes + volumes + window calendar + the
+    world's transaction-cost model (v0.7). ``volumes`` is empty for snapshots
+    without a volume column; ``cost_bps`` is the per-side cost in bps from the
+    manifest's ``costs`` block (or :data:`DEFAULT_COST_BPS`)."""
 
     closes: dict[str, dict[str, float]]
     tickers: list[str]
     dates: list[str]
     snapshot: SnapshotInfo
+    volumes: dict[str, dict[str, float]]
+    cost_bps: float
 
 
 def load_frame(snapshot_dir: str | Any, window: str | None = None) -> Frame:
     info = fingerprint(snapshot_dir)
     closes = load_closes(snapshot_dir)
+    volumes = load_volumes(snapshot_dir)
     dates = sorted({d for series in closes.values() for d in series})
     tickers = sorted(closes)
 
@@ -86,25 +98,52 @@ def load_frame(snapshot_dir: str | Any, window: str | None = None) -> Frame:
     dates = [d for d in dates if w_start <= d <= w_end]
     if len(dates) < 3:
         raise ValueError(f"window has {len(dates)} dates; need >= 3")
-    return Frame(closes, tickers, dates, info)
+    costs = info.manifest.get("costs") or {}
+    cost_bps = float(costs.get("per_side_bps", DEFAULT_COST_BPS))
+    if cost_bps < 0:
+        raise ValueError("manifest costs.per_side_bps must be non-negative")
+    return Frame(closes, tickers, dates, info, volumes, cost_bps)
 
 
 def evaluate_signal(frame: Frame, signal: SignalMatrix) -> dict[str, float]:
     """Evaluate a signal matrix over the frame: daily cross-sectional Spearman
-    rank IC against next-day forward returns, plus quintile diagnostics."""
+    rank IC against next-day forward returns, quintile diagnostics, and the
+    v0.7 budget-plane readouts:
+
+    * ``coverage`` — mean share of the frame's tickers carrying a signal on a
+      scored date. A factor that quietly scores only the tickers it likes
+      (cherry universe) cannot hide: the gate recomputes this and the
+      pre-registered bar tests it;
+    * ``turnover`` — mean daily one-sided turnover of the quintile long-short
+      portfolio (weights +1/q top quintile, -1/q bottom quintile);
+    * ``cost_bps_used`` / ``net_quintile_spread`` — the gross spread net of
+      trading costs at the frame's per-side cost model: drag =
+      2 * turnover * cost_bps / 1e4 (a rebalance trades |Δw|, one-sided
+      turnover τ = |Δw|/2, each unit pays the per-side cost);
+    * ``volume_dollar_median`` — median daily dollar volume of the scored
+      universe: the capacity readout (0.0 when the snapshot has no volumes).
+
+    All floats are rounded so results are byte-stable across platforms.
+    """
     closes, tickers, dates = frame.closes, frame.tickers, frame.dates
+    volumes, cost_bps = frame.volumes, frame.cost_bps
     ics: list[float] = []
     quintile_spreads: list[float] = []
     quintile_means: list[list[float]] = []
+    coverages: list[float] = []
+    turnovers: list[float] = []
+    dollar_volumes: list[float] = []
+    prev_weights: dict[str, float] | None = None
     for i in range(len(dates) - 1):
         t, t_next = dates[i], dates[i + 1]
-        sig, fwd = [], []
+        ids, sig, fwd = [], [], []
         for tk in tickers:
             row = signal.get(tk)
             v = row.get(t) if row else None
             c_now, c_fwd = closes[tk].get(t), closes[tk].get(t_next)
             if v is None or c_now is None or c_fwd is None:
                 continue
+            ids.append(tk)
             sig.append(float(v))
             fwd.append(c_fwd / c_now - 1.0)
         if len(sig) < 5:
@@ -113,14 +152,30 @@ def evaluate_signal(frame: Frame, signal: SignalMatrix) -> dict[str, float]:
         if ic is None:
             continue
         ics.append(ic)
+        coverages.append(len(sig) / len(tickers))
+        if volumes:
+            vol_row = sum(float(volumes.get(tk, {}).get(t, 0.0)) * closes[tk][t]
+                          for tk in ids)
+            dollar_volumes.append(vol_row)
         ranked = sorted(range(len(sig)), key=lambda i2: sig[i2])
         q = len(ranked) // 5
         if q == 0:
+            prev_weights = None  # no portfolio to carry into tomorrow
             continue
         buckets = [fmean([fwd[i2] for i2 in ranked[j * q:(j + 1) * q]])
                    for j in range(5)]
         quintile_means.append(buckets)
         quintile_spreads.append(buckets[4] - buckets[0])
+        weights = {ids[j2]: 0.0 for j2 in ranked}
+        for j2 in ranked[:q]:
+            weights[ids[j2]] = -1.0 / q          # bottom quintile: short leg
+        for j2 in ranked[-q:]:
+            weights[ids[j2]] = weights[ids[j2]] + 1.0 / q  # top: long leg
+        if prev_weights is not None:
+            traded = sum(abs(weights[g] - prev_weights.get(g, 0.0))
+                         for g in weights)
+            turnovers.append(0.5 * traded)
+        prev_weights = weights
     if not ics:
         raise ValueError("no evaluation dates produced an IC (signal too sparse)")
     mean_ic = fmean(ics)
@@ -130,12 +185,21 @@ def evaluate_signal(frame: Frame, signal: SignalMatrix) -> dict[str, float]:
         mono = spearman([1.0, 2.0, 3.0, 4.0, 5.0], avg)
     else:
         mono = None
+    gross = fmean(quintile_spreads) if quintile_spreads else 0.0
+    turnover = fmean(turnovers) if turnovers else 0.0
+    drag = 2.0 * turnover * cost_bps / 1e4
     return {
         "rankic_mean": round(mean_ic, 6),
         "rankic_tstat": round(mean_ic / (sd / len(ics) ** 0.5), 6) if sd > 0 else 0.0,
-        "quintile_spread": round(fmean(quintile_spreads), 6) if quintile_spreads else 0.0,
+        "quintile_spread": round(gross, 6),
         "monotonicity_proxy": round(mono, 6) if mono is not None else 0.0,
         "n_dates": len(ics),
+        "coverage": round(fmean(coverages), 6),
+        "turnover": round(turnover, 6),
+        "cost_bps_used": round(cost_bps, 4),
+        "net_quintile_spread": round(gross - drag, 6),
+        "volume_dollar_median": round(median(dollar_volumes), 2)
+        if dollar_volumes else 0.0,
     }
 
 

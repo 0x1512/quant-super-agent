@@ -37,37 +37,96 @@ Public, version-gated. Each version has scope + acceptance criteria; code lands 
 - FIB harness public (`qsa/fib.py` + [RUBRICS.md](RUBRICS.md)): 14 of the 20 injection classes mechanized as deterministic scenarios, plus the gate half of class 20 (honest control) and the code-pin discipline; every scenario judged by two baseline reviewers (`ungated`, `schema-only`) and the full stack, K=3 repeats asserted byte-identical
 - Acceptance: third party can reproduce at least one baseline run from published artifacts — **met**: `python examples/run_fib.py` (~2 min, offline) reproduces the full 16×3×3 matrix; results in [EVIDENCE.md](EVIDENCE.md) P5, rubrics in [RUBRICS.md](RUBRICS.md); the two baselines are framework-agnostic review policies, and the scenario builders are importable for external frameworks
 
-## v0.7 — instrument-grade quant plane (planned; re-anchored to the transfer theory)
+## v0.7 — instrument-grade quant plane (shipped; scope converged to the estimators)
 
-Reference: [THESIS.md](THESIS.md). Each workstream is an intervention on one term of the budget equation; each acceptance criterion is that term's estimator. A capability ships only together with the estimator that measures its term.
+Reference: [THESIS.md](THESIS.md). The v0.7 discipline: **a capability ships
+only together with the estimator that measures its budget-equation term.** The
+version is done when all five estimators read out of pipeline state; portfolio
+construction (P cards, composites, walk-forward folds) moved to v0.8 — it is a
+claim surface, not an estimator, and claims land after instruments.
 
-**B — breadth (extend the scannable manifold)**
-- OHLCV into the factor contract: `Frame` loads volume (fingerprinted today, invisible to factors); sandbox contract v2 `factor(closes, volumes, tickers, dates, i)` with v1 factors still running
-- Walk-forward folds: rolling evaluation with per-fold metrics on the E card; every fold counts as a trial for deflation; fold-window reuse refused at registration
-- Acceptance: **discovery@B curves** (true discoveries as a function of scan budget, K seeds, byte-deterministic) on planted worlds — reported as curves, not scalars
+**B — breadth (shipped)**
+- Sandbox contract v2 `factor(closes, volumes, tickers, dates, i)` — the
+  volume panel under the same truncation rule as closes; v1 factors still run
+  unchanged (`contract_of` detects the declared contract; v2 without volumes
+  is refused loudly, never silently degraded)
+- `Frame` carries volumes and the world's cost model; `load_volumes` degrades
+  gracefully for snapshots without a volume column
+- Acceptance: **discovery@B curve** — one family, one shared ledger, planted
+  and noise worlds interleaved: discovery decays 1.000 → 0.571 as B grows
+  1 → 13 (the Bonferroni floor rises 0 → 2.89) while false positives stay
+  0/8 — **met**: `python examples/run_discovery.py` (byte-deterministic)
 
-**P̂ — precision (extend failure-mode coverage)**
-- Universe pinning — mechanizes FIB 10: membership-as-of in the manifest; a survivorship-biased subset is a gate error
-- Exposure + neutralization: worlds gain sectors and size; sector-neutral IC and loadings are computed by the engine and recomputed by the gate; the risk role's veto upgrades to exposure-based (a size-tilted factor is a false discovery in neutralized terms)
-- Acceptance: **FIB ≥ 18 scenarios** (cherry-universe and cost-omission mechanized), all caught with localization, honest control still merges; **α-frontier experiment** — P̂ vs statistical power as gate strictness varies, frontier reported per environment (planted / noise)
+**P̂ — precision (shipped)**
+- `coverage` metric: mean share of the frame's tickers carrying a signal —
+  recomputed by the gate, pre-registrable as a bar (0.8 default). Universe
+  pinning = the fingerprinted manifest + coverage: a factor that quietly
+  scores only the names it likes fails mechanically
+- FIB 10 (cherry-universe) and FIB 22 (cost-blind) mechanized: 17 injections,
+  full-stack catch 1.0, localization 1.0, honest control merges everywhere;
+  schema-only catch 0.176 (they are invisible without recomputation — by
+  design)
+- Acceptance: **α-frontier** — power 0.861 → 0.417 and P̂ 0.912 → 1.000 as
+  the floor rises 1.5 → 3.5 (planted vs noise worlds, truth known by
+  construction) — **met**: `python examples/run_frontier.py`
 
-**TC — transfer (measure what survives contact with markets)**
-- Cost/turnover/capacity accounting: manifest-declared per-side bps, net-of-cost spreads, ADV-participation capacity; admission bars may be net; the gate recomputes all of it (new FIB class: cost omission — gross sold as net)
-- Portfolio layer: rank-to-weights construction (dollar-neutral, position caps), portfolio return stream, Sharpe/max drawdown; a P card schema with its own gate checks (weights sum, caps, one-shot windows)
-- Acceptance: **TC estimated from settlement** (corr of claimed-net vs realized-net across settled claims); a high-turnover factor that passes gross fails the net bar mechanically
+**TC — transfer (shipped)**
+- Manifest cost model (`costs.per_side_bps`, optional and pinned in the
+  fingerprint; default worlds stay byte-frozen at 10 bps via
+  `DEFAULT_COST_BPS`, recorded on every card as `cost_bps_used`)
+- Engine: `turnover` (daily one-sided, quintile long-short book),
+  `net_quintile_spread` = gross − 2·τ·c/1e4, `volume_dollar_median`
+  (capacity readout); the gate recomputes all of it from `factor_code`
+- Settlement realizes net metrics beside gross; the calibration report
+  carries the cost block; FIB 22 (net sold at gross) is caught by
+  recomputation
+- Acceptance: **TC from settlement** — measured drag on 52 settled claims:
+  gross +0.004467 → net +0.000894/day (turnover 1.7865, net/gross **0.2001**)
+  — the toy reversal keeps a fifth of its gross at 10 bps — **met**:
+  `python examples/run_calibration.py` (cost block in the report)
 
-**λℓ − δ — meta-drift (the return leg)**
-- Portfolio claims settle: the ledger accepts P cards; realized portfolio metrics recompute on the extended world
-- Multi-factor composites: pre-registered linear combinations of settled factor IDs, weights on the H card; post-hoc weight drift is a gate error (FIB 11 family)
-- Real-data settlement closure (closes an [EVIDENCE.md](EVIDENCE.md) admission): ingested worlds settle when the adapter appends new rows — recorded fixture test, no network in CI
-- Acceptance: **calibration cohort slope** (λℓ − δ estimator) in the report, deterministic under ScriptedLLM; composite settles end-to-end
+**λℓ − δ — meta-drift (shipped)**
+- `decay_slope`: OLS slope of realized on claimed across claimed-bins
+  (cohorts), in every calibration report; horizon recorded beside it
+- `qsa/budget.py`: `read_budget(ledger, registry)` reads the whole budget
+  vector off pipeline state — B (trial count), ĪC (mean realized IC over
+  held), P̂ anchor, TC block, decay slope
+- Acceptance: **cohort slope deterministic under ScriptedLLM** — 0.9019 over
+  90-day horizons on the v0.5 sweep (claims decay ~10%: the λℓ−δ exponent is
+  mildly negative) — **met** (pinned in `tests/test_settlement.py` /
+  `tests/test_budget.py`)
 
-**Envelope + instrumentation**
-- FIB scenarios export as framework-agnostic order JSON; a reference consumer implementing only the published contract — not the qsa gate — runs them; one external-consumer run published with raw logs
-- `python -m qsa` CLI: order → run → verify → settle → report in one command; K-run variance decomposition (data plane and gate asserted zero-variance; model-path variance measured when a real LLM is attached)
-- Acceptance: one external-consumer run reproduced from published artifacts; cold-start full loop < 10 min from a fresh clone
+**Envelope + instrumentation (shipped)**
+- `budget.envelope`: discovery(N) · P̂(N) · √N — breadth net of verification.
+  Measured on homogeneous effect pools: strength 0.08 peaks at **N\*=1**
+  (weak edges do not amortize verification); strength 0.15 peaks at
+  **N\*≈2.6e5** (strong edges amortize almost indefinitely) — the operating
+  point is a property of the effect pool, and the instrument says so
+- `python examples/run_frontier.py` emits frontier + both envelopes with
+  their peaks
 
-Overall v0.7 acceptance: [EVIDENCE.md](EVIDENCE.md) P6 reports the **budget vector** (ĪC, B_eff, P̂, TC, λℓ − δ) with the envelope axes separate, per environment (planted / noise / real CSV) — the transfer theory's first full instrument readout.
+Overall v0.7 acceptance: [EVIDENCE.md](EVIDENCE.md) P6 reports the **budget
+vector** (ĪC 0.162, B 52, P̂ anchor 0.942, TC net/gross 0.200, λℓ−δ slope
+0.902 on 90-day horizons) with the envelope axes separate, per environment —
+**met**.
+
+## v0.8 — portfolio claims (planned; moved out of v0.7)
+
+The claim surface the instruments now deserve:
+
+- Walk-forward folds: rolling evaluation with per-fold metrics on the E card;
+  every fold counts as a trial for deflation; fold-window reuse refused at
+  registration
+- Portfolio layer: rank-to-weights construction (dollar-neutral, position
+  caps), portfolio return stream, Sharpe/max drawdown; a P card schema with
+  its own gate checks (weights sum, caps, one-shot windows)
+- Multi-factor composites: pre-registered linear combinations of settled
+  factor IDs, weights on the H card; post-hoc weight drift is a gate error
+  (FIB 11 family)
+- Real-data settlement closure: ingested worlds settle when the adapter
+  appends new rows — recorded fixture test, no network in CI
+- Acceptance: a composite P card settles end-to-end; every fold deflated;
+  real-CSV settlement demonstrated on a fixture
 
 Non-goals (unchanged): no ML/DL training loop, no RL, no news/sentiment planes, no live trading; the LLM stays BYO (`OpenAICompatLLM`) with `ScriptedLLM` as the CI contract.
 

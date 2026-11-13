@@ -253,7 +253,8 @@ def gate(hypothesis_path: Path, result_path: Path, snapshot_dir: Path,
                 # select which dates to score, warmup uses pre-window data
                 full_frame = engine.load_frame(snapshot_dir)
                 signal = run_factor(e["factor_code"], full_frame.closes,
-                                    full_frame.tickers, full_frame.dates)
+                                    full_frame.tickers, full_frame.dates,
+                                    full_frame.volumes)
                 frame = engine.load_frame(snapshot_dir, e.get("window"))
                 recomputed = engine.evaluate_signal(frame, signal)
             except (SandboxError, ValueError) as exc:

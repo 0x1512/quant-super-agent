@@ -2,9 +2,9 @@
 
 **A verifiable agentic quant research factory — machine-checked evidence, honest settlement, bounded autonomy.**
 
-![status](https://img.shields.io/badge/status-v0.6%20FIB%20harness-green) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![benchmark](https://img.shields.io/badge/benchmark-fabrication--injection%20harness-green)
+![status](https://img.shields.io/badge/status-v0.7%20budget%20estimators-green) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![benchmark](https://img.shields.io/badge/benchmark-fabrication--injection%20harness-green)
 
-> **What runs today (v0.6):** the full gated research loop — pre-registered hypotheses, sandboxed factor code, multiple-testing-deflated verdicts, one-shot out-of-sample windows, attribution-driven iteration under budget — plus ablatable quant roles (data / factor / risk / manager), a bull/bear adversarial review gate before admission, a hash-chained settlement ledger with calibration curve and tighten-only reflection rule, and the **Fabrication Injection Benchmark harness**: 15 deterministic injection scenarios judged by an ungated baseline, a schema-only baseline, and the full gate. On synthetic or your own CSV data, fully offline and deterministic. Pure Python ≥ 3.10 stdlib, zero dependencies.
+> **What runs today (v0.7):** the full gated research loop — pre-registered hypotheses, sandboxed factor code (v1 `factor(closes, tickers, dates, i)` and v2 `factor(closes, volumes, tickers, dates, i)`), multiple-testing-deflated verdicts, one-shot out-of-sample windows, attribution-driven iteration under budget — plus ablatable quant roles, a bull/bear adversarial review gate, a hash-chained settlement ledger with calibration curve and tighten-only reflection rule, the **Fabrication Injection Benchmark harness** (17 injections × 2 baselines + full gate, published raw logs), and the **budget estimators**: every term of the thesis equation *E[IR] ≈ ĪC·√B_eff·P̂·TC·e^{(λℓ−δ)t}* now reads out of pipeline state — discovery@B curves, α-frontier with P̂, net-of-cost TC blocks, cohort decay slope, and the breadth/verification envelope (`qsa/budget.py`). On synthetic or your own CSV data, fully offline and deterministic. Pure Python ≥ 3.10 stdlib, zero dependencies.
 >
 > **Thesis** ([docs/THESIS.md](docs/THESIS.md)): *throughput is cheap; verification is the constraint* — the deployable information ratio factors into stage efficiencies that compose multiplicatively, and the field's budget terminates before the binding terms.
 >
@@ -37,17 +37,23 @@ python examples/run_ablation.py
 python examples/run_calibration.py
 
 # 5) v0.6 acceptance: Fabrication Injection Benchmark harness
-#    (15 injection scenarios x 2 baselines + full gate, K=3 repeats)
+#    (17 injection scenarios x 2 baselines + full gate, K=3 repeats)
 python examples/run_fib.py
 
-# 6) your own data: CSV -> legal, fingerprinted snapshot (local-first)
+# 6) v0.7 acceptance: the budget estimators
+#    discovery@B (breadth decays as trials accumulate) +
+#    α-frontier / envelope (P̂ vs power; the operating point)
+python examples/run_discovery.py
+python examples/run_frontier.py
+
+# 7) your own data: CSV -> legal, fingerprinted snapshot (local-first)
 python -m qsa.ingest myprices.csv mydata/
 
 # the whole contract, machine-checked
-python -m unittest discover -s tests -v     # 141 tests: gate, FIB injections, registry,
-                                            # deflation, sandbox, mining, roles, review,
+python -m unittest discover -s tests -v     # 157 tests: gate, FIB injections, registry,
+                                            # deflation, sandbox v1+v2, mining, roles, review,
                                             # ablation, settlement, calibration,
-                                            # FIB harness, determinism
+                                            # FIB harness, budget estimators, determinism
 ```
 
 What the mining demo prints (abbreviated):
@@ -133,7 +139,7 @@ Four disciplines make retry pressure harmless:
 
 - **Pre-registration ordering** — the append-only registry refuses an experiment whose hypothesis was not registered first, duplicated IDs, and post-hoc edits (FIB classes 9).
 - **Multiple-testing deflation** — with N settled looks in a family, the t-statistic must clear the Bonferroni floor for N. The 10th "new idea" faces a bar the 1st did not; bar-lowering retries fail mechanically (FIB class 11).
-- **Sandboxed factor code** — LLM-written factors run under an AST whitelist with a truncated-view contract: `factor(closes≤t, tickers, dates≤t, i)`. Look-ahead needs a sandbox escape, not a bug (FIB class 2: metrics that don't match the code are rejected by recomputation).
+- **Sandboxed factor code** — LLM-written factors run under an AST whitelist with a truncated-view contract: v1 `factor(closes≤t, tickers, dates≤t, i)` or v2 `factor(closes≤t, volumes≤t, tickers, dates≤t, i)` (liquidity-aware factors; v1 code runs unchanged). Look-ahead needs a sandbox escape, not a bug (FIB class 2: metrics that don't match the code are rejected by recomputation).
 - **One-shot OOS windows** — an out-of-sample window that produced a pass is burned in the ledger; reuse is refused at registration (FIB class 13).
 - **Ablatable roles with mechanical duties** (v0.4) — the data role blocks underpowered designs before they burn a trial; the risk role vetoes on measured half-split instability. A role is a persona prompt *plus* a function: ablating it removes a check, not a vibe.
 - **Bull/bear review before admission** (v0.4, rounds configurable) — reviewers emit structured R cards; a bear objection is upheld only if its check verifiably fails, bull rhetoric never admits, and every R card lands in the append-only ledger. The gate also verifies *claimed vetoes* recompute from source — a fabricated veto is as much a lie as a fabricated pass.
@@ -144,9 +150,19 @@ Failures are classified mechanically (insufficient observations / instability / 
 
 Admitted factors are not "done": every claim settles on a 90-day horizon the admission never touched — the world is deterministically continued from the same seed, the factor re-executes in the sandbox, and the realized metrics come from the same engine that gated the admission (never from the card). Results land in a **hash-chained settlement ledger** whose every entry rebuilds and recomputes under audit, and feed two things: the **calibration curve** (claimed vs realized, the headline metric — not return), and a **reflection rule** that tightens a family's admission bar ×1.25 when its settled claims fall short too often (calibration only tightens; it never loosens).
 
-### 4. Fabrication Injection Benchmark harness (shipped, v0.6)
+### 4. Fabrication Injection Benchmark harness (shipped, v0.6; extended v0.7)
 
-The failure modes under pressure are measured, not assumed: 15 injection classes from [docs/BENCHMARK.md](docs/BENCHMARK.md) — phantom metrics, silent passes, unit mismatches, post-hoc bar lowering, ledger tampering, settle forgery, … — are mechanized as deterministic PR submissions (an otherwise honest H/E card pair with one scripted mutation each) and routed through three judges: an ungated single agent, a schema-only reviewer, and the full gate. The acceptance table: the full gate catches 15/15 with every error naming the touched field, the schema-only baseline catches 3/15 (the structural lies), the ungated baseline catches 0/15 — and an honest negative result merges under all three. Rubrics: [docs/RUBRICS.md](docs/RUBRICS.md); results: [docs/EVIDENCE.md](docs/EVIDENCE.md) P5.
+The failure modes under pressure are measured, not assumed: injection classes from [docs/BENCHMARK.md](docs/BENCHMARK.md) — phantom metrics, silent passes, unit mismatches, post-hoc bar lowering, ledger tampering, settle forgery, cherry universes, cost-blind nets, … — are mechanized as deterministic PR submissions (an otherwise honest H/E card pair with one scripted mutation each) and routed through three judges: an ungated single agent, a schema-only reviewer, and the full gate. The acceptance table: the full gate catches 17/17 with every error naming the touched field, the schema-only baseline catches 3/17 (the structural lies), the ungated baseline catches 0/17 — and an honest negative result merges under all three. Rubrics: [docs/RUBRICS.md](docs/RUBRICS.md); results: [docs/EVIDENCE.md](docs/EVIDENCE.md) P5/P6.
+
+### 4b. Budget estimators — every term of the thesis equation, measured (shipped, v0.7)
+
+The thesis factors the deployable information ratio as *E[IR] ≈ ĪC·√B_eff·P̂·TC·e^{(λℓ−δ)t}*. v0.7's discipline: a capability ships only together with the estimator that measures its term. What reads out of pipeline state (`qsa/budget.py` + three scripts):
+
+- **B — discovery@B**: one family, one shared ledger; discovery decays 1.000 → 0.571 as trials accumulate (the ledger's own Bonferroni floor rises), false positives stay 0/8 (`run_discovery.py`)
+- **P̂ — α-frontier**: power vs false-positive rate across admission floors on planted/noise worlds (truth known by construction); P̂ = power/(power+fpr). Power 0.861 → 0.417 and P̂ 0.912 → 1.000 as the floor rises (`run_frontier.py`)
+- **TC — net-of-cost settlement**: per-side bps pinned in the fingerprinted manifest, turnover and net spreads computed by the engine and recomputed by the gate; on the 52-claim calibration sweep the toy reversal keeps net/gross **0.2001** at 10 bps — and FIB 22 (net sold at gross) is caught by recomputation
+- **λℓ−δ — cohort decay slope**: OLS of realized on claimed across claimed-bins; 0.9019 over 90-day horizons (mild leakage)
+- **Envelope**: discovery(N)·P̂(N)·√N — breadth net of verification; weak effect pools peak at N\*=1 (they never amortize verification), strong ones at N\*≈2.6e5. The operating point is a property of the pool, and the instrument says so
 
 ### 5. Bounded autonomy (pilot-validated; ships with the harness layers)
 
@@ -162,7 +178,8 @@ Autonomy is a dial with a fence — L0 observe / L1 suggest / L2 admit-gated / L
 | Research loop (H→E→iterate) | ✖ decision per date | ✖ | ✔ | ✖ | ✔ **shipped v0.3** — pre-registered, deflation-floored |
 | Claim-level CI gate | ✖ | ✖ | partial (backtest check) | ✖ | ✔ **shipped** — schema + fingerprint + no-lookahead + code recomputation |
 | Multiple-testing control | ✖ | ✖ | ✖ | ✖ | ✔ **shipped v0.3** — Bonferroni floor at family N |
-| Fabrication benchmark | ✖ | ✖ | ✖ | ✖ | ✔ **shipped v0.6** — FIB harness, 15 scenarios × 2 baselines + gate, published rubrics |
+| Fabrication benchmark | ✖ | ✖ | ✖ | ✖ | ✔ **shipped v0.6, extended v0.7** — FIB harness, 17 scenarios × 2 baselines + gate, published rubrics and raw logs |
+| Budget-equation estimators | ✖ | ✖ | ✖ | ✖ | ✔ **shipped v0.7** — discovery@B, α-frontier/P̂, net-of-cost TC, decay slope, envelope |
 | Autonomy control | ✖ | ✖ | ✖ | n/a | pilot-validated design (L0–L3 + watchdog, 0.21 s measured) |
 | Reproducibility protocol | acknowledged, unmeasured | ✖ | ✖ | seed-based | ✔ byte-level determinism asserted by tests + data fingerprints |
 
@@ -179,7 +196,7 @@ Internal pilots (deterministic git-forge emulation, 2026-11) — full inventory 
 | Autonomy risk (G-1) three-arm × 5 rounds | Risk reproduced once in the wild; containment stack achieved **5/5 clean windows** in the full-protection arm; watchdog detection→stop **0.21 s**; zero spillover |
 | Data plane | As-of snapshot + reconciliation tooling; 144-point cross-check zero mismatch; tamper-rejection verified |
 
-Everything claimed for the shipped versions is reproducible from this repo: 141 tests (offline, deterministic) and a CI matrix across Python 3.10–3.13 that also runs all five demos as regression contracts — the v0.2–v0.6 acceptance tables in [docs/EVIDENCE.md](docs/EVIDENCE.md) map every discipline to its test.
+Everything claimed for the shipped versions is reproducible from this repo: 157 tests (offline, deterministic) and a CI matrix across Python 3.10–3.13 that also runs all the acceptance demos as regression contracts — the v0.2–v0.7 acceptance tables in [docs/EVIDENCE.md](docs/EVIDENCE.md) map every discipline to its test.
 
 ## Roadmap (summary)
 
@@ -189,7 +206,8 @@ Everything claimed for the shipped versions is reproducible from this repo: 141 
 - **v0.4** ablatable quant roles + bull/bear review gate + ablation table (shipped)
 - **v0.5** settlement ledger + calibration curve + tighten-only reflection rule (shipped)
 - **v0.6** Fabrication Injection Benchmark harness + rubrics (shipped; external-framework runs next)
-- **v0.7** instrument-grade quant plane, re-anchored to the transfer theory (breadth / precision / transfer / meta-drift each gain capability + estimator): OHLCV factors, walk-forward, universe pinning, neutralization, cost-capacity accounting, portfolio cards, composites, real-data settlement, FIB externalization, CLI + variance protocol (planned)
+- **v0.7** budget estimators, re-anchored to the transfer theory: sandbox v2 (volumes), coverage/universe pinning, cost-capacity accounting with gate-recomputed net metrics, cohort decay slope, discovery@B + α-frontier + envelope (shipped)
+- **v0.8** portfolio claims: P cards, composites, walk-forward folds, real-data settlement (planned)
 - **v1.0** paper artifact + reproduction protocol
 
 Full version: [docs/ROADMAP.md](docs/ROADMAP.md).
@@ -216,7 +234,7 @@ Full version: [docs/ROADMAP.md](docs/ROADMAP.md).
   title  = {Quant Super Agent: A Verifiable Agentic Quant Research Factory},
   author = {Quant Super Agent Contributors},
   year   = {2026},
-  note   = {Evidence plane, gated research loop, roles, debate, settlement, calibration, FIB harness, v0.6},
+  note   = {Evidence plane, gated research loop, roles, debate, settlement, calibration, FIB harness, budget estimators, v0.7},
   url    = {https://github.com/0x1512/quant-super-agent}
 }
 ```

@@ -50,15 +50,22 @@ SYSTEM_FACTOR = (
     "You are a quantitative researcher implementing one cross-sectional "
     "factor. Respond with ONLY Python code defining exactly: "
     "def factor(closes, tickers, dates, i): ... returning {ticker: value} "
-    "for date index i (empty dict is fine for warmup dates). closes is "
-    "{ticker: {date: close}} truncated to dates <= dates[i] — future data "
-    "does not exist and cannot be named. No imports, no attribute access "
-    "beyond .get/.items/.keys/.values/.append, no while-loops.")
+    "for date index i (empty dict is fine for warmup dates) — or, when your "
+    "factor needs liquidity, the v2 contract def factor(closes, volumes, "
+    "tickers, dates, i) with volumes {ticker: {date: volume}}. closes and "
+    "volumes are truncated to dates <= dates[i] — future data does not "
+    "exist and cannot be named. No imports, no attribute access beyond "
+    ".get/.items/.keys/.values/.append, no while-loops. Score the whole "
+    "universe: a factor that names only tickers it likes fails the "
+    "pre-registered coverage bar.")
 
 REQUIRED_METRICS_DEFAULT = ["rankic_mean", "rankic_tstat", "quintile_spread",
-                            "monotonicity_proxy", "n_dates"]
+                            "monotonicity_proxy", "n_dates", "coverage",
+                            "turnover", "cost_bps_used",
+                            "net_quintile_spread"]
 THRESHOLDS_DEFAULT = {"rankic_mean": {"op": ">=", "value": 0.02},
-                      "quintile_spread": {"op": ">=", "value": 0.0}}
+                      "quintile_spread": {"op": ">=", "value": 0.0},
+                      "coverage": {"op": ">=", "value": 0.8}}
 
 
 def _strip_fences(text: str) -> str:
@@ -203,7 +210,7 @@ def run_order(work: Path, snapshot_dir: Path, order_text: str, llm: BaseLLM,
         try:
             full_frame = engine.load_frame(snapshot_dir)
             matrix = run_factor(code, full_frame.closes, full_frame.tickers,
-                                full_frame.dates)
+                                full_frame.dates, full_frame.volumes)
             frame = engine.load_frame(snapshot_dir, h["window"])
             metrics = engine.evaluate_signal(frame, matrix)
         except SandboxError as exc:

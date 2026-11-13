@@ -158,13 +158,13 @@ class TestDeterminism(FibBase):
 
 
 class TestPublishedArtifact(FibBase):
-    """docs/fib_v06_run.json is the published raw log — it must stay
+    """docs/fib_v07_run.json is the published raw log — it must stay
     byte-identical to a fresh run (metrics + per-scenario verdicts)."""
 
     def test_published_run_matches_fresh_metrics(self):
         repo = Path(__file__).resolve().parents[1]
         published = json.loads(
-            (repo / "docs" / "fib_v06_run.json").read_text())
+            (repo / "docs" / "fib_v07_run.json").read_text())
         _, m = run_all(self.root)
         self.assertEqual(published["metrics"], m)
         self.assertEqual(published["n_scenarios"], len(SCENARIOS))

@@ -28,8 +28,12 @@ jobs:
         run: python examples/run_ablation.py
       - name: v0.5 settlement + calibration acceptance
         run: python examples/run_calibration.py
-      - name: v0.6 FIB harness acceptance (15 injections x 2 baselines + gate)
+      - name: v0.6 FIB harness acceptance (17 injections x 2 baselines + gate)
         run: python examples/run_fib.py
+      - name: v0.7 budget estimators (discovery@B + alpha-frontier)
+        run: |
+          python examples/run_discovery.py
+          python examples/run_frontier.py
       - name: ingest round-trip — user CSV must become a legal snapshot
         run: |
           python - <<'EOF'

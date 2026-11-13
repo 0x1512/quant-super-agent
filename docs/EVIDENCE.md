@@ -188,6 +188,60 @@ Honest limits of this run, stated before anyone else does:
   one PR) are caught by the same layers independently, but the harness
   does not enumerate compositions.
 
+## P6 — the budget vector, first instrument readout (v0.7)
+
+The transfer theory's claim is that the deployable information ratio factors
+into measurable stage efficiencies. v0.7 ships the estimators; this run reads
+every term off pipeline state. Sources: `python examples/run_calibration.py`
+(the v0.5 sweep re-settled under the v0.7 engine — net metrics beside gross),
+`python examples/run_discovery.py`, `python examples/run_frontier.py`.
+
+| term | estimator | readout (this run) |
+|---|---|---|
+| B | trial count in the shared ledger | 52 settled trials (`work/discovery`: floor 0 → 2.89 as B 1 → 13) |
+| ĪC | mean realized rank IC over *held* settled claims | **0.162025** |
+| P̂ | planted-world anchor: settled-claim truth share; α-frontier power/(power+fpr) | anchor **0.942**; frontier P̂ 0.912 → 1.000 as floor 1.5 → 3.5 |
+| TC | cost block on settled horizons: gross vs net at the world's 10 bps | gross +0.004467 → net **+0.000894**/day (turnover 1.7865, net/gross **0.2001**) |
+| λℓ − δ | cohort decay slope: OLS of realized on claimed across claimed-bins | **0.9019** over 90-day horizons (claims keep ~90%: mild leakage) |
+
+**discovery@B** (one family, one shared ledger, planted s=0.10 + noise
+interleaved): discovery 1.000 → 0.571 as B grows 1 → 13 (the Bonferroni floor
+the ledger itself enforces rises 0 → 2.89); false positives 0/8 throughout.
+More mining buys less: the diminishing-returns term is a measured curve, not
+an assertion.
+
+**α-frontier** (planted strengths 0.05–0.20 × 6 seeds vs 24 noise worlds):
+power 0.861 → 0.417 and P̂ 0.912 → 1.000 as the admission floor rises
+1.5 → 3.5. Verification is bought with power; the frontier prices the
+exchange.
+
+**Envelope** (discovery(N) · P̂(N) · √N, homogeneous effect pools): strength
+0.08 peaks at **N\*=1** — weak edges never amortize the verification cost;
+strength 0.15 peaks at **N\*≈2.6e5** — strong edges amortize almost
+indefinitely. The operating point is a property of the effect pool. The
+instrument says so; no operating point is claimed for production data.
+
+**FIB v0.7** (`docs/fib_v07_run.json`, byte-pinned): 18 scenarios (honest
+control + 15 official classes incl. the new cherry-universe + code pin +
+cost-blind), full-stack catch **17/17**, localization 1.0, honest control
+merges under all judges; schema-only catch 0.176 — the new classes are
+invisible without recomputation, by design.
+
+Admissions closed by v0.7, previously stated as gaps:
+
+- FIB 10 (cherry-universe) is now mechanized and caught (coverage bar +
+  recomputation). Remaining outside: 5, 8, 17, 18 and sycophancy-20 (need
+  recon/isolation layers or a real LLM).
+- TC is now measured end-to-end (cost model pinned in manifests, net metrics
+  recomputed by the gate, cost drag settled in the ledger; FIB 22 catches
+  gross-sold-as-net).
+- λℓ − δ has its estimator: the cohort decay slope (0.9019 this run),
+  deterministic under ScriptedLLM.
+
+Still open (carried in [ROADMAP.md](ROADMAP.md) v0.8): portfolio claims (P
+cards, composites, walk-forward folds) and real-data settlement on an
+appended CSV — the instrument plane ships first, the claim surface next.
+
 ## What these pilots do NOT show
 
 - No positive alpha discovery in the *production* mining loop yet (its pilots returned honest negatives by design); the ablation's and the calibration sweep's planted worlds are synthetic ground truth, not market alpha.

@@ -86,8 +86,9 @@ def hypothesis(oos_window: str) -> str:
         "admission": {
             "required_metrics": ["rankic_mean", "rankic_tstat",
                                  "quintile_spread", "monotonicity_proxy",
-                                 "n_dates"],
-            "thresholds": {"rankic_mean": {"op": ">=", "value": 0.02}},
+                                 "n_dates", "coverage"],
+            "thresholds": {"rankic_mean": {"op": ">=", "value": 0.02},
+                           "coverage": {"op": ">=", "value": 0.8}},
             "min_observations": 10}})
 
 

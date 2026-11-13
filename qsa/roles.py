@@ -130,7 +130,8 @@ def risk_check(code: str, snapshot_dir: Any, h: dict[str, Any],
     if isinstance(rc, dict) and isinstance(rc.get("value"), (int, float)):
         bar = abs(float(rc["value"]))
     try:
-        matrix = run_factor(code, frame.closes, frame.tickers, frame.dates)
+        matrix = run_factor(code, frame.closes, frame.tickers, frame.dates,
+                            frame.volumes)
         first = engine.evaluate_signal(
             engine.load_frame(snapshot_dir, f"{dates[0]}:{dates[half - 1]}"),
             matrix)

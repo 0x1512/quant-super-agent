@@ -360,7 +360,8 @@ class TestCalibrationReport(unittest.TestCase):
             led.record({
                 "schema": "settlement", "settle_id": f"S-{i:04d}",
                 "exp_id": f"E-{i:04d}", "family": "f", "iteration": 1,
-                "world": {"plant": {"effect": "reversal",
+                "world": {"kind": "synthetic", "extension_days": 90,
+                          "plant": {"effect": "reversal",
                                     "strength": 0.15} if plant else None},
                 "claimed": {"value": claim, "metric": "rankic_mean"},
                 "realized": {"rankic_mean": real},
@@ -373,9 +374,13 @@ class TestCalibrationReport(unittest.TestCase):
         self.assertEqual(rep["by_truth"]["planted"]["n"], 2)
         self.assertEqual(rep["by_truth"]["noise"]["n"], 2)
         self.assertIn("curve", rep)
+        # v0.7 readouts: decay slope (λℓ−δ proxy) and horizon context
+        self.assertIsInstance(rep["decay_slope"], float)
+        self.assertEqual(rep["horizon_days"], 90)
         md = settlement.report_markdown(rep)
         self.assertIn("| claimed rank IC bin |", md)
         self.assertIn("- noise: n=2", md)
+        self.assertIn("decay slope", md)
 
 
 class TestCalibrationAcceptance(unittest.TestCase):
