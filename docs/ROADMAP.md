@@ -130,7 +130,15 @@ The claim surface the instruments now deserve:
 
 Non-goals (unchanged): no ML/DL training loop, no RL, no news/sentiment planes, no live trading; the LLM stays BYO (`OpenAICompatLLM`) with `ScriptedLLM` as the CI contract.
 
-## v1.0 — paper artifact
+## v1.0 — three classic scenarios, end to end (the demo release)
+- Full spec with per-goal acceptance: [V1_SCENARIOS.md](V1_SCENARIOS.md) — 30 numbered goals (10 per scenario)
+- **A. Research report replication**: one public quant report transcribed to a provenance-carrying H card; recomputed on an ingested fingerprinted snapshot; disagreement mechanically attributed; verdict criterion pre-registered; forward claim settled at 90 days; `run_replication.py`
+- **B. Market-view verification**: 10 real circulating views as pre-registered hypothesis cards, one family under deflation; one-shot OOS; bear-role counterexamples; honest failure rate; calibration from the ledger; `run_viewcheck.py`
+- **C. Market regime summarization**: engine-computed per-day fact tables bound to snapshot fingerprints; a statement-consistency gate (no number without a fact-table basis, no "broad rally" without the threshold); pre-registered regime rules with falsification conditions; rolling replay with zero narrative drift; `run_regime.py`
+- Each scenario contains a recorded same-prompt control against an ungated general agent (fabrication-under-pressure, multiple-testing, hallucination) — the differentiation is measured, not asserted
+- Acceptance: all three runners reproduce byte-identically offline; every demo number traces to snapshot → card → engine → gate recomputation; paper artifact + cold-start reproduction protocol rides along
+
+## v1.1 — paper artifact
 - Reproduction protocol (variance decomposition, K-run reporting), paper, cached environments
 - Acceptance: cold-start reproduction by a non-author within one day
 

@@ -208,7 +208,8 @@ Everything claimed for the shipped versions is reproducible from this repo: 157 
 - **v0.6** Fabrication Injection Benchmark harness + rubrics (shipped; external-framework runs next)
 - **v0.7** budget estimators, re-anchored to the transfer theory: sandbox v2 (volumes), coverage/universe pinning, cost-capacity accounting with gate-recomputed net metrics, cohort decay slope, discovery@B + α-frontier + envelope (shipped)
 - **v0.8** portfolio claims: P cards, composites, walk-forward folds, real-data settlement (planned)
-- **v1.0** paper artifact + reproduction protocol
+- **v1.0** three classic scenarios end to end (report replication · view verification · regime summarization), each with recorded ungated-agent controls — spec: [docs/V1_SCENARIOS.md](docs/V1_SCENARIOS.md)
+- **v1.1** paper artifact + reproduction protocol
 
 Full version: [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -219,6 +220,7 @@ Full version: [docs/ROADMAP.md](docs/ROADMAP.md).
 - [Fabrication Injection Benchmark](docs/BENCHMARK.md) — 20 injection classes, metrics, protocol
 - [FIB rubrics](docs/RUBRICS.md) — judge definitions, metric formulas, acceptance bar
 - [Evidence](docs/EVIDENCE.md) — pilot inventory, public acceptance tables (v0.2/v0.3)
+- [v1.0 scenarios](docs/V1_SCENARIOS.md) — the demo release: report replication · view verification · regime summarization, 30 goals with acceptance
 - [Roadmap](docs/ROADMAP.md) — phases, scope, acceptance criteria
 - 中文简介：[README.zh-CN.md](README.zh-CN.md)
 
