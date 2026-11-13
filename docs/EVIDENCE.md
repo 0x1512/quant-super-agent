@@ -69,7 +69,7 @@ The mining demo (`examples/run_mining.py`) is deliberately a negative result: it
 
 ## v0.4 public release — roles + adversarial review acceptance (automated, reproducible by anyone)
 
-Reproducible from this repository: `python examples/run_ablation.py` (~15 s, offline, deterministic) and `python -m unittest discover -s tests -v` (110 tests).
+Reproducible from this repository: `python examples/run_ablation.py` (~15 s, offline, deterministic) and `python -m unittest discover -s tests -v` (110 tests at this release; the current suite is larger — see the v0.7 section).
 
 The ablation measures what each gating layer costs and buys. The **persona policy is identical in every configuration** (same hypothesis, same factor code, same bull/bear arguments), so differences between rows are the machinery, not the script. Planted worlds carry a real 1-day reversal (strength 0.15 → the policy's factor measures rank IC 0.117 / 0.122 / 0.160 on the three worlds, mean ≈ 0.13, t ≈ 4.2); noise worlds carry nothing — an admission there is a false positive by construction.
 
@@ -98,7 +98,7 @@ Reading it honestly:
 
 ## v0.5 public release — settlement ledger + calibration acceptance (automated, reproducible by anyone)
 
-Reproducible from this repository: `python examples/run_calibration.py` (~15 s, offline, deterministic) and `python -m unittest discover -s tests -v` (141 tests).
+Reproducible from this repository: `python examples/run_calibration.py` (~15 s, offline, deterministic) and `python -m unittest discover -s tests -v` (141 tests at this release; the current suite is 157 — see the v0.7 section).
 
 The sweep runs the production stack (data+factor+risk roles, 1 debate round, the same scripted persona policy on every world) over 64 planted worlds (reversal strengths 0.05–0.30 × 8 seeds) and 24 pure-noise worlds, settles every admitted claim on a 90-day horizon — as long as the claim's own window — and audits the ledger.
 
