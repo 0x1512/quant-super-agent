@@ -14,11 +14,12 @@ byte-stable across platforms.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from statistics import fmean, median, pstdev
 from typing import Any, Callable
 
-from .snapshot import SnapshotInfo, fingerprint, load_closes, load_volumes
+from .snapshot import (SnapshotInfo, fingerprint, load_closes, load_opens,
+                       load_volumes)
 
 EVAL_ID = "qsa-eval-0.7.0"
 ENGINE_ID = "qsa-toy-momentum-0.2.0"  # kept: the toy factor's historical id
@@ -69,10 +70,11 @@ def _parse_window(window: str) -> tuple[str, str]:
 
 @dataclass(frozen=True)
 class Frame:
-    """A validated evaluation frame: closes + volumes + window calendar + the
-    world's transaction-cost model (v0.7). ``volumes`` is empty for snapshots
-    without a volume column; ``cost_bps`` is the per-side cost in bps from the
-    manifest's ``costs`` block (or :data:`DEFAULT_COST_BPS`)."""
+    """A validated evaluation frame: closes + opens + volumes + window calendar
+    + the world's transaction-cost model (v0.7). ``volumes`` and ``opens`` are
+    empty for snapshots without those columns (synthetic worlds are
+    close-only); ``cost_bps`` is the per-side cost in bps from the manifest's
+    ``costs`` block (or :data:`DEFAULT_COST_BPS`)."""
 
     closes: dict[str, dict[str, float]]
     tickers: list[str]
@@ -80,12 +82,14 @@ class Frame:
     snapshot: SnapshotInfo
     volumes: dict[str, dict[str, float]]
     cost_bps: float
+    opens: dict[str, dict[str, float]] = field(default_factory=dict)
 
 
 def load_frame(snapshot_dir: str | Any, window: str | None = None) -> Frame:
     info = fingerprint(snapshot_dir)
     closes = load_closes(snapshot_dir)
     volumes = load_volumes(snapshot_dir)
+    opens = load_opens(snapshot_dir)
     dates = sorted({d for series in closes.values() for d in series})
     tickers = sorted(closes)
 
@@ -102,7 +106,7 @@ def load_frame(snapshot_dir: str | Any, window: str | None = None) -> Frame:
     cost_bps = float(costs.get("per_side_bps", DEFAULT_COST_BPS))
     if cost_bps < 0:
         raise ValueError("manifest costs.per_side_bps must be non-negative")
-    return Frame(closes, tickers, dates, info, volumes, cost_bps)
+    return Frame(closes, tickers, dates, info, volumes, cost_bps, opens)
 
 
 def evaluate_signal(frame: Frame, signal: SignalMatrix) -> dict[str, float]:

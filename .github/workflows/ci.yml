@@ -28,8 +28,15 @@ jobs:
         run: python examples/run_ablation.py
       - name: v0.5 settlement + calibration acceptance
         run: python examples/run_calibration.py
-      - name: v0.6 FIB harness acceptance (17 injections x 2 baselines + gate)
+      - name: v0.6 FIB harness acceptance (20 injections x 2 baselines + gate)
         run: python examples/run_fib.py
+      - name: v1.0 Scenario A — report replication (fixture-pinned, offline; byte-identical double run)
+        if: matrix.python-version == '3.12'
+        run: |
+          python examples/run_replication.py --work "$RUNNER_TEMP/rep1"  # ~19 min on 300 tickers x 5y
+          cp -r "$RUNNER_TEMP/rep1" "$RUNNER_TEMP/rep1-copy"
+          python examples/run_replication.py --work "$RUNNER_TEMP/rep1"
+          diff -r "$RUNNER_TEMP/rep1" "$RUNNER_TEMP/rep1-copy" && echo BYTE-IDENTICAL
       - name: v0.7 budget estimators (discovery@B + alpha-frontier)
         run: |
           python examples/run_discovery.py

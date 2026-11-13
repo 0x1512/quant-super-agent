@@ -14,8 +14,10 @@ venv/
 dist/
 build/
 
-# data & artifacts
+# data & artifacts (except the pinned replication fixture)
 data/
+!examples/data/
+!examples/data/**
 work/
 *.sqlite
 *.sqlite3

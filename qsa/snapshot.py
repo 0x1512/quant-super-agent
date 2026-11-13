@@ -264,3 +264,23 @@ def load_volumes(out_dir: Path) -> dict[str, dict[str, float]]:
                 continue
             volumes.setdefault(row["ticker"], {})[row["date"]] = float(v)
     return volumes
+
+
+def load_opens(out_dir: Path) -> dict[str, dict[str, float]]:
+    """Return {ticker: {date: open}} — empty when the file has no open column.
+
+    v1.0-A (replication plane): overnight factors need the opening price;
+    synthetic worlds omit it (close-only random walks) and ingested real-data
+    snapshots carry it. Same shape and truncation semantics as closes."""
+    fingerprint(out_dir)  # refuse to load anything that fails recon
+    opens: dict[str, dict[str, float]] = {}
+    with (Path(out_dir) / "daily" / "prices.csv").open(encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        if "open" not in (reader.fieldnames or []):
+            return opens
+        for row in reader:
+            v = row.get("open")
+            if v is None or v == "":
+                continue
+            opens.setdefault(row["ticker"], {})[row["date"]] = float(v)
+    return opens

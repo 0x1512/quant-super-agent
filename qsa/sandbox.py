@@ -78,12 +78,16 @@ def check_code(code: str) -> None:
     args = [a.arg for a in defs[0].args.args]
     if not (args[:4] == ["closes", "tickers", "dates", "i"] and len(args) == 4) \
             and not (args[:5] == ["closes", "volumes", "tickers", "dates", "i"]
-                     and len(args) == 5):
+                     and len(args) == 5) \
+            and not (args[:6] == ["closes", "opens", "volumes", "tickers",
+                                  "dates", "i"] and len(args) == 6):
         raise SandboxError(
             "factor signature must be v1 factor(closes, tickers, dates, i) "
-            "or v2 factor(closes, volumes, tickers, dates, i) — parameter "
+            "or v2 factor(closes, volumes, tickers, dates, i) or v3 "
+            "factor(closes, opens, volumes, tickers, dates, i) — parameter "
             "names are the contract (v2 adds volumes: {ticker: {date: "
-            "volume}}, truncated like closes)")
+            "volume}}, v3 adds opens: {ticker: {date: open}}, truncated like "
+            "closes)")
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Attribute):
@@ -112,8 +116,9 @@ def check_code(code: str) -> None:
 
 
 def contract_of(code: str) -> str:
-    """Return the sandbox contract a factor declares: 'v1' (closes-only) or
-    'v2' (closes + volumes). Raises SandboxError on any other signature."""
+    """Return the sandbox contract a factor declares: 'v1' (closes-only),
+    'v2' (closes + volumes) or 'v3' (closes + opens + volumes). Raises
+    SandboxError on any other signature."""
     try:
         tree = ast.parse(code)
     except SyntaxError as exc:
@@ -123,6 +128,9 @@ def contract_of(code: str) -> str:
         raise SandboxError("factor code must define exactly one function: "
                            "factor(closes, tickers, dates, i)")
     args = [a.arg for a in defs[0].args.args]
+    if args[:6] == ["closes", "opens", "volumes", "tickers", "dates", "i"] \
+            and len(args) == 6:
+        return "v3"
     if args[:5] == ["closes", "volumes", "tickers", "dates", "i"] \
             and len(args) == 5:
         return "v2"
@@ -130,31 +138,39 @@ def contract_of(code: str) -> str:
         return "v1"
     raise SandboxError("factor signature must be v1 factor(closes, tickers, "
                        "dates, i) or v2 factor(closes, volumes, tickers, "
-                       "dates, i)")
+                       "dates, i) or v3 factor(closes, opens, volumes, "
+                       "tickers, dates, i)")
 
 
 def run_factor(code: str, closes: dict[str, dict[str, float]], tickers: list[str],
                dates: list[str],
-               volumes: dict[str, dict[str, float]] | None = None
+               volumes: dict[str, dict[str, float]] | None = None,
+               opens: dict[str, dict[str, float]] | None = None
                ) -> dict[str, dict[str, float]]:
     """AST-check, execute and validate a factor; returns the signal matrix.
 
     The lookahead defence is structural: the factor function is called once
     per date *i* with **truncated inputs** — ``closes`` and ``dates`` (and
-    ``volumes``, for a v2 factor) contain only what existed up to and
-    including date *i*. A factor that wants tomorrow's price simply cannot
-    name it. (Cost: O(D) calls with O(D·N) copies each — fine at research
-    scale; streaming evaluation lands with the portfolio plane.)
+    ``volumes``/``opens``, for v2/v3 factors) contain only what existed up
+    to and including date *i*. A factor that wants tomorrow's price simply
+    cannot name it. (Cost: O(D) calls with O(D·N) copies each — fine at
+    research scale; streaming evaluation lands with the portfolio plane.)
 
     v2 factors (``factor(closes, volumes, tickers, dates, i)``) get the
     volume panel under the same truncation rule; a v2 factor with no volumes
-    supplied is a contract violation, refused loudly.
+    supplied is a contract violation, refused loudly. v3 factors
+    (``factor(closes, opens, volumes, tickers, dates, i)``) additionally get
+    the open panel — same rule, and equally loud when absent.
     """
     check_code(code)
     contract = contract_of(code)
     if contract == "v2" and volumes is None:
         raise SandboxError("v2 factor declares volumes but none were supplied "
                            "— the frame has no volume data for this world")
+    if contract == "v3" and (volumes is None or opens is None):
+        missing = "volumes" if volumes is None else "opens"
+        raise SandboxError(f"v3 factor declares {missing} but none were supplied "
+                           "— the frame has no such data for this world")
     namespace: dict[str, Any] = {"__builtins__": SAFE_BUILTINS}
     try:
         exec(compile(code, "<factor>", "exec"), namespace)  # noqa: S102 (whitelisted above)
@@ -169,11 +185,18 @@ def run_factor(code: str, closes: dict[str, dict[str, float]], tickers: list[str
         truncated = {tk: {dd: v for dd, v in row.items() if dd <= d}
                      for tk, row in closes.items()}
         truncated_volumes = None
-        if contract == "v2":
+        if contract in ("v2", "v3"):
             truncated_volumes = {tk: {dd: v for dd, v in row.items() if dd <= d}
                                  for tk, row in (volumes or {}).items()}
+        truncated_opens = None
+        if contract == "v3":
+            truncated_opens = {tk: {dd: v for dd, v in row.items() if dd <= d}
+                               for tk, row in (opens or {}).items()}
         try:
-            if contract == "v2":
+            if contract == "v3":
+                values = fn(truncated, truncated_opens, truncated_volumes,
+                            tickers, dates[:i + 1], i)
+            elif contract == "v2":
                 values = fn(truncated, truncated_volumes, tickers,
                             dates[:i + 1], i)
             else:

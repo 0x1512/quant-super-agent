@@ -210,7 +210,8 @@ def run_order(work: Path, snapshot_dir: Path, order_text: str, llm: BaseLLM,
         try:
             full_frame = engine.load_frame(snapshot_dir)
             matrix = run_factor(code, full_frame.closes, full_frame.tickers,
-                                full_frame.dates, full_frame.volumes)
+                                full_frame.dates, full_frame.volumes,
+                                full_frame.opens)
             frame = engine.load_frame(snapshot_dir, h["window"])
             metrics = engine.evaluate_signal(frame, matrix)
         except SandboxError as exc:

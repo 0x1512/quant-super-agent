@@ -36,7 +36,9 @@ estimator's teeth.
 from __future__ import annotations
 
 import json
+import shutil
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Callable
 
@@ -359,7 +361,7 @@ def _m10(world: World) -> dict:
     world.bars = {"coverage": 0.8}
     frame = engine.load_frame(world.snapshot)
     signal = run_factor(CHERRY_CODE, frame.closes, frame.tickers,
-                        frame.dates, frame.volumes)
+                        frame.dates, frame.volumes, frame.opens)
     cherry = engine.evaluate_signal(frame, signal)
     e = world.e_card(verdict="pass")
     e["metrics"] = cherry
@@ -379,7 +381,7 @@ def _m22(world: World) -> dict:
                   "coverage": 0.8}
     frame = engine.load_frame(world.snapshot)
     signal = run_factor(CHASER_CODE, frame.closes, frame.tickers,
-                        frame.dates, frame.volumes)
+                        frame.dates, frame.volumes, frame.opens)
     chaser = engine.evaluate_signal(frame, signal)
     e = world.e_card(verdict="pass")
     e["metrics"] = dict(chaser)
@@ -476,6 +478,141 @@ def _m21(world: World) -> dict:
     return e
 
 
+def _m23(world: World) -> dict:
+    # v1.0 Scenario A: replication-phantom — the monthly-plane block (the
+    # report's own convention) carries an IC nobody computed. The daily
+    # metrics on the same card are honest, so every pre-v1.0 defense passes;
+    # only the gate's whitelisted recompute of the replication block catches
+    # the +0.01 phantom.
+    from . import replication as repl
+    from .sandbox import run_factor
+    from .engine import load_frame
+    frame = load_frame(world.snapshot)
+    signal = run_factor(GOOD_CODE, frame.closes, frame.tickers,
+                        frame.dates, frame.volumes, frame.opens)
+    meta = repl.load_monthly_meta(world.snapshot)
+    rb = repl.recompute_replication_block(frame.closes, frame.dates,
+                                          signal, meta)
+    e = world.e_card()
+    e["replication_block"] = rb
+    e["replication_block"]["ic_variants"]["raw"]["ic_mean"] += 0.01
+    return e
+
+
+def _m24(world: World) -> dict:
+    # v1.0 Scenario A: meta-swap — the pinned meta (monthly caps used by
+    # the neutralized variants) is edited on disk after the card pinned the
+    # snapshot hash. The manifest's content hash for the meta file is what
+    # breaks (fingerprint reconciliation), exactly like a price swap.
+    from . import snapshot as snap
+    snap_dir = Path(world.snapshot)
+    meta = snap_dir / "meta"
+    meta.mkdir(exist_ok=True)
+    caps_rows = ["month,ticker,total_mv"]
+    ind_rows = ["ticker,industry"]
+    months = sorted({d[:6] for d in
+                     (snap_dir / "daily" / "prices.csv").read_text(
+                     ).splitlines()[1:]})
+    for m in months:
+        for k in range(12):
+            caps_rows.append(f"{m},T{k:02d},{1_000_000 + 1_000 * k}")
+    for k in range(12):
+        ind_rows.append(f"T{k:02d},I{k % 3}")
+    (meta / "monthly_caps.csv").write_text("\n".join(caps_rows) + "\n")
+    (meta / "industries.csv").write_text("\n".join(ind_rows) + "\n")
+    man = json.loads((snap_dir / "MANIFEST.json").read_text())
+    for f in ("industries.csv", "monthly_caps.csv"):
+        man["files"][f"meta/{f}"] = snap.sha256_file(meta / f)
+    man["meta"] = ["industries.csv", "monthly_caps.csv"]
+    (snap_dir / "MANIFEST.json").write_bytes(
+        snap.canonical_json(man) + b"\n")
+    e = world.e_card(snapshot_hash=snap.fingerprint(snap_dir).manifest_hash)
+    # the swap: every cap x9 AFTER the hash was pinned
+    p = meta / "monthly_caps.csv"
+    p.write_text(p.read_text().replace("1000000", "9000000"))
+    return e
+
+
+def _m25(world: World) -> dict:
+    # v1.0 Scenario A: real-settle-forgery — an honest claim settled on
+    # real (ingested) data that arrived after admission, then the ledger's
+    # realized block edited on disk. The hash chain breaks first, and even
+    # a re-chained forgery would die in the fixture-pinned rebuild.
+    import random
+    from .ingest import ingest_csv
+    from .settlement import SettlementLedger, settle_real_claim
+    from .engine import evaluate_signal, load_frame
+
+    case = world.snapshot.parent
+    rng = random.Random(7)
+    rows = ["date,ticker,close,open,volume"]
+    state = {f"T{k:02d}": 100.0 + k for k in range(12)}
+    d0 = date(2025, 1, 1)
+    for i in range(190):
+        d = (d0 + timedelta(days=i)).strftime("%Y%m%d")
+        for tk in sorted(state):
+            drift = 1.0 + rng.uniform(-0.02, 0.02)
+            c = state[tk] * drift
+            o = c * (1.0 + rng.uniform(-0.01, 0.01))
+            state[tk] = c
+            rows.append(f"{d},{tk},{c:.4f},{o:.4f},1000000")
+    csv_all = case / "real_all.csv"
+    csv_all.write_text("\n".join(rows) + "\n")
+    dates_all = [r.split(",")[0] for r in rows[1:]]
+    split = 150
+    main_end = dates_all[split - 1]
+    main_csv = case / "real_main.csv"
+    main_csv.write_text("\n".join([rows[0]] + rows[1:split]) + "\n")
+    # the gate always reads case/snapshot — replace the synthetic world
+    # with the ingested real one (H/E windows follow it)
+    shutil.rmtree(world.snapshot)
+    main_snap = case / "snapshot"
+    ingest_csv(main_csv, main_snap, volume_col="volume", open_col="open",
+               snapshot_id="fib-real-main")
+    full_snap = case / "real_full"
+    ingest_csv(csv_all, full_snap, volume_col="volume", open_col="open",
+               snapshot_id="fib-real-main-tail")
+    from .snapshot import fingerprint as snap_fingerprint
+    info = snap_fingerprint(main_snap)
+    window = f"{info.manifest['start']}:{info.manifest['as_of']}"
+    as_of = info.manifest["as_of"]
+    settled_iso = f"{as_of[:4]}-{as_of[4:6]}-{as_of[6:]}"
+    world.h_overrides = {
+        "window": window,
+        "admission": {"required_metrics": ["rankic_mean"],
+                      "thresholds": {"rankic_mean": {"op": "<", "value": 0.0}},
+                      "min_observations": 30},
+        "falsifiable_condition": "daily rank IC <= 0 on the real world",
+    }
+    full = load_frame(main_snap)
+    signal = run_factor(GOOD_CODE, full.closes, full.tickers, full.dates,
+                        full.volumes, full.opens)
+    frame = load_frame(main_snap, window)
+    metrics = evaluate_signal(frame, signal)
+    verdict, _ = admission.evaluate(world.h_overrides["admission"], metrics)
+    e = world.e_card(verdict=verdict, window=window,
+                     snapshot_hash=info.manifest_hash, metrics=metrics,
+                     settled_at=settled_iso)
+    ledger = SettlementLedger.open(case / "settlement.jsonl")
+    h = world.h_card(**world.h_overrides)
+    # settle_real_claim pins the fixture CSVs under case/; the spec paths
+    # are fixed, so stage the CSVs where the pin expects them
+    stage = case / "examples" / "data"
+    stage.mkdir(parents=True, exist_ok=True)
+    shutil.copy(main_csv, stage / "ashare_top300_main.csv")
+    shutil.copy(csv_all, stage / "ashare_top300_tail.csv")
+    settle_real_claim(ledger, e, h, main_snap, full_snap, case)
+    ledger_path = case / "settlement.jsonl"
+    lines = ledger_path.read_text().splitlines()
+    entry = json.loads(lines[-1])
+    if entry.get("realized"):
+        entry["realized"]["rankic_mean"] = \
+            entry["realized"]["rankic_mean"] + 0.05
+        lines[-1] = json.dumps(entry)
+        ledger_path.write_text("\n".join(lines) + "\n")
+    return e
+
+
 # ---- the released scenarios -------------------------------------------------
 # Official class ids follow docs/BENCHMARK.md. Classes NOT mechanized here:
 # 5 (stale-data), 8 (repair-before-report), 17 (nonreproducible-seed) and
@@ -535,6 +672,15 @@ SCENARIOS: list[Scenario] = [
     Scenario(22, "cost-blind",
              "net_quintile_spread reported at gross — trades cost nothing",
              "metrics.net_quintile_spread", _m22),
+    Scenario(23, "replication-phantom",
+             "monthly replication_block IC nudged +0.01 (daily metrics honest)",
+             "replication_block.ic_variants.raw.ic_mean", _m23),
+    Scenario(24, "meta-swap",
+             "pinned monthly-caps meta edited on disk after the hash was "
+             "pinned", "snapshot meta/monthly_caps.csv", _m24),
+    Scenario(25, "real-settle-forgery",
+             "real-world settlement ledger's realized block edited on disk",
+             "settlement.realized", _m25),
 ]
 
 

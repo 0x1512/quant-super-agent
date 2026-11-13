@@ -242,8 +242,82 @@ Still open (carried in [ROADMAP.md](ROADMAP.md) v0.8): portfolio claims (P
 cards, composites, walk-forward folds) and real-data settlement on an
 appended CSV — the instrument plane ships first, the claim surface next.
 
+## v1.0 Scenario A — research-report replication (automated, reproducible by anyone)
+
+Reproduce: `python scripts/fetch_ashare_raw.py` (one-time, rate-limited,
+~25 min; every number the demo needs is then frozen in the repo fixture) →
+`python scripts/build_replication_fixture.py` → `python
+examples/run_replication.py` (~1 min, offline, deterministic; a second run
+is byte-identical). Tests: `tests/test_replication.py`,
+`tests/test_settlement.py` (real-data settlement).
+
+Target: 华安证券《市场微观结构剖析之九——昼夜分离：隔夜跳空与日内反转选股因子》
+(朱定豪, 2020-09-03). The factor is fully specified in the report's public
+summary — 21-day rolling |ln(open/close_prev)|, negative direction, monthly
+rebalance — and an independent retest (Zhihu p/700546862) publishes the
+standalone factor's numbers, so every reference number has provenance.
+
+What the run does (A1–A10, all mechanical):
+
+- **A1/A4** — H card with per-field provenance and the full
+  convention-alignment table (`qsa/replication.py: REPORT`); zero silent
+  defaults; out-of-scope items (the report's paywalled composite weights,
+  the golden-ratio intraday leg needing minute bars) are *declared*, not
+  quietly approximated.
+- **A2** — real A-share daily OHLCV (tushare token window 2021-01..2026-10,
+  full market per trade date), universe = top-300 by mean 2021-H1 turnover
+  fixed before the sample, hfq via the preclose chain (no adj_factor
+  interface needed), ingested into a fingerprinted snapshot with the
+  cap-proxy (mean daily amount; total_mv is unfetchable at this token's
+  rate limit — declared in the convention table) and industry meta pinned
+  by content hash.
+- **A3** — the factor as sandbox contract **v3** code (`closes, opens,
+  volumes, tickers, dates, i`); truncated-view contract gives no look-ahead
+  by construction; the code rides the E card and hashes to
+  `factor_code_sha256`.
+- **A5** — engine computes; the gate recomputes both the daily metrics and
+  the monthly `replication_block` (month-end Spearman IC with a
+  two-implementation cross-check to 1e-12, equal-weight quintiles G1 =
+  lowest factor, OLS neutralization over pinned meta) and the
+  **pre-registered verdict itself** — with a whitelisted evaluator; no code
+  travels on the card.
+- **A6** — disagreement attribution, each experiment recomputable: half-sample
+  ICs, the raw→cap→cap+industry ladder, 10-group vs 5-group.
+- **A7** — three injected fabrications (metric edit / window swap /
+  universe swap) all rejected with the touched field named; the same
+  metric edit *without* the gate lands unchallenged as the control file.
+  New FIB classes 23 (replication-phantom), 24 (meta-swap), 25
+  (real-settle-forgery) mechanize these defenses: 21 scenarios × 3
+  judges, full-stack catch 20/20, localization 1.0 (docs/fib_v10_run.json).
+- **A8** — rules D1 (direction), D2 (monotonicity), D3 (magnitude band)
+  registered in the hypothesis card *before* any computation; the gate
+  re-derives the verdict mechanically.
+- **A9** — the forward claim settled on real data that arrived after
+  admission: the 90-day tail is asserted row-by-row to extend the base
+  world, every source CSV is sha256-pinned in the ledger entry, and the
+  audit rebuilds the extension from the pinned fixture and recomputes
+  realized metrics (this retires the v0.7 gap "real-data settlement
+  designed but unexercised").
+- **A10** — one-page report where every number is machine-emitted
+  (`work/replication/report.md` + `replication_metrics.json`); the prose
+  contains no number of its own.
+
+Honest result (the machine-emitted verdict, not a curated one): **not_replicated**
+on the 2021-07..2026-06 top-300 sample — D1 direction fail (raw monthly
+rank-IC mean -0.0457, pre-registered < -0.03 passes on the engine's own
+metric but the D1 rule as registered requires the cap+industry variant too,
+which lands at -0.0204), D2 monotonicity fail (G1 -4.1% vs G5 -1.3% p.a.
+is ordered but the registered rule tests all-adjacent steps), D3 magnitude
+consistent (difference vs the retest's -0.094 attributed to sample period
+and universe, per the pre-registered band). The engine verdict is `fail`
+(rankic_mean -0.0285 does not meet the < -0.03 admission on the
+neutralized metric). Half-sample attribution: front -0.0563 / back
+-0.0395. All numbers machine-emitted in
+`work/replication/replication_metrics.json` (regenerable byte-identically);
+the report is `work/replication/report.md`.
+
 ## What these pilots do NOT show
 
 - No positive alpha discovery in the *production* mining loop yet (its pilots returned honest negatives by design); the ablation's and the calibration sweep's planted worlds are synthetic ground truth, not market alpha.
-- Real-data settlement is designed but unexercised: ingested worlds have no simulator, so they settle only when new data arrives — no pilot has run that path against a real CSV append yet.
+- Real-data settlement is now exercised end-to-end (Scenario A9 + FIB 25); what remains open is settling against a *live* feed — the tail here is a frozen fixture, so "arrival" is replay, not real time.
 - Watchdog latency is an injected calibration, not a natural recurrence (the risk is probabilistic; 19 observed windows without the protection layers active produced one real-world occurrence earlier).

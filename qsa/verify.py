@@ -26,7 +26,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from . import admission, engine, deflation, registry, roles, settlement, snapshot
+from . import (admission, deflation, engine, registry, replication, roles,
+               settlement, snapshot)
 from .sandbox import SandboxError, run_factor
 from .snapshot import sha256_bytes
 from .validate import validate_card
@@ -254,7 +255,7 @@ def gate(hypothesis_path: Path, result_path: Path, snapshot_dir: Path,
                 full_frame = engine.load_frame(snapshot_dir)
                 signal = run_factor(e["factor_code"], full_frame.closes,
                                     full_frame.tickers, full_frame.dates,
-                                    full_frame.volumes)
+                                    full_frame.volumes, full_frame.opens)
                 frame = engine.load_frame(snapshot_dir, e.get("window"))
                 recomputed = engine.evaluate_signal(frame, signal)
             except (SandboxError, ValueError) as exc:
@@ -272,6 +273,30 @@ def gate(hypothesis_path: Path, result_path: Path, snapshot_dir: Path,
                             f"E.metrics.{key}: card says {claimed[key]}, "
                             f"recomputation from factor_code says "
                             f"{recomputed[key]} (phantom or rescaled metric)")
+
+                # v1.0 Scenario A: the report-convention monthly block.
+                # Whitelisted evaluator only — no code travels on the card;
+                # every monthly number AND the pre-registered verdict are
+                # recomputed from factor_code + pinned snapshot (incl. meta).
+                rb = e.get("replication_block")
+                if rb is not None and not isinstance(rb, dict):
+                    errs.append("E.replication_block must be an object")
+                elif isinstance(rb, dict):
+                    try:
+                        meta = replication.load_monthly_meta(snapshot_dir)
+                        rb_re = replication.recompute_replication_block(
+                            frame.closes, frame.dates, signal, meta)
+                    except (ValueError, AssertionError) as exc:
+                        errs.append(f"E.replication_block does not recompute: "
+                                    f"{exc}")
+                    else:
+                        for section in ("ic_variants", "groups", "rules"):
+                            if rb.get(section) != rb_re[section]:
+                                errs.append(
+                                    f"E.replication_block.{section}: card "
+                                    f"says {rb.get(section)} != recomputed "
+                                    f"{rb_re[section]} — phantom or rescaled "
+                                    f"monthly metric / verdict")
                 oos_blk = e.get("oos") if isinstance(e.get("oos"), dict) else None
                 if oos_blk and oos_blk.get("window"):
                     try:

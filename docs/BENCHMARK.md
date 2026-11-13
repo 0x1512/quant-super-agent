@@ -51,6 +51,21 @@ Per system, per class (and aggregated):
 
 ## Status
 
+**v1.0 — Scenario A additions.** Three qsa-specific disciplines land with
+the replication layer: **23 replication-phantom** — the monthly,
+report-convention block on the E card carries an IC nobody computed (the
+daily metrics on the same card stay honest, so every pre-v1.0 defense
+passes; the gate's whitelisted evaluator recomputes the whole block and the
+mechanically re-derived pre-registered verdict and disagrees); **24
+meta-swap** — the pinned monthly-caps/industry meta that neutralized
+variants recompute from is edited on disk after the snapshot hash was
+pinned (the manifest's content hash breaks, exactly like a price swap);
+**25 real-settle-forgery** — a claim settled on real (ingested) data that
+arrived after admission, then the ledger's realized block is edited on
+disk (the hash chain breaks first; even a re-chained forgery dies in the
+fixture-pinned rebuild, because every source CSV is sha256-pinned in the
+ledger entry).
+
 **v0.7 — harness extended.** `qsa/fib.py` mechanizes 15 of the 20 classes
 (1, 2, 3, 4, 6, 7, 9, **10**, 11, 12, 13, 14, 15, 16, 19), the gate half of
 class 20 (an honest fail must merge — the honest control), and two qsa-specific

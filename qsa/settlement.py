@@ -37,7 +37,7 @@ from typing import Any
 from . import engine
 from .sandbox import SandboxError, run_factor
 from .snapshot import (build_snapshot, canonical_json, extend_world,
-                       fingerprint, sha256_bytes)
+                       fingerprint, sha256_bytes, sha256_file)
 
 GENESIS = sha256_bytes(b"qsa-settlement-genesis")
 EXTENSION_DAYS = 90
@@ -148,7 +148,7 @@ def settle_claim(ledger: SettlementLedger, e: dict[str, Any], h: dict[str, Any],
         frame = engine.load_frame(ext_dir, horizon)
         signal = run_factor(e["factor_code"], ext_frame.closes,
                             ext_frame.tickers, ext_frame.dates,
-                            ext_frame.volumes)
+                            ext_frame.volumes, ext_frame.opens)
         realized = engine.evaluate_signal(frame, signal)
     except (SandboxError, ValueError) as exc:
         realized = None
@@ -190,6 +190,202 @@ def settle_claim(ledger: SettlementLedger, e: dict[str, Any], h: dict[str, Any],
         # cost drag, net spread) settle beside the IC they modify (v0.7)
         core["realized"] = {"window": horizon, **realized}
     return ledger.record(core)
+
+
+def settle_real_claim(ledger: SettlementLedger, e: dict[str, Any],
+                       h: dict[str, Any], base_dir: Path, ext_dir: Path,
+                       fixture_root: Path,
+                       *, volume_col: str = "volume",
+                       open_col: str = "open") -> dict[str, Any]:
+    """Settle a claim on real (ingested) data that has since ARRIVED.
+
+    The synthetic path (settle_claim) rebuilds the extension from a seed;
+    real data has no simulator, so the extension must be a snapshot whose
+    price rows strictly extend the base snapshot's (asserted row by row —
+    the extension is the *same world, later*, never a different one). The
+    ledger entry pins every source CSV by sha256 so the audit can rebuild
+    the extension from the fixture and recompute the realized metrics.
+
+    ``fixture_root`` is the directory the recorded relative source paths
+    resolve against at audit time (the repo fixture directory)."""
+    base = fingerprint(base_dir)
+    ext = fingerprint(ext_dir)
+    _assert_real_extension(base_dir, ext_dir)
+    settle_id = ledger.next_settle_id()
+
+    ext_frame = engine.load_frame(ext_dir)
+    dates = ext_frame.dates
+    base_days = base.manifest["days"]
+    horizon = f"{dates[base_days]}:{dates[-1]}"
+
+    claimed_metric = "rankic_mean"
+    claimed = (e.get("metrics") or {}).get(claimed_metric)
+    th = ((h.get("admission") or {}).get("thresholds")
+          or {}).get(claimed_metric) or {}
+    bar, op = th.get("value"), th.get("op", ">=")
+
+    try:
+        frame = engine.load_frame(ext_dir, horizon)
+        signal = run_factor(e["factor_code"], ext_frame.closes,
+                            ext_frame.tickers, ext_frame.dates,
+                            ext_frame.volumes, ext_frame.opens)
+        realized = engine.evaluate_signal(frame, signal)
+    except (SandboxError, ValueError) as exc:
+        realized = None
+        outcome = "unverifiable"
+        reason = f"factor does not run on the arrived extension: {str(exc)[:120]}"
+    else:
+        outcome = _outcome(realized.get(claimed_metric), bar, op)
+        reason = (f"realized {claimed_metric}="
+                  f"{realized.get(claimed_metric)} vs bar {op} {bar} "
+                  f"on {horizon}")
+
+    # pin the fixture sources by content hash for the audit's rebuild
+    m = ext.manifest
+    spec = {
+        "main_csv": "examples/data/ashare_top300_main.csv",
+        "tail_csv": "examples/data/ashare_top300_tail.csv",
+        "meta_dir": "examples/data/replication_meta",
+        "snapshot_id": m.get("snapshot_id", "real-extension"),
+        "volume_col": volume_col,
+        "open_col": open_col,
+    }
+    meta_path = fixture_root / spec["meta_dir"]
+    spec["has_meta"] = meta_path.is_dir() and bool(
+        list(meta_path.glob("*.csv")))
+    csvs = [spec["main_csv"], spec["tail_csv"]]
+    if spec["has_meta"]:
+        csvs += [f"{spec['meta_dir']}/{p.name}" for p in
+                 sorted(meta_path.glob("*.csv"))]
+    spec["csvs"] = sorted(csvs)
+    spec["csv_sha256"] = {rel: sha256_file(fixture_root / rel)
+                          for rel in spec["csvs"]}
+    core: dict[str, Any] = {
+        "schema": "settlement",
+        "settle_id": settle_id,
+        "exp_id": e.get("exp_id"),
+        "hyp_id": e.get("hyp_id"),
+        "family": h.get("family", "default"),
+        "world": {"kind": "real",
+                  "spec": spec,
+                  "tickers": m["tickers"],
+                  "days": m["days"],
+                  "start": m["start"],
+                  "base_days": base_days},
+        "base_snapshot_hash": base.manifest_hash,
+        "extension_hash": ext.manifest_hash,
+        "engine": engine.EVAL_ID,
+        "factor_code": e["factor_code"],
+        "factor_code_sha256": sha256_bytes(e["factor_code"].encode("utf-8")),
+        "claimed": {"metric": claimed_metric, "value": claimed,
+                    "window": e.get("window"), "bar": bar, "op": op},
+        "outcome": outcome,
+        "reason": reason,
+        "settled_at": e.get("settled_at"),
+    }
+    if realized is not None:
+        core["realized"] = {"window": horizon, **realized}
+    return ledger.record(core)
+
+
+def _assert_real_extension(base_dir: Path, ext_dir: Path) -> None:
+    """The real extension must strictly extend the base world's price rows."""
+    base_rows = (Path(base_dir) / "daily" / "prices.csv").read_text(
+        encoding="utf-8").splitlines()
+    ext_rows = (Path(ext_dir) / "daily" / "prices.csv").read_text(
+        encoding="utf-8").splitlines()
+    if len(ext_rows) <= len(base_rows):
+        raise ValueError("real extension does not extend the base snapshot")
+    for i in range(1, len(base_rows)):
+        if ext_rows[i] != base_rows[i]:
+            raise ValueError(
+                f"real extension row {i} diverges from the base snapshot at "
+                f"{base_rows[i].split(',')[0]} — refusing to settle on a "
+                f"foreign world")
+
+
+def _rebuild_real_extension(spec: dict[str, Any], fixture_root: Path
+                            ) -> Path:
+    """Rebuild the extension snapshot from the pinned fixture CSVs.
+
+    Raises ValueError if any pinned file's content changed — the audit
+    never rebuilds from drifted data."""
+    import tempfile
+    from .ingest import ingest_csv
+    root = Path(fixture_root)
+    for rel, want in (spec.get("csv_sha256") or {}).items():
+        f = root / rel
+        if not f.exists() or sha256_file(f) != want:
+            raise ValueError(f"fixture {rel} changed or missing — the "
+                             f"pinned settlement source drifted")
+    main_csv = root / spec["main_csv"]
+    tail_csv = root / spec["tail_csv"]
+    td = Path(tempfile.mkdtemp(prefix="qsa-real-rebuild-"))
+    merged = td / "merged_full.csv"
+    merged.write_text("\n".join(
+        main_csv.read_text(encoding="utf-8").splitlines()
+        + tail_csv.read_text(encoding="utf-8").splitlines()[1:]) + "\n",
+        encoding="utf-8")
+    out = td / "ext"
+    meta_arg = (root / spec["meta_dir"]) if spec.get("has_meta") else None
+    ingest_csv(merged, out, volume_col=spec.get("volume_col", "volume"),
+               open_col=spec.get("open_col", "open"),
+               snapshot_id=spec.get("snapshot_id", "real-extension"),
+               meta_dir=meta_arg)
+    return out
+
+
+def _audit_real_entry(en: dict[str, Any], fixture_root: Path | None
+                      ) -> list[str]:
+    """Audit one real-world settlement entry: rebuild from the pinned
+    fixture, verify hashes and the strict extension, recompute realized."""
+    sid = en.get("settle_id", "?")
+    errs: list[str] = []
+    if en.get("factor_code_sha256") != sha256_bytes(
+            str(en.get("factor_code", "")).encode("utf-8")):
+        return [f"settlement {sid}: factor_code_sha256 does not match the "
+                f"attached code"]
+    w = en.get("world") or {}
+    spec = w.get("spec") if isinstance(w.get("spec"), dict) else None
+    if spec is None or fixture_root is None:
+        return [f"settlement {sid}: real-world settlement needs a pinned "
+                f"source spec and --fixture-root to recompute from"]
+    try:
+        ext_dir = _rebuild_real_extension(spec, Path(fixture_root))
+        ext = fingerprint(ext_dir)
+        if ext.manifest_hash != en.get("extension_hash"):
+            return [f"settlement {sid}: extension_hash does not rebuild "
+                    f"from the pinned fixture"]
+        ext_frame = engine.load_frame(ext_dir)
+        dates = ext_frame.dates
+        horizon = f"{dates[w.get('base_days', 0)]}:{dates[-1]}"
+        signal = run_factor(en["factor_code"], ext_frame.closes,
+                            ext_frame.tickers, ext_frame.dates,
+                            ext_frame.volumes, ext_frame.opens)
+        frame = engine.load_frame(ext_dir, horizon)
+        realized = engine.evaluate_signal(frame, signal)
+    except (SandboxError, ValueError, KeyError) as exc:
+        return [f"settlement {sid}: does not recompute ({exc})"]
+    rec = en.get("realized") or {}
+    for key, val in sorted(rec.items()):
+        if key == "window":
+            if val != horizon:
+                errs.append(f"settlement {sid}: realized.window {val} != "
+                            f"recomputed horizon {horizon}")
+        elif key not in realized:
+            errs.append(f"settlement {sid}: realized.{key} is not a harness "
+                        f"metric")
+        elif realized[key] != val:
+            errs.append(f"settlement {sid}: realized.{key} says {val}, "
+                        f"recomputation says {realized[key]}")
+    if en.get("outcome") in ("held", "fell_short"):
+        expected = _outcome(realized.get("rankic_mean"),
+                            (en.get("claimed") or {}).get("bar"),
+                            (en.get("claimed") or {}).get("op", ">="))
+        if expected != en["outcome"]:
+            errs.append(f"settlement {sid}: outcome {en['outcome']!r} "
+                        f"does not recompute ({expected!r})")
+    return errs
 
 
 def _outcome(realized: float | None, bar: Any, op: str) -> str:
@@ -274,7 +470,8 @@ def run_calibration_sweep(out_dir: Path, *,
 
 # -- audit (FIB 19) ----------------------------------------------------------
 
-def audit_ledger(path: Path, *, registry_path: Path | None = None
+def audit_ledger(path: Path, *, registry_path: Path | None = None,
+                 fixture_root: Path | None = None
                  ) -> list[str]:
     """Recompute everything the ledger claims. Returns a list of errors.
 
@@ -319,6 +516,9 @@ def audit_ledger(path: Path, *, registry_path: Path | None = None
     for en in entries:
         sid = en.get("settle_id", "?")
         w = en.get("world") or {}
+        if w.get("kind") == "real":
+            errs.extend(_audit_real_entry(en, fixture_root))
+            continue
         if w.get("kind") != "synthetic":
             errs.append(f"settlement {sid}: unknown world kind "
                         f"{w.get('kind')!r}")
@@ -345,7 +545,7 @@ def audit_ledger(path: Path, *, registry_path: Path | None = None
                 horizon = f"{dates[w['days']]}:{dates[-1]}"
                 signal = run_factor(en["factor_code"], ext_frame.closes,
                                     ext_frame.tickers, ext_frame.dates,
-                                    ext_frame.volumes)
+                                    ext_frame.volumes, ext_frame.opens)
                 frame = engine.load_frame(ext_dir, horizon)
                 realized = engine.evaluate_signal(frame, signal)
         except (SandboxError, ValueError, KeyError) as exc:

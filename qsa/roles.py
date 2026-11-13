@@ -131,7 +131,7 @@ def risk_check(code: str, snapshot_dir: Any, h: dict[str, Any],
         bar = abs(float(rc["value"]))
     try:
         matrix = run_factor(code, frame.closes, frame.tickers, frame.dates,
-                            frame.volumes)
+                            frame.volumes, frame.opens)
         first = engine.evaluate_signal(
             engine.load_frame(snapshot_dir, f"{dates[0]}:{dates[half - 1]}"),
             matrix)

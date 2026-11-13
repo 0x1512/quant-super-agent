@@ -35,7 +35,7 @@ it differs. Ours must.
 |---|---|---|
 | A1 | Select 1 public sell-side quant report with a fully specified factor (definition, universe, window, rebalance, costs, headline numbers); transcribe it into a machine-readable H card with per-field provenance (report section/page for every field) | card passes schema; 100% of fields carry provenance |
 | A2 | Ingest the required daily OHLCV into an immutable fingerprinted snapshot | sha256 pinned; re-ingest is byte-identical; the snapshot is rebuildable by anyone from the same public source |
-| A3 | Implement the report's factor as sandbox contract v2 code — the code is the documentation | AST whitelist passes; truncated-view contract gives no look-ahead; `factor_code` rides the card |
+| A3 | Implement the report's factor as sandbox contract v3 code (`closes, opens, volumes, tickers, dates, i` — the gap needs opens) — the code is the documentation | AST whitelist passes; truncated-view contract gives no look-ahead; `factor_code` rides the card |
 | A4 | Specification alignment table: report's conventions vs ours (universe filters, weighting, costs, suspension handling), every difference explicit | zero silent defaults; table covers every convention field |
 | A5 | Recompute the report's headline numbers (IC, long-short annualized, max drawdown) on our data | engine computes, gate independently recomputes; the two agree |
 | A6 | Disagreement attribution: when recomputed ≠ published, mechanically decompose the gap (convention / data / look-ahead / luck) into a table | every attribution is itself recomputable (apply fix X → gap shrinks by Y) |

@@ -414,3 +414,113 @@ class TestCalibrationAcceptance(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRealDataSettlement(unittest.TestCase):
+    """settle_real_claim + the fixture-pinned audit (v1.0 Scenario A9)."""
+
+    def _world(self, tmp: Path):
+        import csv as _csv
+        from qsa.ingest import ingest_csv
+        rows = [["date", "ticker", "close", "open", "volume"]]
+        state = {f"T{k}": 100.0 + k for k in range(10)}
+        d0 = __import__("datetime").date(2025, 1, 1)
+        for i in range(80):
+            d = (d0 + __import__("datetime").timedelta(days=i)).strftime("%Y%m%d")
+            for tk in sorted(state):
+                state[tk] *= 1.0005
+                rows.append([d, tk, f"{state[tk]:.4f}",
+                             f"{state[tk] / 1.0004:.4f}", "1000"])
+        all_csv = tmp / "all.csv"
+        with all_csv.open("w", newline="") as fh:
+            _csv.writer(fh, lineterminator="\n").writerows(rows)
+        dates_all = [r[0] for r in rows[1:]]
+        n_tk = 10
+        main_days = 60 * n_tk
+        main_csv = tmp / "main.csv"
+        with main_csv.open("w", newline="") as fh:
+            w = _csv.writer(fh, lineterminator="\n")
+            w.writerows([rows[0]] + rows[1:main_days + 1])  # first 60 days
+        # stage where settle_real_claim's fixed spec paths expect them
+        tail_csv = tmp / "tail.csv"
+        with tail_csv.open("w", newline="") as fh:
+            w = _csv.writer(fh, lineterminator="\n")
+            w.writerows([rows[0]] + rows[main_days + 1:])  # days 61..80
+        stage = tmp / "examples" / "data"
+        stage.mkdir(parents=True)
+        import shutil
+        shutil.copy(main_csv, stage / "ashare_top300_main.csv")
+        shutil.copy(tail_csv, stage / "ashare_top300_tail.csv")
+        main_snap = tmp / "snap_main"
+        ingest_csv(main_csv, main_snap, volume_col="volume", open_col="open")
+        full_snap = tmp / "snap_full"
+        ingest_csv(all_csv, full_snap, volume_col="volume", open_col="open")
+        return main_snap, full_snap, tmp, dates_all
+
+    def _cards(self, main_snap: Path):
+        from qsa.engine import evaluate_signal, load_frame
+        from qsa.sandbox import run_factor
+        from qsa.fib import GOOD_CODE
+        info = __import__("qsa.snapshot", fromlist=["fingerprint"]).fingerprint(main_snap)
+        window = f"{info.manifest['start']}:{info.manifest['as_of']}"
+        full = load_frame(main_snap)
+        signal = run_factor(GOOD_CODE, full.closes, full.tickers,
+                            full.dates, full.volumes, full.opens)
+        metrics = evaluate_signal(load_frame(main_snap, window), signal)
+        h = {"schema": "hypothesis", "hyp_id": "H-950",
+             "admission": {"required_metrics": ["rankic_mean"],
+                           "thresholds": {"rankic_mean": {"op": ">=", "value": -1.0}}},
+             "window": window, "family": "real"}
+        from qsa.snapshot import sha256_bytes
+        e = {"schema": "experiment_result", "exp_id": "E-950",
+             "hyp_id": "H-950", "window": window, "metrics": metrics,
+             "settled_at": "2025-03-01",
+             "factor_code": GOOD_CODE,
+             "factor_code_sha256": sha256_bytes(GOOD_CODE.encode("utf-8"))}
+        return h, e
+
+    def test_settle_and_audit_roundtrip(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            main_snap, full_snap, root, dates = self._world(tmp)
+            h, e = self._cards(main_snap)
+            led = settlement.SettlementLedger.open(tmp / "led.jsonl")
+            en = settlement.settle_real_claim(led, e, h, main_snap, full_snap,
+                                              root)
+            self.assertIn(en["outcome"], ("held", "fell_short"))
+            errs = settlement.audit_ledger(tmp / "led.jsonl", fixture_root=root)
+            self.assertEqual(errs, [], errs)
+
+    def test_foreign_extension_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            main_snap, full_snap, root, dates = self._world(tmp)
+            h, e = self._cards(main_snap)
+            # a "different world": rebuild full from shuffled-close rows
+            bad_full = tmp / "snap_bad"
+            src = (full_snap / "daily" / "prices.csv").read_text().splitlines()
+            head, body = src[0], src[1:]
+            body = [",".join([r.split(",")[0], r.split(",")[1],
+                              f"{float(r.split(',')[2]) * 2:.4f}"]
+                             + r.split(",")[3:]) for r in body]
+            (tmp / "bad.csv").write_text("\n".join([head] + body) + "\n")
+            from qsa.ingest import ingest_csv
+            ingest_csv(tmp / "bad.csv", bad_full, volume_col="volume",
+                       open_col="open")
+            led = settlement.SettlementLedger.open(tmp / "led.jsonl")
+            with self.assertRaises(ValueError):
+                settlement.settle_real_claim(led, e, h, main_snap, bad_full,
+                                             root)
+
+    def test_drifted_fixture_fails_audit(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            main_snap, full_snap, root, dates = self._world(tmp)
+            h, e = self._cards(main_snap)
+            led = settlement.SettlementLedger.open(tmp / "led.jsonl")
+            settlement.settle_real_claim(led, e, h, main_snap, full_snap, root)
+            # drift the pinned source after settlement
+            p = root / "examples" / "data" / "ashare_top300_tail.csv"
+            p.write_text(p.read_text().replace("1000", "999"))
+            errs = settlement.audit_ledger(tmp / "led.jsonl", fixture_root=root)
+            self.assertTrue(any("drifted" in x for x in errs), errs)

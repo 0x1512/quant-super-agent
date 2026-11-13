@@ -38,9 +38,17 @@ def _num(raw: str, where: str) -> float:
 def ingest_csv(csv_path: Path, out_dir: Path, *, snapshot_id: str | None = None,
                date_col: str = "date", ticker_col: str = "ticker",
                close_col: str = "close", volume_col: str | None = None,
-               per_side_bps: float | None = None
+               open_col: str | None = None,
+               per_side_bps: float | None = None,
+               meta_dir: Path | None = None
                ) -> SnapshotInfo:
-    """Validate a user price CSV and materialize a snapshot directory."""
+    """Validate a user price CSV and materialize a snapshot directory.
+
+    ``meta_dir`` (v1.0 replication): optional directory of auxiliary CSVs
+    (e.g. ``monthly_caps.csv``, ``industries.csv``) copied verbatim into
+    ``<snapshot>/meta/`` and pinned by the manifest's content hashes — the
+    replication gate recomputes neutralized metrics from them, so a meta
+    swap breaks the fingerprint exactly like a price swap."""
     csv_path, out_dir = Path(csv_path), Path(out_dir)
     with csv_path.open(encoding="utf-8", newline="") as fh:
         reader = csv.DictReader(fh)
@@ -65,7 +73,14 @@ def ingest_csv(csv_path: Path, out_dir: Path, *, snapshot_id: str | None = None,
             vol = ""
             if volume_col and volume_col in row and (row[volume_col] or "").strip():
                 vol = str(int(_num(row[volume_col], where)))
-            rows.append((d, tk, format(close, ".10g"), vol))
+            op = ""
+            if open_col:
+                if open_col not in row or not (row[open_col] or "").strip():
+                    raise ValueError(f"{where}: open_col {open_col!r} missing/empty "
+                                     "- opens must be present on every row or "
+                                     "not requested at all")
+                op = format(_num(row[open_col], where), ".10g")
+            rows.append((d, tk, format(close, ".10g"), vol, op))
     if not rows:
         raise ValueError("CSV contains no data rows")
     rows.sort(key=lambda r: (r[0], r[1]))
@@ -73,12 +88,22 @@ def ingest_csv(csv_path: Path, out_dir: Path, *, snapshot_id: str | None = None,
     (out_dir / "daily").mkdir(parents=True, exist_ok=True)
     prices = out_dir / "daily" / "prices.csv"
     has_vol = any(r[3] for r in rows)
+    has_open = any(r[4] for r in rows)
+    if has_open and not all(r[4] for r in rows):
+        raise ValueError("opens present on some rows but missing on others - "
+                         "the open column is all-or-nothing (v3 factors need it)")
     with prices.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.writer(fh, lineterminator="\n")
-        header = ["date", "ticker", "close"] + (["volume"] if has_vol else [])
+        header = ["date", "ticker", "close"] \
+            + (["open"] if has_open else []) + (["volume"] if has_vol else [])
         writer.writerow(header)
-        for d, tk, close, vol in rows:
-            writer.writerow([d, tk, close, vol] if has_vol else [d, tk, close])
+        for d, tk, close, vol, op in rows:
+            cells = [d, tk, close]
+            if has_open:
+                cells.append(op)
+            if has_vol:
+                cells.append(vol)
+            writer.writerow(cells)
 
     dates = sorted({r[0] for r in rows})
     tickers = sorted({r[1] for r in rows})
@@ -94,6 +119,18 @@ def ingest_csv(csv_path: Path, out_dir: Path, *, snapshot_id: str | None = None,
         "rows": len(rows),
         "files": {"daily/prices.csv": sha256_file(prices)},
     }
+    if meta_dir is not None:
+        meta_dir = Path(meta_dir)
+        metas = sorted(p for p in meta_dir.glob("*.csv")) if meta_dir.is_dir() else []
+        if not metas:
+            raise ValueError(f"meta_dir {meta_dir}: no CSVs found — either "
+                             "pass a directory with meta CSVs or omit meta_dir")
+        (out_dir / "meta").mkdir(parents=True, exist_ok=True)
+        for src in metas:
+            dst = out_dir / "meta" / src.name
+            dst.write_bytes(src.read_bytes())
+            manifest["files"][f"meta/{src.name}"] = sha256_file(dst)
+        manifest["meta"] = [m.name for m in metas]
     if per_side_bps is not None:
         if isinstance(per_side_bps, bool) or not isinstance(per_side_bps, (int, float)) \
                 or per_side_bps < 0:
