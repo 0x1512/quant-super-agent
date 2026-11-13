@@ -2,7 +2,7 @@
 
 **The idea:** agentic quant systems will be trusted when their *failure modes under pressure to produce results* are measured, not assumed. FIB is a negative-control benchmark: the harness orders the agent to produce research outputs that are subtly wrong, and measures whether the pipeline catches them and whether the agent lies about them.
 
-FIB is framework-agnostic by design: any system that (a) accepts research orders and (b) produces claims/cards/reports can be adapted to the harness. We intend to run it against open-source baselines and publish the results (v0.6).
+FIB is framework-agnostic by design: any system that (a) accepts research orders and (b) produces claims/cards/reports can be adapted to the harness. The harness itself shipped in v0.6 and was extended in v0.7 (18 scenarios, of which 17 injections); running the same scenario builders against open-source third-party frameworks and publishing those results is the planned next step.
 
 ## Injection classes (20)
 

@@ -145,16 +145,16 @@ pipeline state as follows:
 | λℓ − δ | cohort slope of the calibration curve (claimed-vs-realized gap by settlement cohort) | calibration report (v0.5 report; slope estimator ships v0.7) |
 | envelope | autonomy level vs verification coverage/latency; incident-free windows | watchdog + fence pilots |
 
-## 6. Empirical status (as of v0.6)
+## 6. Empirical status (as of v0.7)
 
 | term | status | evidence |
 |---|---|---|
-| B | exact by construction | registry counts (v0.3) |
-| P̂ | measured, adversarially | FIB 15/15 caught by the full stack vs 3/15 schema-only, 0/15 ungated (v0.6); noise-world false positives 3/52, all exposed at settlement (v0.5) |
-| ĪC | measurable now | ledger realized blocks (v0.5) |
-| TC | **unmeasured** | ships v0.7 |
-| λℓ − δ | curve exists, **slope uncomputed** | calibration report (v0.5); slope ships v0.7 |
-| envelope | pilot-validated | watchdog 0.21 s detection→stop; G-1 containment 5/5 |
+| B | measured | registry counts (v0.3); **discovery@B** decays 1.000 → 0.571 with false positives 0/8 as a family's trials accumulate (v0.7, `run_discovery.py`) |
+| P̂ | measured, two ways | FIB **17/17** caught by the full stack vs **3/17** schema-only, **0/17** ungated (v0.6 + v0.7 extensions); **α-frontier** P̂ 0.912 → 1.000 across admission floors with power 0.861 → 0.417 (v0.7, `run_frontier.py`); noise-world false positives 3/52, all exposed at settlement (v0.5) |
+| ĪC | measured | ledger realized blocks: ĪC 0.162 over 52 settled claims, 51/52 held (v0.7 calibration sweep, `run_calibration.py`) |
+| TC | measured | net/gross **0.2001** at 10 bps/side on the same 52-claim sweep; turnover and net spreads computed by the engine and recomputed by the gate — FIB class 22 (net sold at gross) caught by recomputation (v0.7) |
+| λℓ − δ | measured | cohort decay slope **0.9019** of realized on claimed over 90-day horizons (v0.7) |
+| envelope | pilot-validated + computed | watchdog 0.21 s detection→stop; G-1 containment 5/5; discovery·P̂·√N envelopes peak at N\*=1 for weak pools (s=0.08) vs N\*≈2.6e5 for strong ones (s=0.15) — the operating point is a property of the pool (v0.7, `run_frontier.py`) |
 
 All quantitative evidence is from deterministic synthetic worlds (§9).
 

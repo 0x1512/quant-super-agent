@@ -1,4 +1,4 @@
-# Architecture (v0.1 design)
+# Architecture (design; mechanism state as of v0.7)
 
 Quant Super Agent runs the full quant research lifecycle as an **order-driven agent workflow**. This document describes the target architecture and how each component maps to mechanisms already validated in internal pilots (see [EVIDENCE.md](EVIDENCE.md)).
 
@@ -83,8 +83,9 @@ The gate is intentionally dumb and strict — it checks, in order:
 5. engine version pinned; with a ledger (`--registry`, v0.3): hypothesis-before-experiment ordering, family trial counts, one-shot OOS windows, and the deflated (multiple-testing-adjusted) verdict; when the card carries `factor_code`, the gate re-executes it in the AST-whitelist sandbox and requires the recomputed metrics to match — sampled recomputation becomes exhaustive
 6. role duties and review (v0.4, shipped): the data role's feasibility pre-registration and the risk role's half-split stability veto are mechanical functions; a claimed risk veto must recompute from `factor_code` (a fabricated veto is a lie), an OOS block feeds the expected-verdict consistency check and its metrics are recomputed from source, and a review block must agree with the verifiable checks — a bear objection is upheld only if its check actually fails, bull rhetoric never admits
 7. settlement ledger (v0.5, shipped): with `--settlement`, the ledger's hash chain must hold and every entry's realized metrics and outcome must recompute from the world spec + factor code it carries (FIB 19); an H card's `calibration` block must match the ledger-derived tighten-only reflection rule — dropping a justified tightening or claiming a rosier multiplier is a gate error
-8. FIB harness (v0.6, shipped): `qsa/fib.py` turns the injection classes of [BENCHMARK.md](BENCHMARK.md) into deterministic scenarios — honest card pairs with one scripted mutation each — and routes each submission through two baseline judges (`ungated`, `schema-only`) and this gate; catch rate, honesty, silent-pass, pressure asymmetry and localization are computed per judge ([RUBRICS.md](RUBRICS.md))
-9. verdict honesty: a `fail` with real metrics beats a fabricated `pass` — the gate cannot detect every fabrication, but the settlement ledger eventually can (see [BENCHMARK.md](BENCHMARK.md) for the adversarial side)
+8. FIB harness (v0.6, extended v0.7): `qsa/fib.py` turns the injection classes of [BENCHMARK.md](BENCHMARK.md) into deterministic scenarios — honest card pairs with one scripted mutation each — and routes each submission through two baseline judges (`ungated`, `schema-only`) and this gate; catch rate, honesty, silent-pass, pressure asymmetry and localization are computed per judge ([RUBRICS.md](RUBRICS.md))
+9. budget/cost plane (v0.7, shipped): the sandbox gains contract v2 (`closes, volumes, tickers, dates, i`) for liquidity-aware factors; the manifest may pin `costs.per_side_bps`; the engine computes coverage, turnover and net-of-cost spreads, and the gate recomputes them — a cherry universe dies on the pre-registered coverage bar (FIB 10) and a net-sold-at-gross card dies on cost recomputation (FIB 22). `qsa/budget.py` reads the budget-equation terms (ĪC, B, P̂, TC, decay slope) straight out of pipeline state; default worlds stay byte-frozen
+10. verdict honesty: a `fail` with real metrics beats a fabricated `pass` — the gate cannot detect every fabrication, but the settlement ledger eventually can (see [BENCHMARK.md](BENCHMARK.md) for the adversarial side)
 
 ## Reproducibility
 

@@ -2,7 +2,7 @@
 
 Public, version-gated. Each version has scope + acceptance criteria; code lands here phase by phase out of the internal pilot environment.
 
-## v0.1 — design skeleton (now)
+## v0.1 — design skeleton (shipped)
 - README (EN/zh), architecture, FIB benchmark spec, evidence inventory, roadmap
 - Acceptance: docs coherent, no overclaim of unimplemented features
 
