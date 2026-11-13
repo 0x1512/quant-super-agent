@@ -187,6 +187,7 @@ Everything claimed for the shipped versions is reproducible from this repo: 141 
 - **v0.4** ablatable quant roles + bull/bear review gate + ablation table (shipped)
 - **v0.5** settlement ledger + calibration curve + tighten-only reflection rule (shipped)
 - **v0.6** Fabrication Injection Benchmark harness + rubrics (shipped; external-framework runs next)
+- **v0.7** instrument-grade quant plane: OHLCV factors, costs/turnover, walk-forward, exposure neutralization, universe pinning, portfolio cards, composites, FIB externalization, CLI + variance protocol (planned)
 - **v1.0** paper artifact + reproduction protocol
 
 Full version: [docs/ROADMAP.md](docs/ROADMAP.md).
