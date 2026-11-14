@@ -208,6 +208,7 @@ Everything claimed for the shipped versions is reproducible from this repo: 157 
 - **v0.6** Fabrication Injection Benchmark harness + rubrics (shipped; external-framework runs next)
 - **v0.7** budget estimators, re-anchored to the transfer theory: sandbox v2 (volumes), coverage/universe pinning, cost-capacity accounting with gate-recomputed net metrics, cohort decay slope, discovery@B + α-frontier + envelope (shipped)
 - **v0.8** portfolio claims: P cards, composites, walk-forward folds, real-data settlement (planned)
+- **v1.1** factor factory: 24 public-literature factors, one command, fast-lane ranking (IC/ICIR/spread/train-val-oos) + tradeable-metrics backtest (fees, NW Sharpe, turnover, capacity, drawdown, triple-gate) — `python examples/run_factory.py`; evidence: [EVIDENCE.md](docs/EVIDENCE.md) §v1.1
 - **v1.0** three classic scenarios end to end (report replication · view verification · regime summarization), each with recorded ungated-agent controls — spec: [docs/V1_SCENARIOS.md](docs/V1_SCENARIOS.md); Scenario A shipped: `python examples/run_replication.py` (evidence: [EVIDENCE.md](docs/EVIDENCE.md) §v1.0)
 - **v1.1** paper artifact + reproduction protocol
 

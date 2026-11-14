@@ -316,6 +316,42 @@ neutralized metric). Half-sample attribution: front -0.0563 / back
 `work/replication/replication_metrics.json` (regenerable byte-identically);
 the report is `work/replication/report.md`.
 
+## v1.1 Factor factory — the fast lane (throughput, honestly)
+
+`python examples/run_factory.py` (smoke ~15 s; `--full` ~23 s on the
+pinned 5-year fixture): 24 public-literature template factors
+(Jegadeesh-Titman, Lehmann, Amihud, Bali MAX, George-Hwang 52w-high,
+Harvey-Siddique skew, Parkinson range, Lesmond zero-returns,
+WorldQuant Alpha#101, the replicated report's overnight-gap family, and
+more — every one cited to a public source in `qsa/factorzoo.py`) built
+with O(N) rolling kernels (stdlib only, no dependencies), evaluated on
+the same pinned snapshot the replication plane uses: monthly rank-IC,
+ICIR, top-minus-bottom quintile spread, train/val/oos IC per factor,
+signed leaderboard score (directionally-dead factors sink even with a
+large |IC|). Top candidates get the tradeable-metrics backtest
+(`qsa/backtest.py`): net-of-fee return at an explicit one-sided cost,
+Newey-West Sharpe (Bartlett kernel with a padded PSD floor — the naive
+version explodes under negative autocorrelation), one-sided turnover,
+capacity under a stated participation cap against the pinned cap-proxy
+meta, max drawdown / Calmar, and triple-gate excess across explicit
+partitions. Double run is byte-identical (CI asserts it).
+
+Findings on the real fixture (machine-emitted, `work/factory/`): almost
+the entire public-literature catalog is **OOS-dead on the 2021-2026
+top-300 sample** — the leaderboard's top entries carry train ICs of
+0.10+ but oos ICs of -0.01..-0.05, and the best net-excess is negative.
+Three exceptions survive out-of-sample: `mom_gap_12m` (oos IC +0.073,
+top-bottom +16.1% p.a.), `dist_52w_high` (oos +0.076, +19.8%) and
+`vol_of_vol` (oos +0.040). This is the same decay the Scenario-A verdict
+found, seen from the production side: the screen's job is to spend 23
+seconds rejecting 21 factors so the expensive v1.0 honesty gauntlet only
+runs on the 3 that earn it.
+
+Tiering, declared: the zoo RANKS on shared pinned data; it certifies
+nothing. Nothing here writes the registry, sets a threshold, or bypasses
+the gate — a candidate promoted to a claim still runs the full
+pre-registration -> engine -> independent recomputation -> verdict path.
+
 ## What these pilots do NOT show
 
 - No positive alpha discovery in the *production* mining loop yet (its pilots returned honest negatives by design); the ablation's and the calibration sweep's planted worlds are synthetic ground truth, not market alpha.

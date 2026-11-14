@@ -30,6 +30,12 @@ jobs:
         run: python examples/run_calibration.py
       - name: v0.6 FIB harness acceptance (20 injections x 2 baselines + gate)
         run: python examples/run_fib.py
+      - name: v1.1 factor factory — 24 public-literature factors, fast lane (smoke, ~15s)
+        run: |
+          python examples/run_factory.py --work "$RUNNER_TEMP/factory1"
+          cp -r "$RUNNER_TEMP/factory1" "$RUNNER_TEMP/factory1-copy"
+          python examples/run_factory.py --work "$RUNNER_TEMP/factory1"
+          diff -r "$RUNNER_TEMP/factory1" "$RUNNER_TEMP/factory1-copy" && echo FACTORY-BYTE-IDENTICAL
       - name: v1.0 Scenario A — report replication (fixture-pinned, offline; byte-identical double run)
         if: matrix.python-version == '3.12'
         run: |
