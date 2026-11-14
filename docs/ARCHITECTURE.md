@@ -1,4 +1,4 @@
-# Architecture (design; mechanism state as of v0.7)
+# Architecture (design; mechanism state as of v1.2)
 
 Quant Super Agent runs the full quant research lifecycle as an **order-driven agent workflow**. This document describes the target architecture and how each component maps to mechanisms already validated in internal pilots (see [EVIDENCE.md](EVIDENCE.md)).
 
@@ -50,6 +50,35 @@ A factor study is an **order**. Each order walks:
 6. **CI verify gate** — a push hook runs the gate: schema completeness, snapshot fingerprint match, window alignment (no look-ahead), engine version pinning, and metric recomputation on a sampled basis. **A failing card can never be marked ready** — the agent must report failure as failure.
 7. **Review & admission** — humans (L1/L2) or the manager (L3) admit or reject. Admission writes to the registry.
 8. **Settlement** (shipped, v0.5) — at horizon end the world is deterministically continued from its seed, the factor re-executes in the sandbox, and realized performance is written to the hash-chained ledger against the claim. The calibration curve and a tighten-only reflection rule (family bar ×1.25 after repeated shortfalls) feed back into future admissions.
+
+## Order book, blackboard, gate, forks (shipped, v1.2)
+
+The lifecycle above has a **local, testable implementation** (`qsa/orders.py`,
+`qsa/blackboard.py`, `qsa/infragate.py`; demo `examples/run_orders.py`):
+
+- **State machine** — `drafted → admitted → running → settled/refused`,
+  illegal transitions are hard errors, both terminal states are final.
+  *Admission freezes a hash of the evaluation parameters*; `start` with
+  different parameters raises — pre-registration enforced per order, not
+  per flagship. The event log is hash-chained (JSONL); a reload verifies
+  the chain and refuses tampered history.
+- **Settle vs refuse is mechanical** — the settle threshold is declared in
+  the admitted params; results attach at `settle`, a reason at `refuse`.
+  Refused orders cannot restart; re-entry is a NEW order with a changed
+  hypothesis, which the registry then counts (deflation composition).
+- **Blackboard** — cross-session memory, four kinds (`data_pitfall`,
+  `decay_event`, `convention_decision`, `order_note`), append-only and
+  hash-chained; `resolve()` clears a blocker by appending a linked note,
+  never rewriting. Bootstrapped with this repo's real incidents.
+- **Infra gate** — five offline pre-flight checks over the pinned fixture
+  plus blackboard-clear; orders are not admitted while it is shut.
+- **Fork cards** — research conventions (universe, cost, proxy variable)
+  raised as explicit questions with option impacts, decided once,
+  append-only; order params cite fork digests, so a convention change
+  invalidates old orders instead of silently drifting them.
+- **Recall** — a terminal order for the same hypothesis+params hash is a
+  remembered verdict; re-runs recall instead of recomputing (the book is
+  the memoization layer a batch script lacks).
 
 ## Worker roles
 

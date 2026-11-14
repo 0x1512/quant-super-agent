@@ -2,9 +2,9 @@
 
 **A verifiable agentic quant research factory — machine-checked evidence, honest settlement, bounded autonomy.**
 
-![status](https://img.shields.io/badge/status-v0.7%20budget%20estimators-green) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![benchmark](https://img.shields.io/badge/benchmark-fabrication--injection%20harness-green)
+![status](https://img.shields.io/badge/status-v1.2%20order%20book%20%2B%20blackboard-green) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![benchmark](https://img.shields.io/badge/benchmark-fabrication--injection%20harness-green)
 
-> **What runs today (v0.7):** the full gated research loop — pre-registered hypotheses, sandboxed factor code (v1 `factor(closes, tickers, dates, i)` and v2 `factor(closes, volumes, tickers, dates, i)`), multiple-testing-deflated verdicts, one-shot out-of-sample windows, attribution-driven iteration under budget — plus ablatable quant roles, a bull/bear adversarial review gate, a hash-chained settlement ledger with calibration curve and tighten-only reflection rule, the **Fabrication Injection Benchmark harness** (17 injections × 2 baselines + full gate, published raw logs), and the **budget estimators**: every term of the thesis equation *E[IR] ≈ ĪC·√B_eff·P̂·TC·e^{(λℓ−δ)t}* now reads out of pipeline state — discovery@B curves, α-frontier with P̂, net-of-cost TC blocks, cohort decay slope, and the breadth/verification envelope (`qsa/budget.py`). On synthetic or your own CSV data, fully offline and deterministic. Pure Python ≥ 3.10 stdlib, zero dependencies.
+> **What runs today (v1.2):** the full gated research loop — pre-registered hypotheses, sandboxed factor code (v1 `factor(closes, tickers, dates, i)` and v2 `factor(closes, volumes, tickers, dates, i)`), multiple-testing-deflated verdicts, one-shot out-of-sample windows, attribution-driven iteration under budget — plus ablatable quant roles, a bull/bear adversarial review gate, a hash-chained settlement ledger with calibration curve and tighten-only reflection rule, the **Fabrication Injection Benchmark harness** (17 injections × 2 baselines + full gate, published raw logs), and the **budget estimators**: every term of the thesis equation *E[IR] ≈ ĪC·√B_eff·P̂·TC·e^{(λℓ−δ)t}* now reads out of pipeline state — discovery@B curves, α-frontier with P̂, net-of-cost TC blocks, cohort decay slope, and the breadth/verification envelope (`qsa/budget.py`). On **real pinned market data** (CSV snapshot, sha256-fingerprinted): v1.0 Scenario A replicates a published overnight-gap factor end-to-end with an honest `not_replicated` verdict (double-run byte-identical, 3 injection controls all blocked); v1.1 ranks 24 public-literature factors on a fast lane and finds 17/24 OOS-dead. **v1.2 adds the organizational layer a single-session agent cannot have**: an append-only hash-chained **blackboard** (cross-session memory, seeded with 8 real paid-for lessons), an **infra gate** (5 offline pre-flight checks; blockers on the board shut it), an **order state machine** (drafted→admitted→running→settled/refused; admission freezes a parameter hash, drifted starts are hard errors, refused orders are terminal), and **fork cards** (research conventions decided explicitly, double-decide refused). Fully offline and deterministic. Pure Python ≥ 3.10 stdlib, zero dependencies.
 >
 > **Thesis** ([docs/THESIS.md](docs/THESIS.md)): *throughput is cheap; verification is the constraint* — the deployable information ratio factors into stage efficiencies that compose multiplicatively, and the field's budget terminates before the binding terms.
 >
@@ -46,14 +46,20 @@ python examples/run_fib.py
 python examples/run_discovery.py
 python examples/run_frontier.py
 
-# 7) your own data: CSV -> legal, fingerprinted snapshot (local-first)
+# 7) v1.2: the zoo as an order book — every hypothesis has a lifecycle
+#    (infra gate -> blackboard -> fork cards -> 25 orders -> drift caught)
+python examples/run_orders.py
+python examples/run_orders.py            # second run: recall, not recompute
+
+# 8) your own data: CSV -> legal, fingerprinted snapshot (local-first)
 python -m qsa.ingest myprices.csv mydata/
 
 # the whole contract, machine-checked
-python -m unittest discover -s tests -v     # 157 tests: gate, FIB injections, registry,
+python -m unittest discover -s tests -v     # 238 tests: gate, FIB injections, registry,
                                             # deflation, sandbox v1+v2, mining, roles, review,
                                             # ablation, settlement, calibration,
-                                            # FIB harness, budget estimators, determinism
+                                            # FIB harness, budget estimators, replication,
+                                            # factor zoo, blackboard, order book, forks
 ```
 
 What the mining demo prints (abbreviated):
@@ -180,6 +186,7 @@ Autonomy is a dial with a fence — L0 observe / L1 suggest / L2 admit-gated / L
 | Multiple-testing control | ✖ | ✖ | ✖ | ✖ | ✔ **shipped v0.3** — Bonferroni floor at family N |
 | Fabrication benchmark | ✖ | ✖ | ✖ | ✖ | ✔ **shipped v0.6, extended v0.7** — FIB harness, 17 scenarios × 2 baselines + gate, published rubrics and raw logs |
 | Budget-equation estimators | ✖ | ✖ | ✖ | ✖ | ✔ **shipped v0.7** — discovery@B, α-frontier/P̂, net-of-cost TC, decay slope, envelope |
+| Cross-session memory (blackboard + order book) | ✖ | ✖ | ✖ | ✖ | ✔ **shipped v1.2** — hash-chained blackboard seeded with real lessons, order state machine with frozen admission params, fork cards |
 | Autonomy control | ✖ | ✖ | ✖ | n/a | pilot-validated design (L0–L3 + watchdog, 0.21 s measured) |
 | Reproducibility protocol | acknowledged, unmeasured | ✖ | ✖ | seed-based | ✔ byte-level determinism asserted by tests + data fingerprints |
 
@@ -196,7 +203,7 @@ Internal pilots (deterministic git-forge emulation, 2026-11) — full inventory 
 | Autonomy risk (G-1) three-arm × 5 rounds | Risk reproduced once in the wild; containment stack achieved **5/5 clean windows** in the full-protection arm; watchdog detection→stop **0.21 s**; zero spillover |
 | Data plane | As-of snapshot + reconciliation tooling; 144-point cross-check zero mismatch; tamper-rejection verified |
 
-Everything claimed for the shipped versions is reproducible from this repo: 157 tests (offline, deterministic) and a CI matrix across Python 3.10–3.13 that also runs all the acceptance demos as regression contracts — the v0.2–v0.7 acceptance tables in [docs/EVIDENCE.md](docs/EVIDENCE.md) map every discipline to its test.
+Everything claimed for the shipped versions is reproducible from this repo: 238 tests (offline, deterministic) and a CI matrix across Python 3.10–3.13 that also runs all the acceptance demos as regression contracts — the v0.2–v1.2 acceptance tables in [docs/EVIDENCE.md](docs/EVIDENCE.md) map every discipline to its test.
 
 ## Roadmap (summary)
 
@@ -211,6 +218,7 @@ Everything claimed for the shipped versions is reproducible from this repo: 157 
 - **v1.1** factor factory: 24 public-literature factors, one command, fast-lane ranking (IC/ICIR/spread/train-val-oos) + tradeable-metrics backtest (fees, NW Sharpe, turnover, capacity, drawdown, triple-gate) — `python examples/run_factory.py`; evidence: [EVIDENCE.md](docs/EVIDENCE.md) §v1.1
 - **v1.0** three classic scenarios end to end (report replication · view verification · regime summarization), each with recorded ungated-agent controls — spec: [docs/V1_SCENARIOS.md](docs/V1_SCENARIOS.md); Scenario A shipped: `python examples/run_replication.py` (evidence: [EVIDENCE.md](docs/EVIDENCE.md) §v1.0)
 - **v1.1** paper artifact + reproduction protocol
+- **v1.2** organizational memory: blackboard (hash-chained, seeded with real incidents), infra gate, order state machine (admit freezes params; settle/refuse mechanical; refused is terminal; recall on re-run), fork cards (explicit convention decisions) — `python examples/run_orders.py`; self-playing demo: `python examples/build_demo_video.py` → [docs/demo_video.html](docs/demo_video.html)
 
 Full version: [docs/ROADMAP.md](docs/ROADMAP.md).
 

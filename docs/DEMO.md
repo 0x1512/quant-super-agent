@@ -69,6 +69,28 @@ Scenario A（研报隔夜跳空因子）穿完整门禁：预注册 H 卡（跑�
 
 `DEMO_REPORT.md` 一页收尾，所有数字机器发射，散文不自造数字。
 
+## Stage 5 — v1.2 自播放演示视频（~2.5 分钟，零依赖 HTML）
+
+```bash
+python examples/run_orders.py --work work/orders --full   # 真实运行
+python examples/run_orders.py --work work/orders --full > work/orders/recall_run.log
+python examples/build_demo_video.py --work work/orders \
+    --recall-log work/orders/recall_run.log --out docs/demo_video.html
+```
+
+打开 `docs/demo_video.html`：10 幕自动播放（空格暂停、章节按钮跳转）。
+每一幕的数据都从 `work/orders/` 工件读取——门禁 5 项检查、黑板 8 条
+踩坑史、3 张 fork 拍板卡、25 张订单全生命周期、settle/refuse 判定
+数字、漂移拦截、第二次运行的 recall。**没有一处数字是手写的**；规划
+中的能力（对抗复算、红队、并行 miner、LLM 假设生成、日历结算、组合
+归因）单独一幕，明确盖章「规划中 · 未实现」——测试钉死判定计数必须
+从工件计算（`tests/test_demo_video.py`）。
+
+**讲词**：这一段回答"codex 也能做"——脚本能复算数字，但跨会话记忆
+（黑板）、预注册有牙齿（admit 冻结参数哈希，start 不一致即拒）、
+终态不可重启（refused 是终态）、组织拍板留痕（fork 卡）是**状态机
+和账本**给的，单会话 agent 天生没有。
+
 ---
 
 ## 常见提问与答法

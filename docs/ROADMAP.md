@@ -141,6 +141,15 @@ Non-goals (unchanged): no ML/DL training loop, no RL, no news/sentiment planes, 
 ## v1.1 — paper artifact
 - Reproduction protocol (variance decomposition, K-run reporting), paper, cached environments
 - Acceptance: cold-start reproduction by a non-author within one day
+- Status: factor factory (the fast lane that feeds it) shipped ahead of the paper — `run_factory.py`; see [EVIDENCE.md](EVIDENCE.md) §v1.1
+
+## v1.2 — organizational memory (shipped)
+- **Blackboard** — append-only, hash-chained cross-session memory (`data_pitfall` / `decay_event` / `convention_decision` / `order_note`), bootstrapped with this repo's real incidents; blockers shut the infra gate until resolved by a linked note
+- **Infra gate** — 5 offline pre-flight checks over the pinned fixture; no orders admitted while shut; every FAIL path pinned by tests
+- **Order state machine** — `drafted→admitted→running→settled/refused`; admission freezes a params hash (drift = hard error); settle/refuse mechanical against the pre-declared threshold; terminal states final; event log hash-chained; recall on re-run
+- **Fork cards** — research conventions raised as explicit questions with option impacts, decided once, append-only; order params cite fork digests
+- Acceptance: `run_orders.py` full run — 24 factor orders + drift demo, 7 settled / 17 refused on the pinned fixture with numbers matching §v1.1; second run recalls all 24; 36 new tests; self-playing honest demo reel (`build_demo_video.py`) whose planned-capabilities scene is explicitly stamped 未实现
+- Next (not built): adversary recompute, red-team robustness runs, parallel miners, LLM hypothesis generation feeding the same state machine, calendar-driven settlement, portfolio attribution
 
 ## Out of scope (explicitly)
 - Live trading, brokerage APIs, real-money anything

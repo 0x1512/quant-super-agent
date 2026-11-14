@@ -3,7 +3,7 @@
 > 论文标题: *Quant Super Agent: A Verifiable Agentic Quant Research Factory*
 > 论文地址: [arXiv:2601.04736](https://arxiv.org/abs/2601.04736) · [github.com/0x1512/quant-super-agent](https://github.com/0x1512/quant-super-agent)
 >
-> **状态: v0.7 已交付**(证据平面 + 研究闭环 + 可消融角色 + 对抗辩论 + 结算账本与校准曲线 + FIB 注入基准 + **预算等式估计器**)。论文中的每一层能力在仓库里都有对应实现,且可离线复现。
+> **状态: v1.2 已交付**(证据平面 + 研究闭环 + 可消融角色 + 对抗辩论 + 结算账本与校准曲线 + FIB 注入基准 + 预算等式估计器 + **真实数据研报复现 v1.0** + **因子工厂快车道 v1.1** + **组织记忆层 v1.2:黑板/infra 门/订单状态机/fork 拍板卡**)。论文中的每一层能力在仓库里都有对应实现,且可离线复现。
 >
 > 本 README 是仓库导航与版本进度看板。论文的完整主张在 `docs/THESIS.md`(含对论文原文的逐条对照);架构在 `docs/ARCHITECTURE.md`;各版本的公开验收记录在 `docs/EVIDENCE.md`;FIB 场景与判定标准在 `docs/BENCHMARK.md` 与 `docs/RUBRICS.md`。
 
@@ -47,6 +47,12 @@ quant-super-agent/
 │   ├── ingest.py                # 离线 CSV → 快照(含 per_side_bps 成本模型)
 │   ├── snapshot.py              # 快照加载、按种子/日期确定性续写、体积与成本
 │   ├── mining.py                # 因子挖掘:种子候选、沙箱执行、去重、登记簿感知
+│   ├── factorzoo.py             # v1.1 因子工厂:24 个公开文献模板因子,O(N) 滚动核,零依赖
+│   ├── backtest.py              # v1.1 可交易性回测:费后/NW Sharpe(PSD 下限)/换手/容量/回撤/triple-gate
+│   ├── replication.py           # v1.0 研报复现:口径表、双算对账、分歧归因、预注册判定
+│   ├── blackboard.py            # v1.2 黑板:跨会话记忆,哈希链防篡改,blocker 拉闸
+│   ├── orders.py                # v1.2 订单状态机:admit 冻结参数哈希,终态不可重启,事件哈希链
+│   ├── infragate.py             # v1.2 infra 门(5 项离线预检) + fork 拍板卡(append-only)
 │   └── cli.py                   # 命令行入口
 ├── examples/                    # 可运行示例 / 验收脚本(全部确定性,可当回归契约)
 │   ├── run_evidence_plane.py    # v0.2 验收:证据卡 + 门禁
@@ -56,8 +62,12 @@ quant-super-agent/
 │   ├── run_fib.py               # v0.6 验收:FIB 场景表 + 判定标准
 │   ├── run_calibration.py       # v0.7 演示:52 笔结算 + 校准 + 预算等式各项读数
 │   ├── run_discovery.py         # v0.7 演示:discovery@B 曲线 + 包线(广度净核查)
-│   └── run_frontier.py          # v0.7 演示:α-前沿(P̂)曲线 + 包线
-├── tests/                       # 单元测试(157 项,确定性)
+│   ├── run_frontier.py          # v0.7 演示:α-前沿(P̂)曲线 + 包线
+│   ├── run_replication.py       # v1.0 研报复现端到端(真实钉死数据,诚实判定,双跑字节一致)
+│   ├── run_factory.py           # v1.1 因子工厂快车道(24 因子排序 + 可交易性回测)
+│   ├── run_orders.py            # v1.2 订单簿:门→黑板→fork 卡→25 单生命周期→漂移拦截→recall
+│   └── build_demo_video.py      # v1.2 自播放演示视频生成(所有数字来自真实工件)
+├── tests/                       # 单元测试(238 项,确定性)
 ├── ci/                          # CI 回归契约(验收脚本在 CI 中运行)
 └── docs/
     ├── THESIS.md                # 论文主张清单:对原文逐条标注(核心文件)
@@ -75,7 +85,7 @@ quant-super-agent/
 
 ```bash
 # 环境:Python ≥ 3.10,运行期零第三方依赖
-python3 -m unittest discover -s tests -v      # 157 项测试,全部确定性
+python3 -m unittest discover -s tests -v      # 238 项测试,全部确定性
 
 # 版本验收(每个脚本都是确定性回归契约,CI 矩阵 3.10–3.13 全跑)
 python3 examples/run_evidence_plane.py        # v0.2 证据平面:诚实卡通过、注入卡被拒且错误指明字段
@@ -86,6 +96,7 @@ python3 examples/run_fib.py                   # v0.6 注入基准:17 场景 × 2
 python3 examples/run_calibration.py           # v0.7 校准与预算读数:52 笔结算、衰减斜率、净/毛
 python3 examples/run_discovery.py             # v0.7 发现率@B:共享账本下的收缩曲线 + 包线
 python3 examples/run_frontier.py              # v0.7 α-前沿:功效 vs 假阳率 + 包线
+python3 examples/run_orders.py               # v1.2 订单簿:门→黑板→fork 卡→25 单→漂移拦截→recall
 ```
 
 ---
@@ -163,10 +174,11 @@ python3 examples/run_frontier.py              # v0.7 α-前沿:功效 vs 假阳�
 | v0.6 | FIB 注入基准 harness + 判定标准 | ✅ 已交付;下一步外部框架跑 |
 | v0.7 | 预算等式估计器,重新锚定到迁移理论:沙盒 v2(volumes)、coverage/宇宙钉死、成本容量核算(门禁复算净指标)、队列衰减斜率、discovery@B + α-前沿 + 包线 | ✅ 已交付 |
 | v0.8 | 组合主张:P 卡、组合、walk-forward folds、真实数据结算 | 计划中 |
-| v1.0 | 三大经典场景端到端:研报复现 · 观点验证 · 行情归纳总结,每个场景含无门禁通用 agent 对照实验 — 规范:docs/V1_SCENARIOS.md(30 项编号目标) | 计划中 |
-| v1.1 | 论文制品 + 复现协议 | 计划中 |
+| v1.0 | 三大经典场景端到端:研报复现 · 观点验证 · 行情归纳总结,每个场景含无门禁通用 agent 对照实验 — 规范:docs/V1_SCENARIOS.md(30 项编号目标) | 🔶 Scenario A 已交付(诚实判定 not_replicated,双跑字节一致);B/C 计划中 |
+| v1.1 | 因子工厂快车道:24 个公开文献因子,一键排序 + 可交易性回测 | ✅ 已交付(17/24 OOS 死亡;论文制品继续) |
+| v1.2 | 组织记忆层:黑板(哈希链跨会话记忆)+ infra 门 + 订单状态机(admit 冻结参数,漂移即拒)+ fork 拍板卡 + 自播放演示视频 | ✅ 已交付 |
 
-**v0.7 关键数字**(全部由确定性脚本复现):52 笔结算;衰减斜率 0.9019;净/毛 0.2001(10 bps);discovery 1.000→0.571(B 1→13);功效 0.861→0.417、P̂ 0.912→1.000;FIB 17 场景全捕获。
+**关键数字**(全部由确定性脚本复现):v0.7 — 52 笔结算;衰减斜率 0.9019;净/毛 0.2001(10 bps);discovery 1.000→0.571(B 1→13);功效 0.861→0.417、P̂ 0.912→1.000;FIB 17 场景全捕获。v1.0/v1.1/v1.2(真实钉死数据 300 票 × 5 年)— 研报复现判定 not_replicated(D1/D2 fail,D3 归因成立);24 因子 17 个 OOS 死亡,幸存 dist_52w_high +0.076 / mom_gap_12m +0.073 / vol_of_vol +0.040(订单簿复算同值);25 单生命周期,7 settle / 18 refuse,漂移拦截 1 次,重跑 recall 24/24。
 
 ---
 

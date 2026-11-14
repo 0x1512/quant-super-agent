@@ -352,6 +352,42 @@ nothing. Nothing here writes the registry, sets a threshold, or bypasses
 the gate — a candidate promoted to a claim still runs the full
 pre-registration -> engine -> independent recomputation -> verdict path.
 
+## v1.2 Order book — the zoo gets a lifecycle (automated, reproducible by anyone)
+
+`python examples/run_orders.py` (smoke ~9 s, `--full` ~20 s): the 24
+zoo hypotheses stop being a batch script's output and become ORDERS.
+The run is a chain of organizational mechanisms, each with its test
+class (`tests/test_blackboard.py` 7 tests, `tests/test_orders.py`
+7 tests, `tests/test_infragate.py` 15 tests, `tests/test_demo_video.py`
+7 tests — 36 new, 238 total):
+
+| Mechanism | What the run shows | Negative paths pinned by tests |
+|---|---|---|
+| **infra gate** | 5 offline checks (main/tail fixture, cap meta, universe, blackboard clear) all PASS before any order is created | each check FAILs independently; a blocker on the board shuts the gate |
+| **blackboard** | bootstrapped with 8 real incidents from this repo's history (pre_close field trap, elastic rate limit, truncated pickle, reaped workers, cap_proxy/universe decisions, both decay findings); 17 decay events appended during the full run | tampered entry → chain broken → load refused; deleted entry detected; unknown kinds refused; resolve() only clears via append |
+| **fork cards** | BB-FORK-01/02/03 (cap proxy, universe, cost bps) raised, decided by principal with rationale | double-decide refused; unknown choice refused; unknown fork refused; bootstrap idempotent |
+| **order state machine** | 24 factor orders + 1 drift demo: create→admit (params hashed & frozen)→start (same params or hard error)→settle/refuse per the PRE-DECLARED oos IC > 0.03 threshold | illegal transitions (skip admit, settle from admitted, restart a terminal) all hard-error; params drifted between admit and start refused; edited results break the chain on reload |
+| **memory recall** | second run recalls all 24 verdicts (1.7 s vs 8.9 s smoke first run); the book is the memoization | — |
+| **drift demo** | an order admitted `top300` and started `csi500` is refused with `PRE-REGISTRATION VIOLATED` and recorded `admitted→refused` | the error IS the feature; assertion that start raises |
+
+Full-sample verdicts (`work/orders/`, machine-emitted): **7 settled /
+17 refused** — survivors `dist_52w_high` (oos +0.076), `mom_gap_12m`
+(+0.073), `sharpe_20d` (+0.066), `chan_pos_20d` (+0.063),
+`intraday_21d` (+0.043), `vol_of_vol` (+0.040), `mom_12_1` (+0.034).
+The three factors the v1.1 leaderboard surfaced reproduce through a
+different code path to within rounding (0.0733 vs 0.073 recorded,
+0.0758 vs 0.076, 0.0396 vs 0.040) — the order layer changed the
+process, not the numbers, which is the point: process discipline must
+not move the data.
+
+The demo reel `examples/build_demo_video.py` renders this run into a
+self-playing HTML (10 scenes, ~2.5 min) where every number is read from
+the artifacts — and the not-yet-built capabilities (adversary recompute,
+red team, parallel miners, LLM hypothesis generation, calendar
+settlement, portfolio attribution) appear ONLY in a scene explicitly
+stamped 规划中 · 未实现. Tests pin that the caption's dead-factor count
+is computed from the artifacts, never hardcoded.
+
 ## What these pilots do NOT show
 
 - No positive alpha discovery in the *production* mining loop yet (its pilots returned honest negatives by design); the ablation's and the calibration sweep's planted worlds are synthetic ground truth, not market alpha.

@@ -36,6 +36,16 @@ jobs:
           cp -r "$RUNNER_TEMP/factory1" "$RUNNER_TEMP/factory1-copy"
           python examples/run_factory.py --work "$RUNNER_TEMP/factory1"
           diff -r "$RUNNER_TEMP/factory1" "$RUNNER_TEMP/factory1-copy" && echo FACTORY-BYTE-IDENTICAL
+      - name: v1.2 order book — lifecycle + memory recall + demo build (~10s + 2s)
+        run: |
+          python examples/run_orders.py --work "$RUNNER_TEMP/orders1"
+          python examples/run_orders.py --work "$RUNNER_TEMP/orders1" > "$RUNNER_TEMP/orders1/recall.log"
+          N=$(grep -c '^\[recall\]' "$RUNNER_TEMP/orders1/recall.log")
+          [ "$N" -eq 24 ] && echo "RECALL-ALL-24 (book has memory)"
+          python examples/build_demo_video.py --work "$RUNNER_TEMP/orders1" \
+            --recall-log "$RUNNER_TEMP/orders1/recall.log" \
+            --out "$RUNNER_TEMP/demo_video.html"
+          grep -q 'const SCENES' "$RUNNER_TEMP/demo_video.html" && echo DEMO-HTML-BUILT
       - name: v1.0 Scenario A — report replication (fixture-pinned, offline; byte-identical double run)
         if: matrix.python-version == '3.12'
         run: |
