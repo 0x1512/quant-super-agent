@@ -1,0 +1,44 @@
+# secrets & env — never commit
+.env
+.env.*
+*.pem
+*.key
+*token*
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# data & artifacts (except the pinned replication fixture)
+data/
+!examples/data/
+!examples/data/**
+work/
+*.sqlite
+*.sqlite3
+*.db
+*.parquet
+*.feather
+*.npz
+logs/
+*.log
+
+# node (harness tooling)
+node_modules/
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/
+
+# internal-only materials (dual-repo policy) — live in qsa-internal (gitlab, private)
+capability_showcase.html
+POSITIONING.md
+media/
+*.gif
+storyboard*.png

@@ -1,0 +1,33 @@
+{
+ "budget": 24,
+ "budget_unspent": 0,
+ "closed_at": 1794929303.7973132,
+ "cost_per_excluded_family": 2.4,
+ "cost_per_survivor": null,
+ "gauntlet_order_ids": [],
+ "gauntlet_passed": 0,
+ "gauntlet_passed_note": "survivors queued; walk-forward and portfolio-increment checks pending S9/S10 wiring — not claimed as passed",
+ "graveyard_new": 10,
+ "graveyard_savings": 0,
+ "grid_not_generated": 0,
+ "inconclusive_retestable": [
+  "mom12/top300/gap_gate",
+  "mom12/top300/vol_adj",
+  "mom12/smallcap/plain",
+  "mom12/smallcap/gap_gate",
+  "mom12/smallcap/vol_adj",
+  "mom18/smallcap/plain",
+  "mom18/smallcap/vol_adj",
+  "mom24/smallcap/vol_adj",
+  "mom36/top300/plain",
+  "mom36/top300/gap_gate",
+  "mom36/top300/vol_adj",
+  "mom36/smallcap/plain",
+  "mom36/smallcap/gap_gate",
+  "mom36/smallcap/vol_adj"
+ ],
+ "loop": 1,
+ "program": "S3",
+ "survived_stage2": 0,
+ "tested": 24
+}

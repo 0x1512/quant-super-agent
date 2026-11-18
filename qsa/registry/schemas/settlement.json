@@ -1,0 +1,83 @@
+{
+  "type": "object",
+  "required": [
+    "schema",
+    "settle_id",
+    "exp_id",
+    "hyp_id",
+    "family",
+    "world",
+    "base_snapshot_hash",
+    "extension_hash",
+    "engine",
+    "factor_code",
+    "factor_code_sha256",
+    "claimed",
+    "outcome",
+    "settled_at",
+    "seq",
+    "prev_hash",
+    "entry_hash"
+  ],
+  "properties": {
+    "schema": { "type": "string", "enum": ["settlement"] },
+    "settle_id": { "type": "string", "pattern": "^S-[0-9]{3,}$" },
+    "exp_id": { "type": "string", "pattern": "^E-[0-9]{3,}$" },
+    "hyp_id": { "type": "string", "pattern": "^H-[0-9]{3,}$" },
+    "family": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$" },
+    "iteration": { "type": ["integer", "null"] },
+    "world": {
+      "type": "object",
+      "required": ["kind", "seed", "tickers", "days", "start", "extension_days"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["synthetic"] },
+        "seed": { "type": "integer" },
+        "tickers": { "type": "integer", "minimum": 1 },
+        "days": { "type": "integer", "minimum": 1 },
+        "start": { "type": "string", "pattern": "^[0-9]{8}$" },
+        "plant": {
+          "type": ["object", "null"],
+          "required": ["effect", "strength"],
+          "properties": {
+            "effect": { "type": "string", "enum": ["reversal"] },
+            "strength": { "type": "number" }
+          }
+        },
+        "extension_days": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "base_snapshot_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "extension_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "engine": { "type": "string" },
+    "factor_code": { "type": "string" },
+    "factor_code_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "claimed": {
+      "type": "object",
+      "required": ["metric", "value", "window", "bar", "op"],
+      "properties": {
+        "metric": { "type": "string", "enum": ["rankic_mean"] },
+        "value": { "type": ["number", "null"] },
+        "window": { "type": "string", "pattern": "^[0-9]{8}:[0-9]{8}$" },
+        "bar": { "type": ["number", "null"] },
+        "op": { "type": "string", "enum": [">=", ">", "<=", "<"] }
+      }
+    },
+    "realized": {
+      "type": "object",
+      "required": ["window", "rankic_mean"],
+      "properties": {
+        "window": { "type": "string", "pattern": "^[0-9]{8}:[0-9]{8}$" },
+        "rankic_mean": { "type": "number" },
+        "rankic_tstat": { "type": "number" },
+        "quintile_spread": { "type": "number" },
+        "n_dates": { "type": "number" }
+      }
+    },
+    "outcome": { "type": "string", "enum": ["held", "fell_short", "unverifiable"] },
+    "reason": { "type": "string" },
+    "settled_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}" },
+    "seq": { "type": "integer", "minimum": 1 },
+    "prev_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "entry_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

@@ -1,0 +1,116 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  storefront:
+    # 5th correction: the README is a stable storefront — lint + SSOT +
+    # freeze enforced on every push/PR (docs/README_POLICY.md).
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: public-repo hygiene gate (no internal artifacts/paths/identities)
+        run: python tools/check_public.py
+      - name: storefront policy check (lint + SSOT + freeze)
+        run: python tools/check_readme.py
+      - name: tests badge endpoint must match a fresh recount
+        run: |
+          python tools/write_badge.py "$RUNNER_TEMP/tests.json"
+          diff "$RUNNER_TEMP/tests.json" docs/badge/tests.json || {
+            echo "::error::docs/badge/tests.json is stale — run 'make badge' and commit as 'ci: refresh tests badge endpoint'"
+            exit 1
+          }
+  test:
+    runs-on: ubuntu-latest
+    # 2026-11-17: a 3.11 runner wedged inside step 4 for 78+ min with
+    # NO guard (step-level timeouts only covered Scenario A) — the job
+    # would have burned the 6h default. Job-level cap closes the blind
+    # spot for EVERY step/matrix leg; the 75-min step guard below stays
+    # (finer signal for the one known-slow step). Baseline full leg is
+    # ~6 min (3.12 with Scenario A: ~70 min worst observed) — 90 min
+    # guards against wedges, not against slow runners.
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: gate, forge and determinism tests (stdlib unittest, no deps)
+        run: python -m unittest discover -s tests -v
+      - name: lifecycle demo — honest run must merge
+        run: python examples/run_lifecycle.py --work "$RUNNER_TEMP/demo-honest"
+      - name: lifecycle demo — FIB 7 silent-pass must be blocked
+        run: python examples/run_lifecycle.py --work "$RUNNER_TEMP/demo-fib7" --fib 7
+      - name: mining demo — budget-bounded honest negative chain (it2/it3 deflation)
+        run: python examples/run_mining.py
+      - name: v0.4 ablation acceptance (roles x debate rounds)
+        run: python examples/run_ablation.py
+      - name: v0.5 settlement + calibration acceptance
+        run: python examples/run_calibration.py
+      - name: v0.6 FIB harness acceptance (20 injections x 2 baselines + gate)
+        run: python examples/run_fib.py
+      - name: v1.1 factor factory — 24 public-literature factors, fast lane (smoke, ~15s)
+        run: |
+          python examples/run_factory.py --work "$RUNNER_TEMP/factory1"
+          cp -r "$RUNNER_TEMP/factory1" "$RUNNER_TEMP/factory1-copy"
+          python examples/run_factory.py --work "$RUNNER_TEMP/factory1"
+          diff -r "$RUNNER_TEMP/factory1" "$RUNNER_TEMP/factory1-copy" && echo FACTORY-BYTE-IDENTICAL
+      - name: v1.2 order book — lifecycle + memory recall + demo build (~10s + 2s)
+        run: |
+          python examples/run_orders.py --work "$RUNNER_TEMP/orders1"
+          python examples/run_orders.py --work "$RUNNER_TEMP/orders1" > "$RUNNER_TEMP/orders1/recall.log"
+          N=$(grep -c '^\[recall\]' "$RUNNER_TEMP/orders1/recall.log")
+          [ "$N" -eq 24 ] && echo "RECALL-ALL-24 (book has memory)"
+          python examples/build_demo_video.py --work "$RUNNER_TEMP/orders1" \
+            --recall-log "$RUNNER_TEMP/orders1/recall.log" \
+            --out "$RUNNER_TEMP/demo_video.html"
+          grep -q 'const SCENES' "$RUNNER_TEMP/demo_video.html" && echo DEMO-HTML-BUILT
+      - name: v1.0 Scenario A — report replication (fixture-pinned, offline; byte-identical double run)
+        if: matrix.python-version == '3.12'
+        timeout-minutes: 75   # baseline 21.4 min (b6c2e1f); observed legit-slow ~60 min (2026-11-16); guard is against 6h wedges, not against slow runners
+        run: |
+          python examples/run_replication.py --work "$RUNNER_TEMP/rep1"  # ~19 min on 300 tickers x 5y
+          cp -r "$RUNNER_TEMP/rep1" "$RUNNER_TEMP/rep1-copy"
+          python examples/run_replication.py --work "$RUNNER_TEMP/rep1"
+          diff -r "$RUNNER_TEMP/rep1" "$RUNNER_TEMP/rep1-copy" && echo BYTE-IDENTICAL
+      - name: v0.7 budget estimators (discovery@B + alpha-frontier)
+        run: |
+          python examples/run_discovery.py
+          python examples/run_frontier.py
+      - name: v1.3 offense layer — cited factor library x residual objective (smoke, ~70s)
+        run: |
+          python examples/run_offense.py --work "$RUNNER_TEMP/off1" | tee "$RUNNER_TEMP/off1_stdout.log"
+          grep -q 'gate: OPEN' "$RUNNER_TEMP/off1_stdout.log"
+          grep -q '\[library\] 30 factors' "$RUNNER_TEMP/off1_stdout.log"
+          grep -qE '\[done\] winners=[0-9]+' "$RUNNER_TEMP/off1_stdout.log"
+          test -f "$RUNNER_TEMP/off1/report.md" && echo OFFENSE-REPORT-OK
+      - name: throughput floor gate — candidates/min (constitution priority #2)
+        if: matrix.python-version == '3.12'
+        run: |
+          python tools/throughput_bench.py --work "$RUNNER_TEMP/tp1" --floor 20
+          cat work/throughput/bench.json
+      - name: ingest round-trip — user CSV must become a legal snapshot
+        run: |
+          python - <<'EOF'
+          import csv
+          with open("ci-prices.csv", "w", newline="") as f:
+              w = csv.writer(f)
+              w.writerow(["date", "ticker", "close"])
+              for i in range(60):
+                  d = f"2024-{(i // 28) + 1:02d}-{(i % 28) + 1:02d}"
+                  for j, tk in enumerate(["AAA", "BBB", "CCC"]):
+                      w.writerow([d, tk, 100.0 + i + j])
+          EOF
+          python -m qsa.ingest ci-prices.csv "$RUNNER_TEMP/ci-snapshot"

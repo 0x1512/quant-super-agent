@@ -1,0 +1,4 @@
+#!/bin/sh
+# Last line of defense before anything leaves the machine.
+ROOT=$(git rev-parse --show-toplevel)
+exec python3 "$ROOT/tools/check_public.py"

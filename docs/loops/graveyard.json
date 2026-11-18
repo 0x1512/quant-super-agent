@@ -1,0 +1,284 @@
+{
+ "cells": {
+  "mom12/top300/plain": {
+   "fail_implementations": [
+    "v1-volproxy"
+   ],
+   "history": [
+    "v1: banned -> v2: parked (single-implementation fail re-sentenced)"
+   ],
+   "implementations": {
+    "v1-volproxy": {
+     "gate_version": "stage2-v1",
+     "implementation": "v1-volproxy",
+     "loop": 1,
+     "margins": "not recorded at v1",
+     "metrics": {
+      "icir": 0.11983,
+      "oos_ic": 0.033501199999999995
+     },
+     "reasons": [
+      "icir=0.11983 fails pre-registered > 1.0"
+     ],
+     "ts": 1794929292.7170875,
+     "verdict": "fail"
+    }
+   },
+   "tier": "parked"
+  },
+  "mom18/smallcap/gap_gate": {
+   "fail_implementations": [
+    "v1-volproxy"
+   ],
+   "history": [
+    "v1: banned -> v2: parked (single-implementation fail re-sentenced)"
+   ],
+   "implementations": {
+    "v1-volproxy": {
+     "gate_version": "stage2-v1",
+     "implementation": "v1-volproxy",
+     "loop": 1,
+     "margins": "not recorded at v1",
+     "metrics": {
+      "icir": -0.030348,
+      "oos_ic": 0.053676499999999995
+     },
+     "reasons": [
+      "icir=-0.030348 fails pre-registered > 1.0"
+     ],
+     "ts": 1794929297.41239,
+     "verdict": "fail"
+    }
+   },
+   "tier": "parked"
+  },
+  "mom18/top300/gap_gate": {
+   "fail_implementations": [
+    "v1-volproxy"
+   ],
+   "history": [
+    "v1: banned -> v2: parked (single-implementation fail re-sentenced)"
+   ],
+   "implementations": {
+    "v1-volproxy": {
+     "gate_version": "stage2-v1",
+     "implementation": "v1-volproxy",
+     "loop": 1,
+     "margins": "not recorded at v1",
+     "metrics": {
+      "icir": 0.015728,
+      "oos_ic": 0.003156666666666671
+     },
+     "reasons": [
+      "oos_ic=0.003156666666666671 fails pre-registered > 0.03",
+      "icir=0.015728 fails pre-registered > 1.0",
+      "ic_decay_ratio=0.12133422807183336 fails pre-registered >= 0.5"
+     ],
+     "ts": 1794929295.9678867,
+     "verdict": "fail"
+    }
+   },
+   "tier": "parked"
+  },
+  "mom18/top300/plain": {
+   "fail_implementations": [
+    "v1-volproxy"
+   ],
+   "history": [
+    "v1: banned -> v2: parked (single-implementation fail re-sentenced)"
+   ],
+   "implementations": {
+    "v1-volproxy": {
+     "gate_version": "stage2-v1",
+     "implementation": "v1-volproxy",
+     "loop": 1,
+     "margins": "not recorded at v1",
+     "metrics": {
+      "icir": 0.124507,
+      "oos_ic": 0.004706888888888897
+     },
+     "reasons": [
+      "oos_ic=0.004706888888888897 fails pre-registered > 0.03",
+      "icir=0.124507 fails pre-registered > 1.0",
+      "ic_decay_ratio=0.11570843315821534 fails pre-registered >= 0.5"
+     ],
+     "ts": 1794929295.637625,
+     "verdict": "fail"
+    }
+   },
+   "tier": "parked"
+  },
+  "mom18/top300/vol_adj": {
+   "fail_implementations": [
+    "v1-volproxy"
+   ],
+   "history": [
+    "v1: banned -> v2: parked (single-implementation fail re-sentenced)"
+   ],
+   "implementations": {
+    "v1-volproxy": {
+     "gate_version": "stage2-v1",
+     "implementation": "v1-volproxy",
+     "loop": 1,
+     "margins": "not recorded at v1",
+     "metrics": {
+      "icir": 0.089081,
+      "oos_ic": 0.026797666666666664
+     },
+     "reasons": [
+      "oos_ic=0.026797666666666664 fails pre-registered > 0.03",
+      "icir=0.089081 fails pre-registered > 1.0"
+     ],
+     "ts": 1794929296.8787746,
+     "verdict": "fail"
+    }
+   },
+   "tier": "parked"
+  },
+  "mom24/smallcap/gap_gate": {
+   "fail_implementations": [
+    "v1-volproxy"
+   ],
+   "history": [
+    "v1: banned -> v2: parked (single-implementation fail re-sentenced)"
+   ],
+   "implementations": {
+    "v1-volproxy": {
+     "gate_version": "stage2-v1",
+     "implementation": "v1-volproxy",
+     "loop": 1,
+     "margins": "not recorded at v1",
+     "metrics": {
+      "icir": -0.002685,
+      "oos_ic": 0.03610214285714286
+     },
+     "reasons": [
+      "icir=-0.002685 fails pre-registered > 1.0"
+     ],
+     "ts": 1794929300.2296126,
+     "verdict": "fail"
+    }
+   },
+   "tier": "parked"
+  },
+  "mom24/smallcap/plain": {
+   "fail_implementations": [
+    "v1-volproxy"
+   ],
+   "history": [
+    "v1: banned -> v2: parked (single-implementation fail re-sentenced)"
+   ],
+   "implementations": {
+    "v1-volproxy": {
+     "gate_version": "stage2-v1",
+     "implementation": "v1-volproxy",
+     "loop": 1,
+     "margins": "not recorded at v1",
+     "metrics": {
+      "icir": 0.122616,
+      "oos_ic": 0.09164928571428572
+     },
+     "reasons": [
+      "icir=0.122616 fails pre-registered > 1.0"
+     ],
+     "ts": 1794929299.8917542,
+     "verdict": "fail"
+    }
+   },
+   "tier": "parked"
+  },
+  "mom24/top300/gap_gate": {
+   "fail_implementations": [
+    "v1-volproxy"
+   ],
+   "history": [
+    "v1: banned -> v2: parked (single-implementation fail re-sentenced)"
+   ],
+   "implementations": {
+    "v1-volproxy": {
+     "gate_version": "stage2-v1",
+     "implementation": "v1-volproxy",
+     "loop": 1,
+     "margins": "not recorded at v1",
+     "metrics": {
+      "icir": 0.076062,
+      "oos_ic": 0.12036871428571427
+     },
+     "reasons": [
+      "icir=0.076062 fails pre-registered > 1.0"
+     ],
+     "ts": 1794929298.8090994,
+     "verdict": "fail"
+    }
+   },
+   "tier": "parked"
+  },
+  "mom24/top300/plain": {
+   "fail_implementations": [
+    "v1-volproxy"
+   ],
+   "history": [
+    "v1: banned -> v2: parked (single-implementation fail re-sentenced)"
+   ],
+   "implementations": {
+    "v1-volproxy": {
+     "gate_version": "stage2-v1",
+     "implementation": "v1-volproxy",
+     "loop": 1,
+     "margins": "not recorded at v1",
+     "metrics": {
+      "icir": 0.176421,
+      "oos_ic": 0.10120371428571429
+     },
+     "reasons": [
+      "icir=0.176421 fails pre-registered > 1.0"
+     ],
+     "ts": 1794929298.490291,
+     "verdict": "fail"
+    }
+   },
+   "tier": "parked"
+  },
+  "mom24/top300/vol_adj": {
+   "fail_implementations": [
+    "v1-volproxy"
+   ],
+   "history": [
+    "v1: banned -> v2: parked (single-implementation fail re-sentenced)"
+   ],
+   "implementations": {
+    "v1-volproxy": {
+     "gate_version": "stage2-v1",
+     "implementation": "v1-volproxy",
+     "loop": 1,
+     "margins": "not recorded at v1",
+     "metrics": {
+      "icir": 0.166105,
+      "oos_ic": 0.11203371428571429
+     },
+     "reasons": [
+      "icir=0.166105 fails pre-registered > 1.0"
+     ],
+     "ts": 1794929299.7085555,
+     "verdict": "fail"
+    }
+   },
+   "tier": "parked"
+  }
+ },
+ "data_plane": {
+  "n_dates": 1210,
+  "note": "migrated from v1; n_dates as of loop 1",
+  "snapshot_id": "loop1-full"
+ },
+ "log": [
+  {
+   "banned_recounted": 10,
+   "event": "migrate_v1",
+   "note": "v1 death sentences re-sentenced to parked under the 2-implementation rule (user 拍板 2026-11-18)",
+   "ts": 1794966776.933774
+  }
+ ],
+ "revisit_queue": [],
+ "version": 2
+}

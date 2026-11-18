@@ -1,0 +1,19 @@
+{
+ "file": "ashare_top300_extra.csv",
+ "sha256": "12cce313046d324ce739351cee54f5e505386607883cbc2e4358adb82e7b6189",
+ "rows": 360913,
+ "derived_from": "tushare daily raw cache (unadjusted) x qfq factor recovered from the pinned main fixture (f = close_adj/close_raw, uniform across price fields, verified on every row)",
+ "f_open_vs_f_close_reldev": {
+  "median": 1.027e-06,
+  "max": 8.6415e-05
+ },
+ "units": {
+  "high/low/vwap": "CNY, qfq basis of the main fixture",
+  "amount": "thousand CNY, RAW (unadjusted, as fetched)"
+ },
+ "checks": {
+  "rows_vs_main": true,
+  "high_low_order": "high>=max(open,close), low<=min(open,close), all rows",
+  "vwap_band": "low<=vwap<=high, all rows"
+ }
+}

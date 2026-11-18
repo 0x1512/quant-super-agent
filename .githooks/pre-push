@@ -1,0 +1,50 @@
+#!/bin/bash
+# pre-push guard (4th + 5th corrections). Install once with:
+#   git config core.hooksPath .githooks
+#
+# Guard 1 — dual-repo: internal/ad materials must never reach the PUBLIC
+# product repo (they live in qsa-internal). Blocks adds/modifications;
+# deletions are allowed (cleanup pushes must pass).
+#
+# Guard 2 — README storefront convention: any pushed commit that touches
+# README.md / README.zh-CN.md must use a docs(readme): / release: / ci:
+# subject (docs/README_POLICY.md). The storefront is frozen between
+# releases; CI re-checks lint + SSOT + freeze on the server side.
+set -u
+ZERO="0000000000000000000000000000000000000000"
+STATUS=0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$ZERO" ] && continue
+  [ "$remote_sha" = "$ZERO" ] && range="" || range="$remote_sha"
+  files=$(git diff --name-only --diff-filter=ACMR ${range:+$range} "$local_sha" 2>/dev/null | sort -u)
+
+  # --- guard 1: dual-repo material ---
+  bad=$(echo "$files" | grep -Ei 'capability_showcase|POSITIONING|storyboard|demo_tour|\.gif$|^media/' || true)
+  if [ -n "$bad" ]; then
+    echo "PRE-PUSH BLOCK: internal/ad material would be PUBLIC in $remote_ref:" >&2
+    echo "$bad" >&2
+    echo "These live in qsa-internal (gitlab.com/junlvejiang/qsa-internal, private)." >&2
+    STATUS=1
+  fi
+
+  # --- guard 2: README change convention ---
+  if echo "$files" | grep -qE '^README(\.zh-CN)?\.md$'; then
+    if [ -n "$range" ]; then
+      commits=$(git log --format='%H%x09%s' "$remote_sha..$local_sha" -- README.md README.zh-CN.md)
+    else
+      commits=$(git log --format='%H%x09%s' -n 5 "$local_sha" -- README.md README.zh-CN.md)
+    fi
+    if [ -n "$commits" ]; then
+      off=$(echo "$commits" | awk -F'\t' '$2 !~ /^(docs\(readme\)|release|ci)[:\s]/ {print $1"  "$2}')
+      if [ -n "$off" ]; then
+        echo "PRE-PUSH BLOCK: storefront (README) touched without the convention:" >&2
+        echo "$off" >&2
+        echo "Use 'docs(readme): …' / 'release: …' / 'ci: …' — see docs/README_POLICY.md" >&2
+        STATUS=1
+      fi
+    fi
+  fi
+done
+
+exit $STATUS

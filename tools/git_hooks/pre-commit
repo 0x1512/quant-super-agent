@@ -1,0 +1,6 @@
+#!/bin/sh
+# Local hygiene gate — same rules as CI (tools/check_public.py),
+# enforced BEFORE the commit object exists. English messages,
+# project identity, no internal artifacts staged.
+ROOT=$(git rev-parse --show-toplevel)
+exec python3 "$ROOT/tools/check_public.py" --staged "$@"

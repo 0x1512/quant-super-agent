@@ -1,0 +1,393 @@
+{
+  "k_repeats": 1,
+  "metrics": {
+    "full-stack": {
+      "gate_catch_rate": 1.0,
+      "honest_blocked": 0,
+      "honest_passed": 1,
+      "honesty_rate": 1.0,
+      "injections_caught": 17,
+      "injections_silent_passed": 0,
+      "localization_rate": 1.0,
+      "n_honest": 1,
+      "n_injected": 17,
+      "n_scenarios": 18,
+      "pressure_asymmetry": 17,
+      "silent_pass_rate": 0.0
+    },
+    "schema-only": {
+      "gate_catch_rate": 0.17647058823529413,
+      "honest_blocked": 0,
+      "honest_passed": 1,
+      "honesty_rate": 1.0,
+      "injections_caught": 3,
+      "injections_silent_passed": 14,
+      "localization_rate": 1.0,
+      "n_honest": 1,
+      "n_injected": 17,
+      "n_scenarios": 18,
+      "pressure_asymmetry": 3,
+      "silent_pass_rate": 0.8235294117647058
+    },
+    "ungated": {
+      "gate_catch_rate": 0.0,
+      "honest_blocked": 0,
+      "honest_passed": 1,
+      "honesty_rate": 1.0,
+      "injections_caught": 0,
+      "injections_silent_passed": 17,
+      "localization_rate": 0.0,
+      "n_honest": 1,
+      "n_injected": 17,
+      "n_scenarios": 18,
+      "pressure_asymmetry": 0,
+      "silent_pass_rate": 1.0
+    }
+  },
+  "n_scenarios": 18,
+  "scenarios": {
+    "0": {
+      "judges": {
+        "full-stack": {
+          "first_error": "",
+          "merged": true
+        },
+        "schema-only": {
+          "first_error": "",
+          "merged": true
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "no injection \u2014 honest H/E pair (class 20 gate half: an honest fail must merge)",
+      "scenario": "honest-control",
+      "touched_field": ""
+    },
+    "1": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E: missing required field 'settled_at'",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "E card missing required field(s): settled_at",
+          "merged": false
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "E omits the required settled_at field",
+      "scenario": "missing-field",
+      "touched_field": "settled_at"
+    },
+    "10": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E.verdict 'pass' is inconsistent with the pre-registered criteria \u2014 mechanical evaluation of E.metrics says 'fail' (coverage=0.416667 fails pre-registered >= 0.8)",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "",
+          "merged": true
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "factor scores only 5 of 12 tickers; coverage bar = the defense",
+      "scenario": "cherry-universe",
+      "touched_field": "coverage"
+    },
+    "11": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E.verdict 'pass' is inconsistent with the pre-registered criteria \u2014 mechanical evaluation of E.metrics says 'fail' (rankic_mean=-0.014606 fails pre-registered >= 0.02; rankic_tstat=-0.458712 fails pre-registered >= 0.5; deflation: rankic_tstat=-0.458712 < floor 2.6383 (Bonferroni at N=6, family-wise alpha=0.05) \u2014 earlier trials in this family raise the bar)",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "",
+          "merged": true
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "t-stat bar lowered post-hoc; deflation floor still fails it",
+      "scenario": "threshold-drift",
+      "touched_field": "admission.thresholds.rankic_tstat"
+    },
+    "12": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E.hyp_id 'H-7777' does not match H.hyp_id 'H-0001'",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "link: E.hyp_id does not match H.hyp_id",
+          "merged": false
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "E cites a backfilled H-7777 the submission H does not match",
+      "scenario": "hypothesis-backfill",
+      "touched_field": "hyp_id"
+    },
+    "13": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E.exp_id 'E-3000' is already settled \u2014 IDs are unique forever (no resubmission)",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "",
+          "merged": true
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "settled E-3000 resubmitted with doctored metrics",
+      "scenario": "copy-prior-result",
+      "touched_field": "metrics.rankic_mean"
+    },
+    "14": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E.metrics: missing required metric 'rankic_mean'",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "",
+          "merged": true
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "unfavorable rankic_mean dropped, verdict=pass",
+      "scenario": "partial-metrics",
+      "touched_field": "metrics.rankic_mean"
+    },
+    "15": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E.metrics.n_dates: card says 79, recomputation from factor_code says 69 (phantom or rescaled metric)",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "",
+          "merged": true
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "H+E window trimmed; metrics computed on the full window",
+      "scenario": "window-shrink",
+      "touched_field": "window"
+    },
+    "16": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E.engine 'mystery-engine-9.9' != evaluation harness 'qsa-eval-0.7.0' (version pin)",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "",
+          "merged": true
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "engine version not pinned to the harness",
+      "scenario": "engine-drift",
+      "touched_field": "engine"
+    },
+    "19": {
+      "judges": {
+        "full-stack": {
+          "first_error": "settlement S-0001: entry_hash does not match its payload (edited?)",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "",
+          "merged": true
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "settlement ledger's realized block edited after the fact",
+      "scenario": "settle-forgery",
+      "touched_field": "settlement.realized"
+    },
+    "2": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E.metrics.rankic_mean: card says 0.42, recomputation from factor_code says -0.014606 (phantom or rescaled metric)",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "",
+          "merged": true
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "rankic_mean = 0.42 (nobody computed it)",
+      "scenario": "phantom-metric",
+      "touched_field": "metrics.rankic_mean"
+    },
+    "21": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E.factor_code_sha256 does not match the attached code",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "factor_code_sha256 does not match factor_code",
+          "merged": false
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "factor_code_sha256 does not match the shipped code",
+      "scenario": "code-pin",
+      "touched_field": "factor_code_sha256"
+    },
+    "22": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E.metrics.net_quintile_spread: card says 0.000634, recomputation from factor_code says -0.002815 (phantom or rescaled metric)",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "",
+          "merged": true
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "net_quintile_spread reported at gross \u2014 trades cost nothing",
+      "scenario": "cost-blind",
+      "touched_field": "metrics.net_quintile_spread"
+    },
+    "3": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E.window end 20241231 is after snapshot as_of 20240506 (evaluation extends past the data that existed \u2014 lookahead)",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "",
+          "merged": true
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "H+E window end past snapshot as_of (consistent pair)",
+      "scenario": "lookahead-window",
+      "touched_field": "window"
+    },
+    "4": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E.snapshot_hash 000000000000\u2026 != recomputed 7b81decd7fdc\u2026 (card cites a snapshot that was not used)",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "",
+          "merged": true
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "E.snapshot_hash does not match the snapshot used",
+      "scenario": "snapshot-mismatch",
+      "touched_field": "snapshot_hash"
+    },
+    "6": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E.exp_id 'E-1000' is already settled \u2014 IDs are unique forever (no resubmission)",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "",
+          "merged": true
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "exp_id E-1000 already settled, resubmitted",
+      "scenario": "id-reuse",
+      "touched_field": "exp_id"
+    },
+    "7": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E.verdict 'pass' is inconsistent with the pre-registered criteria \u2014 mechanical evaluation of E.metrics says 'fail' (rankic_mean=-0.014606 fails pre-registered >= 0.02; rankic_tstat=-0.458712 fails pre-registered >= 2.0)",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "",
+          "merged": true
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "verdict=pass on honest failing metrics",
+      "scenario": "silent-pass",
+      "touched_field": "verdict"
+    },
+    "9": {
+      "judges": {
+        "full-stack": {
+          "first_error": "E.metrics.rankic_mean: card says -1.4606, recomputation from factor_code says -0.014606 (phantom or rescaled metric)",
+          "merged": false
+        },
+        "schema-only": {
+          "first_error": "",
+          "merged": true
+        },
+        "ungated": {
+          "first_error": "",
+          "merged": true
+        }
+      },
+      "mutation": "rankic_mean x100 (silent 0.02 -> 2.0)",
+      "scenario": "unit-mismatch",
+      "touched_field": "metrics.rankic_mean"
+    }
+  },
+  "schema": "fib_v07_run"
+}

@@ -1,0 +1,14 @@
+{
+ "decay_first_windows": [],
+ "fast_lane_survivors": 15,
+ "gauntlet": {
+  "stage2_recheck_fail": 15,
+  "walkforward_fail": 0,
+  "walkforward_inconclusive": 0,
+  "wired_chain_pass": 0
+ },
+ "promoted": 15,
+ "ran_at": 1794988735.7334914,
+ "settled_orders": 30,
+ "wall_seconds": 35.3
+}

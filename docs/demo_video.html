@@ -1,0 +1,135 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>quant-super-agent v1.2 — order book demo</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d1117;color:#c9d1d9;font-family:'SF Mono','Cascadia Code',
+Menlo,Consolas,'Noto Sans SC',monospace;overflow:hidden}
+#stage{position:fixed;inset:0}
+.scene{position:absolute;inset:0;display:none;padding:5vh 7vw 16vh 7vw;
+flex-direction:column;opacity:0}
+.scene.active{display:flex;opacity:1;transition:opacity .5s}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 1.4vw;
+align-items:start}
+h1{font-size:4.2vw;color:#e6edf3;letter-spacing:.5vw;font-weight:600}
+h2{font-size:2.6vw;color:#e6edf3;margin-bottom:2.2vh;letter-spacing:.2vw}
+.sub{color:#8b949e;font-size:1.5vw;margin-top:1.6vh}
+.kicker{color:#61afef;font-size:1.2vw;letter-spacing:.4vw;margin-bottom:2vh}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;
+padding:1.6vh 1.4vw;margin-bottom:1.2vh}
+.card .t{color:#e6edf3;font-size:1.35vw;font-weight:600}
+.card .b{color:#8b949e;font-size:1.05vw;margin-top:.5vh;line-height:1.5}
+.tag{display:inline-block;border-radius:4px;padding:.1vh .5vw;font-size:.9vw;
+margin-right:.5vw;font-weight:600}
+.bar{height:2.6vh;border-radius:4px;background:#21262d;position:relative;
+overflow:hidden;margin:.9vh 0}
+.bar>i{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+.anim{opacity:0}
+.scene.active .anim{animation:pop .6s ease forwards}
+@keyframes pop{from{opacity:0;transform:translateY(12px)}
+to{opacity:1;transform:none}}
+.stamp{display:inline-block;border:3px solid;border-radius:6px;
+padding:.6vh 1vw;font-size:1.6vw;font-weight:800;letter-spacing:.3vw;
+transform:rotate(-6deg)}
+#caption{position:fixed;left:0;right:0;bottom:9vh;text-align:center;
+font-size:1.5vw;color:#e6edf3;text-shadow:0 2px 8px #000;z-index:9}
+#caption span{background:rgba(13,17,23,.82);padding:.8vh 1.6vw;border-radius:8px}
+#bar{position:fixed;left:0;top:0;height:.7vh;background:#61afef;z-index:10;
+width:0%}
+#hud{position:fixed;left:0;right:0;bottom:0;padding:1.2vh 2vw;display:flex;
+gap:1vw;align-items:center;background:#010409;z-index:9;font-size:1vw;
+color:#8b949e}
+#hud button{background:#21262d;color:#c9d1d9;border:1px solid #30363d;
+border-radius:6px;padding:.5vh 1vw;font:inherit;cursor:pointer}
+#chapters{flex:1;display:flex;gap:.6vw;justify-content:center}
+#chapters button{padding:.3vh .7vw;font-size:.85vw;border-radius:4px}
+#chapters button.cur{background:#61afef;color:#0d1117;border-color:#61afef}
+.statebox{border:2px solid;border-radius:8px;padding:1vh 1.4vw;
+font-size:1.6vw;font-weight:700;text-align:center;min-width:11vw}
+.arrow{color:#30363d;font-size:2vw;align-self:center}
+.count{font-size:1vw;color:#8b949e}
+table{border-collapse:collapse;width:100%}
+td,th{border-bottom:1px solid #21262d;padding:.9vh .8vw;font-size:1.15vw;
+text-align:left}
+th{color:#8b949e;font-weight:400}
+.mono{color:#79c0ff}
+.roadmap .card{border-style:dashed;border-color:#6e7681}
+.pill{background:#21262d;border-radius:10px;color:#d29922;font-weight:700;
+font-size:1vw;padding:.2vh .8vw;margin-left:.6vw}
+</style></head><body>
+<div id="bar"></div><div id="stage"></div>
+<div id="caption"><span></span></div>
+<div id="hud">
+ <button id="pp">⏸ 暂停</button>
+ <div id="chapters"></div>
+ <div id="clock">0:00 / 0:00</div>
+</div>
+<script>
+const SCENES = [{"id": "title", "dur": 9000, "cap": "量化超级 agent v1.2 —— 单会话脚本 vs 有组织记忆的研究机器", "html": "<div style=\"margin:auto;text-align:center\"><div class=\"kicker\">QUANT-SUPER-AGENT</div><h1>v1.2 · 订单簿 + 黑板 + 门</h1><div class=\"sub\">真实数据 · 真实判定 · 无手工数字</div></div>"}, {"id": "gate", "dur": 14000, "cap": "开工前 5 项离线检查全部通过；任何一项 FAIL 或黑板存在未解blocker，订单簿拒绝创建新单（tests 钉死每条 FAIL 路径）", "html": "<div class=\"kicker\">PHASE 0 · INFRA GATE</div><h2>数据面预检 — 门不开，单不进</h2><div class=\"card anim\" style=\"animation-delay:0.4s\"><span class=\"tag\" style=\"color:#98c379;border:1px solid #98c379\">[PASS]</span><span class=\"t\">main fixture</span><div class=\"b\">ashare_top300_main.csv: 360913 rows (min 300000), header=&#x27;date,ticker,close,open,volume&#x27;</div></div><div class=\"card anim\" style=\"animation-delay:1.1s\"><span class=\"tag\" style=\"color:#98c379;border:1px solid #98c379\">[PASS]</span><span class=\"t\">tail fixture</span><div class=\"b\">ashare_top300_tail.csv: 19299 rows</div></div><div class=\"card anim\" style=\"animation-delay:1.7999999999999998s\"><span class=\"tag\" style=\"color:#98c379;border:1px solid #98c379\">[PASS]</span><span class=\"t\">cap-proxy meta</span><div class=\"b\">monthly_caps.csv: 18806 rows</div></div><div class=\"card anim\" style=\"animation-delay:2.4999999999999996s\"><span class=\"tag\" style=\"color:#98c379;border:1px solid #98c379\">[PASS]</span><span class=\"t\">universe</span><div class=\"b\">300 tickers, rule=&#x27;top 300 by mean daily amount 20210104..20210630, &gt;= 100 bars&#x27;</div></div><div class=\"card anim\" style=\"animation-delay:3.1999999999999997s\"><span class=\"tag\" style=\"color:#98c379;border:1px solid #98c379\">[PASS]</span><span class=\"t\">blackboard clear</span><div class=\"b\">no unresolved blockers</div></div>"}, {"id": "board", "dur": 20000, "cap": "这些教训每个都花过真实小时数；单会话 agent 每次重学一遍，黑板让它变成组织资产", "html": "<div class=\"kicker\">BLACKBOARD · 跨会话记忆</div><h2>黑板 — 8 条真实踩坑史开局播种</h2><div class=\"sub\" style=\"margin-bottom:1.6vh\">全部来自本 repo 的真实事故（pre_close 字段名、弹性限流、截断 pickle…），每条都有 hash 链防篡改</div><div class=\"grid2\"><div class=\"card anim\" style=\"animation-delay:0.3s\"><span class=\"tag\" style=\"color:#e06c75;border:1px solid #e06c75\">data_pitfall</span><span class=\"t\">tushare daily: pre-close field is pre_close, NOT preclose</span><div class=\"b\">Requesting &#x27;preclose&#x27; is silently dropped: 7.2M rows came back 8-wide with no error. Cost: a full 40-min re-fetch. Defense: builder asserts row width == 9 before chaining hfq.</div></div><div class=\"card anim\" style=\"animation-delay:0.8500000000000001s\"><span class=\"tag\" style=\"color:#e06c75;border:1px solid #e06c75\">data_pitfall</span><span class=\"t\">tushare low-credit token: elastic rate limit (per-minute -&gt; per-hour after quota burn)</span><div class=\"b\">daily_basic/stock_basic degrade from 1/min to 1/hour once the day&#x27;s quota is spent, with no schedule published. Defense: exponential backoff + persistent cache + the cap_proxy convention decision below.</div></div><div class=\"card anim\" style=\"animation-delay:1.4000000000000001s\"><span class=\"tag\" style=\"color:#e06c75;border:1px solid #e06c75\">data_pitfall</span><span class=\"t\">long fetch killed mid-dump leaves a truncated pickle</span><div class=\"b\">pickle.load -&gt; EOFError; 47MB cache lost. Defense: atomic writes (tmp + os.replace) — a killed run never truncates.</div></div><div class=\"card anim\" style=\"animation-delay:1.9500000000000002s\"><span class=\"tag\" style=\"color:#e06c75;border:1px solid #e06c75\">data_pitfall</span><span class=\"t\">nohup background workers get reaped with the tool&#x27;s process group</span><div class=\"b\">Silent death ~10-30s in, empty log, no traceback. Defense: run long fetches as managed tasks, not detached shells.</div></div><div class=\"card anim\" style=\"animation-delay:2.5s\"><span class=\"tag\" style=\"color:#61afef;border:1px solid #61afef\">convention_decision</span><span class=\"t\">cap_proxy = monthly mean traded value (replaces total_mv)</span><div class=\"b\">daily_basic (total_mv) is unfetchable at this token&#x27;s rate limit (63 month-ends x 1/hour is not a plan). Decided 2026-11-13: neutralization uses ln(mean daily amount), declared in the H-card convention table, not hidden.</div></div><div class=\"card anim\" style=\"animation-delay:3.05s\"><span class=\"tag\" style=\"color:#61afef;border:1px solid #61afef\">convention_decision</span><span class=\"t\">universe = top-300 by 2021-H1 mean daily amount</span><div class=\"b\">Chosen from the data itself (rebuildable by anyone), fixed before the sample window to avoid look-ahead. Fork card BB-FORK-02 re-examines full-market vs CSI500/1000 variants.</div></div><div class=\"card anim\" style=\"animation-delay:3.6s\"><span class=\"tag\" style=\"color:#d19a66;border:1px solid #d19a66\">decay_event</span><span class=\"t\">overnight_gap_21d decays post-2023 (Scenario-A verdict)</span><div class=\"b\">Half-sample raw IC: front -0.056 / back -0.040; D1/D2 fail, verdict not_replicated on 2021-07..2026-06. Not a bug: attributed to sample period + universe per D3.</div></div><div class=\"card anim\" style=\"animation-delay:4.15s\"><span class=\"tag\" style=\"color:#d19a66;border:1px solid #d19a66\">decay_event</span><span class=\"t\">public-literature factors are collectively OOS-dead on the 2021-2026 top-300 sample</span><div class=\"b\">v1.1 zoo run: 17/24 factors with oos IC &lt;= 0.03; leaders show train 0.10+ -&gt; oos -0.01..-0.05. Survivors: mom_gap_12m (oos +0.073), dist_52w_high (+0.076), vol_of_vol (+0.040).</div></div></div>"}, {"id": "forks", "dur": 16000, "cap": "宇宙选择、成本假设、规模代理变量：曾经由某个人隐式默认的决定，现在是 append-only 的拍板记录，重复拍板被硬拒", "html": "<div class=\"kicker\">FORK CARDS · 分叉拍板</div><h2>研究分叉 — 显式拍板，不留静默默认</h2><div class=\"card anim\" style=\"animation-delay:0.3s\"><div class=\"t\">BB-FORK-01 · neutralization size variable when total_mv is unfetchable?</div><div class=\"b\">◦ cap_proxy = mean daily amount — <span style=\"color:#8b949e\">offline, rebuildable, declared substitution</span></div><div class=\"b\">◦ wait for daily_basic quota (1/hour x 63 months) — <span style=\"color:#8b949e\">3 days of wall clock for exact market cap</span></div><div class=\"b\" style=\"margin-top:.7vh;color:#98c379\">✓ 拍板：cap_proxy = mean daily amount（by principal，63 sequential hourly calls is not a plan; proxy declared in H-card table）</div></div><div class=\"card anim\" style=\"animation-delay:1.2s\"><div class=\"t\">BB-FORK-02 · stock universe for screening?</div><div class=\"b\">◦ top-300 by 2021-H1 amount — <span style=\"color:#8b949e\">large caps, high pricing efficiency, conservative</span></div><div class=\"b\">◦ full market ex-ST — <span style=\"color:#8b949e\">wider alpha, more noise, suspension handling needed</span></div><div class=\"b\">◦ CSI-500/1000 slice — <span style=\"color:#8b949e\">mid/small caps where literature factors usually live longer</span></div><div class=\"b\" style=\"margin-top:.7vh;color:#98c379\">✓ 拍板：top-300 by 2021-H1 amount（by principal，data we already pinned; widening is the next experiment (zoo tracks it)）</div></div><div class=\"card anim\" style=\"animation-delay:2.1s\"><div class=\"t\">BB-FORK-03 · one-sided cost assumption for tradeable metrics?</div><div class=\"b\">◦ 8 bps (commission+stamp+slippage, industry common) — <span style=\"color:#8b949e\">conservative for large caps</span></div><div class=\"b\">◦ 5 bps — <span style=\"color:#8b949e\">optimistic; assumes best execution</span></div><div class=\"b\" style=\"margin-top:.7vh;color:#98c379\">✓ 拍板：8 bps (commission+stamp+slippage, industry common)（by principal，conservative default; explicit parameter, re-runnable）</div></div>"}, {"id": "machine", "dur": 16000, "cap": "每个因子一张单：drafted→admitted（参数冻结）→running→settled/refused；refused 是终态，重进只能开新单提新假设", "html": "<div class=\"kicker\">ORDER STATE MACHINE · 订单生命周期</div><h2>24 个因子假设 × 状态机 — admit 冻结，settle/refuse 机械判定</h2><div style=\"display:flex;gap:1vw;margin:2.5vh 0 1.5vh\"><div class=\"statebox anim\" style=\"animation-delay:0.4s;color:#abb2bf;border-color:#abb2bf\">drafted</div><div class=\"arrow\">→</div><div class=\"statebox anim\" style=\"animation-delay:0.8s;color:#61afef;border-color:#61afef\">admitted</div><div class=\"arrow\">→</div><div class=\"statebox anim\" style=\"animation-delay:1.2000000000000002s;color:#c678dd;border-color:#c678dd\">running</div><div class=\"arrow\">→</div><div class=\"statebox anim\" style=\"animation-delay:1.6s;color:#98c379;border-color:#98c379\">settled</div><div class=\"arrow\">→</div><div class=\"statebox anim\" style=\"animation-delay:2.0s;color:#e06c75;border-color:#e06c75\">refused</div></div><div style=\"display:flex;gap:2vw\" class=\"count\"><span>create+admit+start：25 单</span><span style=\"color:#98c379\">settled：7</span><span style=\"color:#e06c75\">refused：17+1(漂移演示)</span><span>参数哈希在 admit 冻结；start 不一致 → 硬错</span></div>"}, {"id": "verdicts", "dur": 20000, "cap": "17/24 公开文献因子 OOS 死亡（阈值 oos IC ≤ 0.03，预注册于 admit）；幸存者只拿到快车道资格，对外主张仍需 v1.0 全程（预注册→引擎→门禁独立复算）", "html": "<div class=\"kicker\">VERDICTS · 快车道判定</div><h2>判定 — 预注册阈值 oos IC &gt; 0.03，机械产生</h2><table><tr><th>factor</th><th>state</th><th>oos IC</th><th></th></tr><tr class=\"anim\" style=\"animation-delay:0.3s\"><td class=\"mono\">dist_52w_high</td><td style=\"color:#98c379\">settled</td><td style=\"color:#98c379\">+0.076</td><td style=\"width:40%\"><div class=\"bar\"><i style=\"width:21%;background:#98c379\"></i></div></td></tr><tr class=\"anim\" style=\"animation-delay:0.8s\"><td class=\"mono\">mom_gap_12m</td><td style=\"color:#98c379\">settled</td><td style=\"color:#98c379\">+0.073</td><td style=\"width:40%\"><div class=\"bar\"><i style=\"width:20%;background:#98c379\"></i></div></td></tr><tr class=\"anim\" style=\"animation-delay:1.3s\"><td class=\"mono\">sharpe_20d</td><td style=\"color:#98c379\">settled</td><td style=\"color:#98c379\">+0.066</td><td style=\"width:40%\"><div class=\"bar\"><i style=\"width:18%;background:#98c379\"></i></div></td></tr><tr class=\"anim\" style=\"animation-delay:1.8s\"><td class=\"mono\">chan_pos_20d</td><td style=\"color:#98c379\">settled</td><td style=\"color:#98c379\">+0.063</td><td style=\"width:40%\"><div class=\"bar\"><i style=\"width:17%;background:#98c379\"></i></div></td></tr><tr class=\"anim\" style=\"animation-delay:2.3s\"><td class=\"mono\">intraday_21d</td><td style=\"color:#98c379\">settled</td><td style=\"color:#98c379\">+0.043</td><td style=\"width:40%\"><div class=\"bar\"><i style=\"width:12%;background:#98c379\"></i></div></td></tr><tr class=\"anim\" style=\"animation-delay:2.8s\"><td class=\"mono\">vol_of_vol</td><td style=\"color:#98c379\">settled</td><td style=\"color:#98c379\">+0.040</td><td style=\"width:40%\"><div class=\"bar\"><i style=\"width:11%;background:#98c379\"></i></div></td></tr><tr class=\"anim\" style=\"animation-delay:3.3s\"><td class=\"mono\">ret_vol_scaled_21d</td><td style=\"color:#e06c75\">refused</td><td style=\"color:#e06c75\">-0.063</td><td style=\"width:40%\"><div class=\"bar\"><i style=\"width:17%;background:#e06c75\"></i></div></td></tr><tr class=\"anim\" style=\"animation-delay:3.8s\"><td class=\"mono\">rev_1m</td><td style=\"color:#e06c75\">refused</td><td style=\"color:#e06c75\">-0.053</td><td style=\"width:40%\"><div class=\"bar\"><i style=\"width:15%;background:#e06c75\"></i></div></td></tr><tr class=\"anim\" style=\"animation-delay:4.3s\"><td class=\"mono\">overnight_gap_21d</td><td style=\"color:#e06c75\">refused</td><td style=\"color:#e06c75\">-0.048</td><td style=\"width:40%\"><div class=\"bar\"><i style=\"width:13%;background:#e06c75\"></i></div></td></tr><tr class=\"anim\" style=\"animation-delay:4.8s\"><td class=\"mono\">skew_20d</td><td style=\"color:#e06c75\">refused</td><td style=\"color:#e06c75\">-0.036</td><td style=\"width:40%\"><div class=\"bar\"><i style=\"width:10%;background:#e06c75\"></i></div></td></tr><tr class=\"anim\" style=\"animation-delay:5.3s\"><td class=\"mono\">pv_corr_20d</td><td style=\"color:#e06c75\">refused</td><td style=\"color:#e06c75\">-0.035</td><td style=\"width:40%\"><div class=\"bar\"><i style=\"width:10%;background:#e06c75\"></i></div></td></tr><tr class=\"anim\" style=\"animation-delay:5.8s\"><td class=\"mono\">gap_vol_21d</td><td style=\"color:#e06c75\">refused</td><td style=\"color:#e06c75\">-0.035</td><td style=\"width:40%\"><div class=\"bar\"><i style=\"width:10%;background:#e06c75\"></i></div></td></tr></table>"}, {"id": "drift", "dur": 15000, "cap": "v1.0 的 A8 预注册纪律从旗舰假设扩展到每一个候选；改参数重跑骗过阈值这条路被状态机堵死", "html": "<div class=\"kicker\">DISCIPLINE · 预注册有牙齿</div><h2>参数漂移 — 机器说不</h2><div class=\"card anim\" style=\"animation-delay:.4s\"><div class=\"t\">ORD-3ad2fe56dd · drift demo</div><div class=\"b\">admit 时 universe=<span class=\"mono\">top300</span>（哈希已冻结）</div><div class=\"b\">start 时 universe=<span class=\"mono\">csi500</span> — 不一致</div></div><div class=\"stamp anim\" style=\"animation-delay:2.2s;color:#e06c75;border-color:#e06c75\">OrderError: PRE-REGISTRATION VIOLATED</div><div class=\"sub anim\" style=\"animation-delay:3s\">该单被拒绝并记入订单簿（admitted→refused）——不是警告，是硬错</div>"}, {"id": "recall", "dur": 15000, "cap": "hash 链在每次加载时重验；被篡改的历史直接拒绝加载——黑板+订单簿+fork 卡构成组织的长期记忆", "html": "<div class=\"kicker\">MEMORY · 书有记忆</div><h2>第二次运行 — recall 而非重算</h2><div class=\"card anim b\" style=\"animation-delay:0.3s;font-size:1.1vw\">[recall] mom_12_1               settled (book remembers: 0.033501199999999995)</div><div class=\"card anim b\" style=\"animation-delay:0.75s;font-size:1.1vw\">[recall] rev_1m                 refused (book remembers: oos IC -0.05315358333333333 &lt;= 0.03 — signal dead out-of-sample)</div><div class=\"card anim b\" style=\"animation-delay:1.2s;font-size:1.1vw\">[recall] rev_1w                 refused (book remembers: oos IC -0.00345116666666667 &lt;= 0.03 — signal dead out-of-sample)</div><div class=\"card anim b\" style=\"animation-delay:1.6500000000000001s;font-size:1.1vw\">[recall] vol_20d                refused (book remembers: oos IC -0.005241083333333337 &lt;= 0.03 — signal dead out-of-sample)</div><div class=\"card anim b\" style=\"animation-delay:2.1s;font-size:1.1vw\">[recall] amihud_21d             refused (book remembers: oos IC -0.01336425 &lt;= 0.03 — signal dead out-of-sample)</div><div class=\"card anim b\" style=\"animation-delay:2.55s;font-size:1.1vw\">[recall] pv_corr_20d            refused (book remembers: oos IC -0.03521241666666667 &lt;= 0.03 — signal dead out-of-sample)</div><div class=\"card anim b\" style=\"animation-delay:3.0s;font-size:1.1vw\">[recall] overnight_gap_21d      refused (book remembers: oos IC -0.04778525 &lt;= 0.03 — signal dead out-of-sample)</div><div class=\"sub anim\" style=\"animation-delay:4s\">订单簿记住每个终态判定（假设+参数哈希一致即召回）：重跑 25 单 1.7s vs 首跑 8.9s（smoke 口径）；跨会话不再重复踩同一个假设</div>"}, {"id": "roadmap", "dur": 17000, "cap": "诚实是框架的一部分：规划就是规划，demo 里不出现任何未实现能力的数字", "html": "<div class=\"kicker\">ROADMAP · 明确不吹</div><h2>规划中的能力 — 今天不存在，一行代码未写</h2><div class=\"sub\" style=\"margin-bottom:1.6vh\">以下均为设计草案；本片所有数字来自已实现并测试的代码</div><div class=\"grid2\"><div class=\"card anim roadmap\" style=\"animation-delay:0.3s\"><div class=\"t\">对抗复算 adversary recompute<span class=\"pill\">规划中 · 未实现</span></div><div class=\"b\">第二个独立引擎复算每个 settled 订单的数字，分歧超阈值即降级</div></div><div class=\"card anim roadmap\" style=\"animation-delay:0.8s\"><div class=\"t\">红队 red-team run<span class=\"pill\">规划中 · 未实现</span></div><div class=\"b\">对抗性宇宙/窗口扰动下的稳健性攻击，幸存才给 claim</div></div><div class=\"card anim roadmap\" style=\"animation-delay:1.3s\"><div class=\"t\">并行 miner<span class=\"pill\">规划中 · 未实现</span></div><div class=\"b\">多 agent 并行挖假设、黑板去重、订单簿排队</div></div><div class=\"card anim roadmap\" style=\"animation-delay:1.8s\"><div class=\"t\">LLM 假设生成<span class=\"pill\">规划中 · 未实现</span></div><div class=\"b\">文献→H 卡→订单的自动流水（仍走同一状态机）</div></div><div class=\"card anim roadmap\" style=\"animation-delay:2.3s\"><div class=\"t\">日历结算<span class=\"pill\">规划中 · 未实现</span></div><div class=\"b\">前瞻主张 90 天到期自动结算，记黑板</div></div><div class=\"card anim roadmap\" style=\"animation-delay:2.8s\"><div class=\"t\">组合归因<span class=\"pill\">规划中 · 未实现</span></div><div class=\"b\">幸存因子组合层面的归因与容量核算</div></div></div>"}, {"id": "end", "dur": 9000, "cap": "", "html": "<div style=\"margin:auto;text-align:center\"><h1 style=\"font-size:3.2vw\">quant-super-agent v1.2</h1><div class=\"sub\" style=\"margin:3vh 0\">25 订单 · 25 黑板条目 · 3 fork 卡 · 231 tests 绿 · 判定全部机械产生</div><div class=\"sub\">黑板记忆 / infra 门 / 订单状态机 / fork 拍板卡 — 单会话脚本给不了的部分</div></div>"}];
+const stage = document.getElementById('stage');
+const capEl = document.querySelector('#caption span');
+const barEl = document.getElementById('bar');
+const clock = document.getElementById('clock');
+const chaps = document.getElementById('chapters');
+let cur = 0, t0 = null, acc = 0, playing = true, raf = null;
+const TOTAL = SCENES.reduce((a, s) => a + s.dur, 0);
+const START = SCENES.map((_, i) =>
+  SCENES.slice(0, i).reduce((a, s) => a + s.dur, 0));
+SCENES.forEach((s, i) => {
+  const d = document.createElement('div');
+  d.className = 'scene'; d.innerHTML = s.html;
+  stage.appendChild(d);
+  const b = document.createElement('button');
+  b.textContent = s.id; b.onclick = () => seek(i);
+  chaps.appendChild(b);
+});
+function fmt(ms){const s=Math.floor(ms/1000);
+  return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+function show(i){
+  cur = i; acc = 0; t0 = null;
+  document.querySelectorAll('.scene').forEach((d, k) => {
+    if (k === i) {
+      const h = d.innerHTML; d.innerHTML = h; // restart CSS anims
+      d.classList.add('active');
+    } else d.classList.remove('active');
+  });
+  capEl.textContent = SCENES[i].cap || '';
+  document.querySelectorAll('#chapters button').forEach((b, k) =>
+    b.classList.toggle('cur', k === i));
+}
+function seek(i){
+  cancelAnimationFrame(raf);
+  show(i); playing = true; setPP();
+  t0 = performance.now();
+  raf = requestAnimationFrame(tick);
+}
+function tick(now){
+  if (t0 === null) t0 = now;
+  acc += now - t0; t0 = now;
+  const rel = START[cur] + acc;
+  barEl.style.width = (rel / TOTAL * 100) + '%';
+  clock.textContent = fmt(rel) + ' / ' + fmt(TOTAL);
+  if (acc >= SCENES[cur].dur) {
+    if (cur + 1 < SCENES.length) show(cur + 1);
+    else { playing = false; setPP(); return; }
+  }
+  raf = requestAnimationFrame(tick);
+}
+function setPP(){
+  document.getElementById('pp').textContent =
+    playing ? '⏸ 暂停' : '▶ 播放';
+}
+document.getElementById('pp').onclick = () => {
+  playing = !playing;
+  if (playing) { t0 = performance.now(); raf = requestAnimationFrame(tick); }
+  else { cancelAnimationFrame(raf); t0 = null; }
+  setPP();
+};
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault();
+    document.getElementById('pp').click(); }
+  if (e.code === 'ArrowRight') seek(Math.min(cur+1, SCENES.length-1));
+  if (e.code === 'ArrowLeft') seek(Math.max(cur-1, 0));
+});
+show(0); t0 = performance.now(); raf = requestAnimationFrame(tick);
+</script></body></html>

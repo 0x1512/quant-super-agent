@@ -1,0 +1,17 @@
+{
+ "run": "offense-full",
+ "workers": 13,
+ "elapsed_s": 49.2,
+ "n_candidates": 78,
+ "n_winners": 14,
+ "n_streams": 3,
+ "basis_n": 7,
+ "fingerprint": "9162aa5bb6aed26a",
+ "n_dates": 1210,
+ "top3_ids": [
+  "ix:dist_52w_high×sharpe_20d:ratio",
+  "wq_a19",
+  "ix:mom_gap_12m×sharpe_20d:ratio"
+ ],
+ "throughput_per_min": 93.9
+}
