@@ -27,7 +27,7 @@ sys.path.insert(0, str(ROOT))
 
 from qsa import factorzoo                      # noqa: E402
 from qsa.admission import STAGE2_ADMISSION, evaluate as adm_eval  # noqa: E402
-from qsa.factorcard import render_card         # noqa: E402
+from qsa.factorcard import render_card, render_index  # noqa: E402
 from qsa.ingest import ingest_csv              # noqa: E402
 from qsa.matrix import evaluate_factor_fast    # noqa: E402
 from qsa.snapshot import load_closes, load_opens, load_volumes  # noqa: E402
@@ -132,12 +132,38 @@ def resolve_spec(fid: str, catalog: dict) -> dict | None:
     return None
 
 
+def family_of(fid: str) -> str:
+    """族归类（展示用；前缀匹配，未命中归 misc）."""
+    if "gap" in fid or "overnight" in fid or "intraday" in fid:
+        return "overnight"
+    if "dist" in fid or "chan" in fid:
+        return "near-high"
+    if fid.startswith("mom_"):
+        return "momentum"
+    if "rev" in fid or "run_length" in fid or "ret_vol" in fid:
+        return "reversal"
+    if "skew" in fid or "max_ret" in fid:
+        return "skew"
+    if "amihud" in fid or "pv_corr" in fid or "volume" in fid \
+            or "vol_ratio" in fid or "signed_vol" in fid:
+        return "volume"
+    if "vol" in fid or "hl_range" in fid or "sharpe" in fid:
+        return "volatility"
+    if "zero_ret" in fid:
+        return "friction"
+    return "misc"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ids", required=True,
+    ap.add_argument("--ids",
                     help="逗号分隔 id；all24 = 库内全因子")
+    ap.add_argument("--index", action="store_true",
+                    help="生成总览页 INDEX.md（库内24 + 扫描变体全集合）")
     ap.add_argument("--out", default="docs/cards")
     args = ap.parse_args()
+    if not args.ids and not args.index:
+        ap.error("need --ids or --index")
 
     fixture = ROOT / "examples/data"
     with tempfile.TemporaryDirectory() as td:
@@ -154,8 +180,10 @@ def main() -> int:
         catalog = {s["id"]: s for s in catalog_list}
         if args.ids == "all24":
             ids = sorted(catalog)
-        else:
+        elif args.ids:
             ids = [x.strip() for x in args.ids.split(",") if x.strip()]
+        else:
+            ids = []
 
         scan_fp = ROOT / "docs/loops/scan_momentum.json"
         scan_n = None
@@ -167,6 +195,63 @@ def main() -> int:
 
         out_dir = ROOT / args.out
         out_dir.mkdir(parents=True, exist_ok=True)
+
+        if args.index:
+            scan_ids = ([f"gap_sum_{w}" for w in (63, 126, 189, 252, 378, 504)]
+                        + [f"dist_high_{w}" for w in (63, 126, 189, 252, 378, 504)]
+                        + [f"mom_{f}_{s}" for f in (126, 189, 252, 378, 504)
+                           for s in (0, 21, 63)]
+                        + [f"vol_{w}" for w in (10, 20, 60, 120)]
+                        + [f"rev_{w}" for w in (5, 10, 21, 63)])
+            ids = sorted(catalog) + scan_ids
+            rows = []
+            for fid in ids:
+                spec = resolve_spec(fid, catalog)
+                row = evaluate_factor_fast(spec, inputs)
+                sig = factorzoo._finalize(spec["build"](inputs),
+                                          inputs["dates"],
+                                          spec.get("flip", False))
+                ic = factorzoo.monthly_ic_series(closes, inputs["dates"], sig)
+                wf, _ = walkforward_verdict(ic)
+                derived = dict(row)
+                derived["n_dates"] = row.get("n_months")
+                tr, oo = row.get("train_ic"), row.get("oos_ic")
+                if (isinstance(tr, (int, float)) and tr > 0
+                        and isinstance(oo, (int, float))):
+                    derived["ic_decay_ratio"] = oo / tr
+                s2, _ = adm_eval(STAGE2_ADMISSION, derived)
+                s2v2, _ = adm_eval(STAGE2_V2, derived)
+                rows.append({
+                    "id": fid, "family": family_of(fid),
+                    "oos_ic": row.get("oos_ic"),
+                    "icir_a": (row["icir"] * (12 ** 0.5)
+                               if row.get("icir") is not None else 0.0),
+                    "tmb": row.get("top_minus_bottom") or 0.0,
+                    "pos_share": row.get("ic_positive_share") or 0.0,
+                    "s2": s2, "s2v2": s2v2, "wf": wf,
+                    "both": s2v2 == "pass" and wf == "pass",
+                })
+            meta = {"title": "现有全部因子效果",
+                    "snap": "fixture A股Top300主表",
+                    "n_months": "41–58", "n_tickers": 300}
+            libs = [r for r in rows if r["id"] in catalog]
+            scans = [r for r in rows if r["id"] not in catalog]
+            dup = sum(1 for s in scans
+                      if any(abs((s["oos_ic"] or 0) - (l["oos_ic"] or 0)) < 1e-9
+                             and abs(s["icir_a"] - l["icir_a"]) < 1e-9
+                             for l in libs))
+            if dup:
+                meta["dedup_note"] = (f"库内名与扫描名同参重合 {dup} 对"
+                                      "（双实现数字一致，交叉验证）")
+            page = render_index(rows, meta)
+            fp = out_dir / "INDEX.md"
+            fp.write_text(page, encoding="utf-8")
+            n_both = sum(1 for r in rows if r["both"])
+            print(f"index -> {fp.relative_to(ROOT)}  "
+                  f"({len(rows)} items, {n_both} both)")
+            print(f"done: index 1/1")
+            return 0
+
         made = []
         for fid in ids:
             spec = resolve_spec(fid, catalog)

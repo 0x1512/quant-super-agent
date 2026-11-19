@@ -7,7 +7,7 @@ it was not given.
 import unittest
 
 from qsa.factorcard import (_scale, block_table, ic_chart, metric_table,
-                            render_card, verdict_strip)
+                            render_card, render_index, verdict_strip)
 
 IC = [{"date": f"2023{i:02d}28", "ic": 0.01 * (i % 7 - 3)} for i in range(1, 13)]
 
@@ -75,6 +75,30 @@ class TestCardSections(unittest.TestCase):
                     "Walk-forward", "诚实脚注"):
             self.assertIn(sec, card)
         self.assertEqual(render_card(meta, self.ROW, wf, IC), card)  # stable
+
+    def test_render_index_sections(self):
+        rows = [
+            {"id": "a", "family": "f1", "oos_ic": 0.1, "icir_a": 1.2,
+             "tmb": 0.2, "pos_share": 0.6, "s2": "fail", "s2v2": "pass",
+             "wf": "pass", "both": True},
+            {"id": "b", "family": "f2", "oos_ic": -0.01, "icir_a": 0.5,
+             "tmb": 0.0, "pos_share": 0.5, "s2": "fail", "s2v2": "fail",
+             "wf": "fail", "both": False},
+        ]
+        meta = {"title": "t", "snap": "s", "n_months": "12", "n_tickers": 3,
+                "dedup_note": "重合 1 对"}
+        out = render_index(rows, meta)
+        for sec in ("幸存者", "族级对比", "全部测试项", "重合 1 对", "[卡](a.md)"):
+            self.assertIn(sec, out)
+        self.assertEqual(render_index(rows, meta), out)
+
+    def test_render_index_no_survivors(self):
+        rows = [{"id": "b", "family": "f", "oos_ic": 0.0, "icir_a": 0.0,
+                 "tmb": 0.0, "pos_share": 0.5, "s2": "fail", "s2v2": "fail",
+                 "wf": "fail", "both": False}]
+        out = render_index(rows, {"title": "t", "snap": "s",
+                                  "n_months": "1", "n_tickers": 1})
+        self.assertIn("无（诚实零也是结果）", out)
 
 
 if __name__ == "__main__":

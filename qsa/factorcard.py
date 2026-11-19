@@ -137,6 +137,81 @@ def metric_table(row: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_index(rows: list[dict[str, Any]], meta: dict[str, Any]) -> str:
+    """测试总览页（per-factor 卡之上的组合视图）.
+
+    三区：幸存者（诊断双过）→ 族级对比条形 → 全表。rows 需含
+    id / family / oos_ic / icir_a / tmb / s2 / s2v2 / wf / both。
+    排序与格式固定，byte-stable。
+    """
+    n = len(rows)
+    n_both = sum(1 for r in rows if r.get("both"))
+    fams: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        f = r.get("family", "?")
+        b = fams.setdefault(f, {"best": None, "n": 0})
+        b["n"] += 1
+        if b["best"] is None or (r["oos_ic"] or -9) > (b["best"]["oos_ic"] or -9):
+            b["best"] = r
+
+    parts = [
+        f"# 测试总览 · {meta.get('title', '现有全部因子效果')}",
+        "",
+        f"> 快照 {meta.get('snap')}　·　样本 {meta.get('n_months')} 月 × "
+        f"{meta.get('n_tickers')} 标的　·　判决门=冻结 stage2 + "
+        "walk-forward（stage2-v2 年化口径待拍板）"
+        f"　·　共 {n} 项，诊断双过 {n_both} 项"
+        + (f"　·　{meta['dedup_note']}" if meta.get("dedup_note") else ""),
+        "",
+    ]
+    # -- 幸存者区
+    parts += ["## 幸存者（stage2-v2 诊断 + walk-forward 双过，待拍板）", ""]
+    both = [r for r in rows if r.get("both")]
+    if both:
+        parts.append("| 因子 | OOS IC | ICIR(年化) | 多空G5−G1 | 正IC月 | 卡 |")
+        parts.append("|---|---|---|---|---|---|")
+        for r in sorted(both, key=lambda x: -(x["oos_ic"] or 0)):
+            parts.append(
+                f"| **{r['id']}** | {r['oos_ic']:+.4f} | {r['icir_a']:.2f} "
+                f"| {r['tmb']:+.2f} | {r.get('pos_share', 0):.0%} "
+                f"| [卡]({r['id']}.md) |")
+    else:
+        parts.append("- 无（诚实零也是结果）")
+    parts.append("")
+    # -- 族级对比
+    parts += ["## 族级对比（各族最强变体，按 OOS IC）", "", "```"]
+    order = sorted(fams.items(),
+                   key=lambda kv: -(kv[1]["best"]["oos_ic"] or -9))
+    lo = min((kv[1]["best"]["oos_ic"] or 0) for kv in order) or -1e-9
+    hi = max((kv[1]["best"]["oos_ic"] or 0) for kv in order) or 1e-9
+    for fam, b in order:
+        v = b["best"]["oos_ic"] or 0
+        bar = _scale(v, lo, hi) * 2 if v >= 0 else "▁" * 2
+        parts.append(f"{fam:12} {bar}  {v:+.4f}  ({b['best']['id']}, "
+                     f"{b['n']} 变体)")
+    parts += ["```", ""]
+    # -- 全表
+    parts += ["## 全部测试项", "",
+              "| 因子 | 族 | OOS IC | ICIR(年化) | stage2 | s2-v2 | walk-fwd |",
+              "|---|---|---|---|---|---|---|"]
+    mark = {"pass": "✓", "fail": "✗", "inconclusive": "?", None: "—"}
+    for r in sorted(rows, key=lambda x: -(x["oos_ic"] or -9)):
+        parts.append(
+            f"| {r['id']} | {r.get('family', '?')} | "
+            f"{r['oos_ic']:+.4f} | {r['icir_a']:.2f} "
+            f"| {mark.get(r.get('s2'), '—')} | {mark.get(r.get('s2v2'), '—')} "
+            f"| {mark.get(r.get('wf'), '—')} |")
+    parts += [
+        "",
+        "---",
+        "诚实脚注：stage2 列为冻结门（月度 icir>1.0）判决；s2-v2 列为"
+        "拟议年化口径（待拍板，未入册）；both=✓✓ 不构成对外主张，正式"
+        "结论唯一路径是冻结 run。指标与单卡/门禁同源同口径"
+        "（evaluate_factor_fast + walkforward_verdict）。",
+    ]
+    return "\n".join(parts) + "\n"
+
+
 def render_card(meta: dict[str, Any], row: dict[str, Any],
                 wf_detail: dict[str, Any],
                 ic_series: list[dict[str, Any]]) -> str:
