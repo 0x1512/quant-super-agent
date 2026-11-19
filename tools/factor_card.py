@@ -31,6 +31,7 @@ from qsa.factorcard import (render_card, render_index,
                             render_index_html)  # noqa: E402
 from qsa.ingest import ingest_csv              # noqa: E402
 from qsa.matrix import evaluate_factor_fast    # noqa: E402
+from qsa.pnl import longshort_pnl               # noqa: E402
 from qsa.snapshot import load_closes, load_opens, load_volumes  # noqa: E402
 from qsa.walkforward import walkforward_verdict  # noqa: E402
 
@@ -205,7 +206,7 @@ def main() -> int:
                         + [f"vol_{w}" for w in (10, 20, 60, 120)]
                         + [f"rev_{w}" for w in (5, 10, 21, 63)])
             ids = sorted(catalog) + scan_ids
-            rows, ics = [], {}
+            rows, ics, pnls = [], {}, {}
             for fid in ids:
                 spec = resolve_spec(fid, catalog)
                 row = evaluate_factor_fast(spec, inputs)
@@ -223,6 +224,9 @@ def main() -> int:
                     derived["ic_decay_ratio"] = oo / tr
                 s2, _ = adm_eval(STAGE2_ADMISSION, derived)
                 s2v2, _ = adm_eval(STAGE2_V2, derived)
+                pnl = longshort_pnl(closes, inputs["dates"], sig)
+                if pnl is not None:
+                    pnls[fid] = pnl
                 rows.append({
                     "id": fid, "family": family_of(fid),
                     "oos_ic": row.get("oos_ic"),
@@ -232,6 +236,8 @@ def main() -> int:
                     "pos_share": row.get("ic_positive_share") or 0.0,
                     "s2": s2, "s2v2": s2v2, "wf": wf,
                     "both": s2v2 == "pass" and wf == "pass",
+                    "ann_ls": (pnl or {}).get("ann_ls_net"),
+                    "sharpe_ls": (pnl or {}).get("nw_sharpe_ls"),
                 })
             meta = {"title": "现有全部因子效果",
                     "snap": "fixture A股Top300主表",
@@ -248,7 +254,7 @@ def main() -> int:
             page = render_index(rows, meta)
             fp = out_dir / "INDEX.md"
             fp.write_text(page, encoding="utf-8")
-            html = render_index_html(rows, meta, ics)
+            html = render_index_html(rows, meta, ics, pnls)
             fh = out_dir / "overview.html"
             fh.write_text(html, encoding="utf-8")
             n_both = sum(1 for r in rows if r["both"])
@@ -270,6 +276,7 @@ def main() -> int:
                                       spec.get("flip", False))
             ic = factorzoo.monthly_ic_series(closes, inputs["dates"], sig)
             wf, wf_detail = walkforward_verdict(ic)
+            pnl = longshort_pnl(closes, inputs["dates"], sig)
 
             derived = dict(row)
             derived["n_dates"] = row.get("n_months")
@@ -290,7 +297,7 @@ def main() -> int:
                                  f"首个不满足：{reasons[-1][:72]}"
                                  if reasons else
                                  f"stage2-v2（年化1.0口径）待拍板 → {s2v2}")}}
-            card = render_card(meta, row, wf_detail, ic)
+            card = render_card(meta, row, wf_detail, ic, pnl=pnl)
             fp = out_dir / f"{fid}.md"
             fp.write_text(card, encoding="utf-8")
             made.append(str(fp.relative_to(ROOT)))

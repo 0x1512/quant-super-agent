@@ -137,6 +137,72 @@ def metric_table(row: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+# -- PnL 段（组合级模拟；假设显式，模拟 ≠ 实盘主张） -----------------------
+
+def pnl_curve_svg(p: dict[str, Any], w: int = 320, h: int = 96) -> str:
+    """三线累计净值 SVG：G5 绿 / G1 红 / L-S 蓝粗（归一 1.0 起）."""
+    def nav_path(monthly: list[float], color: str, width: float) -> str:
+        nav, pts = 1.0, []
+        for i, r in enumerate(monthly):
+            nav *= (1.0 + r)
+            pts.append((i, nav))
+        lo = min(v for _, v in pts)
+        hi = max(v for _, v in pts)
+        span = (hi - lo) or 1e-9
+        xy = " ".join(f"{i * (w / max(1, len(pts) - 1)):.1f},"
+                      f"{2 + (1 - (v - lo) / span) * (h - 4):.1f}"
+                      for i, v in pts)
+        return (f'<polyline points="{xy}" fill="none" stroke="{color}" '
+                f'stroke-width="{width}"/>')
+
+    n = len(p["months"])
+    if not n:
+        return "<svg></svg>"
+    base = (f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}" '
+            'role="img" aria-label="cumulative NAV">')
+    base += f'<rect x="0" y="0" width="{w}" height="{h}" fill="#fff"/>'
+    base += nav_path(p["g1_monthly"], "#c94f4f", 1.0)
+    base += nav_path(p["g5_monthly"], "#2e9e5b", 1.0)
+    base += nav_path(p["ls_monthly"], "#3a6ea5", 2.2)
+    return base + "</svg>"
+
+
+def pnl_nav_ascii(monthly: list[float], width: int = 60) -> str:
+    """L-S 累计净值的单行 sparkline（Markdown 通道用，8 档）."""
+    if not monthly:
+        return "（无样本）"
+    if len(monthly) > width:
+        step = len(monthly) / width
+        monthly = [monthly[int(i * step)] for i in range(width)]
+    nav, navs = 1.0, []
+    for r in monthly:
+        nav *= (1.0 + r)
+        navs.append(nav)
+    lo, hi = min(navs), max(navs)
+    row = "".join(_scale(v, lo, hi) for v in navs)
+    return "```\nL-S净值  " + row + "\n```"
+
+
+def render_pnl_md(p: dict[str, Any], tables: Any) -> str:
+    """PnL 段（Markdown）：指标条 + 净值 sparkline + 年度表 + 假设."""
+    parts = [
+        "## 模拟 PnL（G5−G1 多空，费后）",
+        "",
+        tables[0],
+        "",
+        pnl_nav_ascii(p["ls_monthly"]),
+        "",
+        "### 年度收益（多空净）",
+        "",
+        tables[1],
+        "",
+        "> 假设：等权五分位、月度换仓、单边费率显式（见上表）、成本摊 "
+        "20 交易日、G1=低因子。**模拟 PnL ≠ 实盘主张**：无冲击成本/"
+        "停牌/涨跌停约束；对外数字唯一路径仍是冻结 run。",
+    ]
+    return "\n".join(parts)
+
+
 # -- SVG 原语（HTML 通道；零 JS，文件本体自足） ----------------------------
 
 def _esc(s: str) -> str:
@@ -178,7 +244,9 @@ def sparkline_svg(ic_series: list[dict[str, Any]], w: int = 150,
 
 
 def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
-                      ics: dict[str, list[dict[str, Any]]]) -> str:
+                      ics: dict[str, list[dict[str, Any]]],
+                      pnls: dict[str, dict[str, Any]] | None = None
+                      ) -> str:
     """总览页 HTML（与 INDEX.md 同数据同口径；无 JS、内嵌 SVG）."""
     n, n_both = len(rows), sum(1 for r in rows if r.get("both"))
     fams: dict[str, dict[str, Any]] = {}
@@ -214,9 +282,13 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
         f'<div class="surv"><b>{_esc(r["id"])}</b>'
         f'<div class="big">{r["oos_ic"]:+.4f}</div>'
         f'<div class="sub">OOS IC　·　ICIR(年化) {r["icir_a"]:.2f}　·　'
-        f'多空 {r["tmb"]:+.2f}　·　正IC月 {r.get("pos_share", 0):.0%}</div>'
-        + (sparkline_svg(ics[r["id"]])
-           if r["id"] in ics else "")
+        f'多空 {r["tmb"]:+.2f}　·　正IC月 {r.get("pos_share", 0):.0%}'
+        + (f'　·　模拟PnL 年化 {r["ann_ls"]:+.1%} / Sharpe '
+           f'{r["sharpe_ls"]:.2f}' if r.get("ann_ls") is not None else "")
+        + '</div>'
+        + (pnl_curve_svg(pnls[r["id"]])
+           if pnls and r["id"] in pnls else
+           (sparkline_svg(ics[r["id"]]) if r["id"] in ics else ""))
         + '</div>'
         for r in sorted([x for x in rows if x.get("both")],
                         key=lambda x: -(x["oos_ic"] or 0)))
@@ -242,10 +314,15 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
     for r in sorted(rows, key=lambda x: -(x["oos_ic"] or -9)):
         spark = sparkline_svg(ics[r["id"]]) if r["id"] in ics else ""
         bold = " font-weight:700" if r.get("both") else ""
+        pnl_cell = ("—" if r.get("ann_ls") is None
+                    else f"{r['ann_ls']:+.1%}")
+        pnl_cell = (f'<span style="color:{"#1a7f37" if (r.get("ann_ls") or 0) >= 0 else "#cf222e"}">{pnl_cell}</span>'
+                    if r.get("ann_ls") is not None else pnl_cell)
         trs.append(
             f'<tr><td style="color:#24292f{bold}">{_esc(r["id"])}</td>'
             f'<td><code>{_esc(r.get("family", "?"))}</code></td>'
             f'<td>{r["oos_ic"]:+.4f}</td><td>{r["icir_a"]:.2f}</td>'
+            f'<td>{pnl_cell}</td>'
             f'<td>{mark.get(r.get("s2"))}</td><td>{mark.get(r.get("s2v2"))}</td>'
             f'<td>{mark.get(r.get("wf"))}</td><td>{spark}</td></tr>')
     dup = f"　·　{_esc(meta['dedup_note'])}" if meta.get("dedup_note") else ""
@@ -261,10 +338,10 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
 <h2 style="font-size:16px;margin-top:22px">族级对比（各族最强变体，按 OOS IC）</h2>
 {''.join(fam_rows)}
 <h2 style="font-size:16px;margin-top:22px">全部测试项</h2>
-<table><tr><th>因子</th><th>族</th><th>OOS IC</th><th>ICIR(年化)</th>
+<table><tr><th>因子</th><th>族</th><th>OOS IC</th><th>ICIR(年化)</th><th>多空年化(模拟)</th>
 <th>stage2</th><th>s2-v2</th><th>walk-fwd</th><th>月度IC（柱=月度，线=累计）</th></tr>
 {''.join(trs)}</table>
-<div class="foot">stage2 列为冻结门（月度 icir&gt;1.0）判决；s2-v2 列为拟议年化口径（待拍板，未入册）；both=✓✓ 不构成对外主张，正式结论唯一路径是冻结 run。指标与门禁/单卡同源同口径。本页零 JS、纯静态（SVG 内嵌），文件本体自足。</div>
+<div class="foot">stage2 列为冻结门（月度 icir&gt;1.0）判决；s2-v2 列为拟议年化口径（待拍板，未入册）；both=✓✓ 不构成对外主张，正式结论唯一路径是冻结 run。PnL 列为组合级<b>模拟</b>（等权五分位、月度换仓、单边 {_esc(f"{(meta.get('fee_bps') or 8):.0f}")}bps、成本摊20日），不含冲击成本/停牌/涨跌停，不构成实盘主张。指标与门禁/单卡同源同口径。本页零 JS、纯静态（SVG 内嵌），文件本体自足。</div>
 </main></body></html>
 """
 
@@ -300,13 +377,17 @@ def render_index(rows: list[dict[str, Any]], meta: dict[str, Any]) -> str:
     parts += ["## 幸存者（stage2-v2 诊断 + walk-forward 双过，待拍板）", ""]
     both = [r for r in rows if r.get("both")]
     if both:
-        parts.append("| 因子 | OOS IC | ICIR(年化) | 多空G5−G1 | 正IC月 | 卡 |")
-        parts.append("|---|---|---|---|---|---|")
+        parts.append("| 因子 | OOS IC | ICIR(年化) | 多空G5−G1 | 正IC月 | 模拟PnL | 卡 |")
+        parts.append("|---|---|---|---|---|---|---|")
         for r in sorted(both, key=lambda x: -(x["oos_ic"] or 0)):
+            pnl_s = ("—"
+                     if r.get("ann_ls") is None
+                     else f"年化 {r['ann_ls']:+.1%} / Sharpe "
+                          f"{r['sharpe_ls']:.2f}（费后）")
             parts.append(
                 f"| **{r['id']}** | {r['oos_ic']:+.4f} | {r['icir_a']:.2f} "
                 f"| {r['tmb']:+.2f} | {r.get('pos_share', 0):.0%} "
-                f"| [卡]({r['id']}.md) |")
+                f"| {pnl_s} | [卡]({r['id']}.md) |")
     else:
         parts.append("- 无（诚实零也是结果）")
     parts.append("")
@@ -346,8 +427,9 @@ def render_index(rows: list[dict[str, Any]], meta: dict[str, Any]) -> str:
 
 def render_card(meta: dict[str, Any], row: dict[str, Any],
                 wf_detail: dict[str, Any],
-                ic_series: list[dict[str, Any]]) -> str:
-    """整卡渲染：档案条 → 判决链 → 主指标 → IC 图 → 块表 → 脚注."""
+                ic_series: list[dict[str, Any]],
+                pnl: dict[str, Any] | None = None) -> str:
+    """整卡渲染：档案条 → 判决链 → 主指标 → IC 图 → 块表 → PnL → 脚注."""
     parts = [
         f"# 测试卡 · {meta['id']}",
         "",
@@ -375,10 +457,17 @@ def render_card(meta: dict[str, Any], row: dict[str, Any],
         f"；半衰比 {wf_detail.get('half_life_ratio', '—')}"
         f"；正块 {wf_detail.get('positive_blocks', '—')}",
         "",
+    ]
+    if pnl is not None:
+        from .pnl import pnl_metrics_table, pnl_year_table
+        parts += [render_pnl_md(pnl, (pnl_metrics_table(pnl),
+                                      pnl_year_table(pnl))), ""]
+    parts += [
         "---",
         "诚实脚注：本卡为**探索层**证据（若状态非冻结）；门禁参数"
         "预注册、未因结果调整；扫描挑选计入 deflation 计数，正式"
-        "主张唯一路径仍是冻结 run。不展示组合收益回测——引擎不"
-        "持有仓位假设，任何收益数字必须出自冻结 run。",
+        "主张唯一路径仍是冻结 run。PnL 段为组合级**模拟**（假设"
+        "见该段脚注），不含冲击成本/停牌/涨跌停约束，不构成实盘"
+        "收益主张。",
     ]
     return "\n".join(parts) + "\n"
