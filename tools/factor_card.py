@@ -27,7 +27,8 @@ sys.path.insert(0, str(ROOT))
 
 from qsa import factorzoo                      # noqa: E402
 from qsa.admission import STAGE2_ADMISSION, evaluate as adm_eval  # noqa: E402
-from qsa.factorcard import render_card, render_index  # noqa: E402
+from qsa.factorcard import (render_card, render_index,
+                            render_index_html)  # noqa: E402
 from qsa.ingest import ingest_csv              # noqa: E402
 from qsa.matrix import evaluate_factor_fast    # noqa: E402
 from qsa.snapshot import load_closes, load_opens, load_volumes  # noqa: E402
@@ -204,7 +205,7 @@ def main() -> int:
                         + [f"vol_{w}" for w in (10, 20, 60, 120)]
                         + [f"rev_{w}" for w in (5, 10, 21, 63)])
             ids = sorted(catalog) + scan_ids
-            rows = []
+            rows, ics = [], {}
             for fid in ids:
                 spec = resolve_spec(fid, catalog)
                 row = evaluate_factor_fast(spec, inputs)
@@ -212,6 +213,7 @@ def main() -> int:
                                           inputs["dates"],
                                           spec.get("flip", False))
                 ic = factorzoo.monthly_ic_series(closes, inputs["dates"], sig)
+                ics[fid] = ic
                 wf, _ = walkforward_verdict(ic)
                 derived = dict(row)
                 derived["n_dates"] = row.get("n_months")
@@ -246,9 +248,14 @@ def main() -> int:
             page = render_index(rows, meta)
             fp = out_dir / "INDEX.md"
             fp.write_text(page, encoding="utf-8")
+            html = render_index_html(rows, meta, ics)
+            fh = out_dir / "overview.html"
+            fh.write_text(html, encoding="utf-8")
             n_both = sum(1 for r in rows if r["both"])
             print(f"index -> {fp.relative_to(ROOT)}  "
                   f"({len(rows)} items, {n_both} both)")
+            print(f"html   -> {fh.relative_to(ROOT)}  "
+                  f"({fh.stat().st_size} bytes, no-JS static)")
             print(f"done: index 1/1")
             return 0
 

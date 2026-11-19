@@ -7,7 +7,8 @@ it was not given.
 import unittest
 
 from qsa.factorcard import (_scale, block_table, ic_chart, metric_table,
-                            render_card, render_index, verdict_strip)
+                            render_card, render_index, render_index_html,
+                            sparkline_svg, verdict_strip)
 
 IC = [{"date": f"2023{i:02d}28", "ic": 0.01 * (i % 7 - 3)} for i in range(1, 13)]
 
@@ -99,6 +100,40 @@ class TestCardSections(unittest.TestCase):
         out = render_index(rows, {"title": "t", "snap": "s",
                                   "n_months": "1", "n_tickers": 1})
         self.assertIn("无（诚实零也是结果）", out)
+
+
+class TestHtmlChannel(unittest.TestCase):
+    ROWS = [
+        {"id": "a", "family": "f1", "oos_ic": 0.1, "icir_a": 1.2,
+         "tmb": 0.2, "pos_share": 0.6, "s2": "fail", "s2v2": "pass",
+         "wf": "pass", "both": True},
+        {"id": "b", "family": "f2", "oos_ic": -0.05, "icir_a": 0.5,
+         "tmb": 0.0, "pos_share": 0.5, "s2": "fail", "s2v2": "fail",
+         "wf": "fail", "both": False},
+    ]
+    META = {"title": "t<snap>", "snap": "s", "n_months": "12",
+            "n_tickers": 3}
+
+    def test_sparkline_svg_shape(self):
+        svg = sparkline_svg(IC)
+        self.assertTrue(svg.startswith("<svg "))
+        self.assertIn("<rect", svg)
+        self.assertIn("<polyline", svg)
+        self.assertEqual(sparkline_svg([]), "<svg></svg>")
+
+    def test_render_index_html_no_js_and_escaped(self):
+        out = render_index_html(self.ROWS, self.META, {"a": IC, "b": IC})
+        self.assertNotIn("<script", out)
+        self.assertIn("t&lt;snap&gt;", out)          # escaped
+        self.assertIn("class=\"surv\"", out)
+        self.assertEqual(render_index_html(self.ROWS, self.META,
+                                           {"a": IC, "b": IC}), out)
+
+    def test_render_index_html_zero_survivors(self):
+        rows = [dict(self.ROWS[1])]
+        out = render_index_html(rows, self.META, {"b": IC})
+        self.assertIn("诚实零", out)
+        self.assertNotIn("class=\"surv\"", out)
 
 
 if __name__ == "__main__":

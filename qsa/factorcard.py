@@ -137,6 +137,138 @@ def metric_table(row: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+# -- SVG 原语（HTML 通道；零 JS，文件本体自足） ----------------------------
+
+def _esc(s: str) -> str:
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def sparkline_svg(ic_series: list[dict[str, Any]], w: int = 150,
+                  h: int = 26) -> str:
+    """月度 IC 柱 + 累计折线的内嵌 sparkline（无 JS）."""
+    ics = [x["ic"] for x in ic_series]
+    if not ics:
+        return "<svg></svg>"
+    n = len(ics)
+    bw = w / n
+    m = max(abs(v) for v in ics) or 1e-9
+    half = h / 2 - 2
+    bars = []
+    cum, cums, points = 0.0, [], []
+    for i, v in enumerate(ics):
+        cum += v
+        cums.append(cum)
+        bh = abs(v) / m * half
+        y = (h / 2 - bh) if v >= 0 else h / 2
+        color = "#2e9e5b" if v >= 0 else "#c94f4f"
+        bars.append(f'<rect x="{i * bw:.1f}" y="{y:.1f}" '
+                    f'width="{max(bw - 0.5, 0.5):.1f}" height="{bh:.1f}" '
+                    f'fill="{color}" opacity="0.75"/>')
+    lo, hi = min(cums), max(cums)
+    pts = []
+    for i, v in enumerate(cums):
+        t = 0.5 if hi <= lo else (v - lo) / (hi - lo)
+        pts.append(f"{i * bw + bw / 2:.1f},{2 + (1 - t) * (h - 4):.1f}")
+    poly = (f'<polyline points="{" ".join(pts)}" fill="none" '
+            'stroke="#3a6ea5" stroke-width="1.2" opacity="0.9"/>')
+    return (f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}" '
+            f'role="img" aria-label="monthly IC">{"".join(bars)}{poly}'
+            '<line x1="0" y1="' + str(h / 2) + f'" x2="{w}" y2="{h / 2}" '
+            'stroke="#999" stroke-width="0.5" stroke-dasharray="2,2"/></svg>')
+
+
+def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
+                      ics: dict[str, list[dict[str, Any]]]) -> str:
+    """总览页 HTML（与 INDEX.md 同数据同口径；无 JS、内嵌 SVG）."""
+    n, n_both = len(rows), sum(1 for r in rows if r.get("both"))
+    fams: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        f = r.get("family", "?")
+        b = fams.setdefault(f, {"best": None, "n": 0})
+        b["n"] += 1
+        if b["best"] is None or (r["oos_ic"] or -9) > (b["best"]["oos_ic"] or -9):
+            b["best"] = r
+    css = ("body{font:14px/1.5 -apple-system,'Segoe UI',Roboto,"
+           "'PingFang SC','Microsoft YaHei',sans-serif;margin:0;"
+           "background:#f7f8fa;color:#24292f}"
+           "main{max-width:1060px;margin:0 auto;padding:24px}"
+           "h1{font-size:22px;margin:0 0 4px}.meta{color:#57606a;font-size:13px}"
+           ".cards{display:flex;gap:14px;flex-wrap:wrap;margin:18px 0}"
+           ".surv{background:#fff;border:1px solid #d8dee4;border-radius:10px;"
+           "padding:14px 18px;min-width:280px;flex:1}"
+           ".surv b{font-size:17px}.big{font-size:30px;font-weight:700;"
+           "color:#1a7f37;margin:6px 0 2px}"
+           ".sub{color:#57606a;font-size:12.5px}"
+           "table{border-collapse:collapse;width:100%;background:#fff;"
+           "font-size:13px}th,td{padding:5px 9px;border-bottom:1px solid #eaeef2;"
+           "text-align:left}th{background:#f0f2f5;position:sticky;top:0}"
+           ".ok{color:#1a7f37;font-weight:700}.no{color:#cf222e}"
+           ".na{color:#8c959f}code{background:#eff1f3;border-radius:4px;"
+           "padding:1px 5px;font-size:12px}"
+           ".foot{color:#57606a;font-size:12.5px;margin-top:18px;"
+           "border-top:1px solid #d8dee4;padding-top:10px}"
+           ".famrow{display:flex;align-items:center;gap:8px;margin:4px 0}"
+           ".fambar{height:14px;border-radius:3px;background:#2e9e5b}"
+           ".fambar.neg{background:#c94f4f}")
+    surv = "".join(
+        f'<div class="surv"><b>{_esc(r["id"])}</b>'
+        f'<div class="big">{r["oos_ic"]:+.4f}</div>'
+        f'<div class="sub">OOS IC　·　ICIR(年化) {r["icir_a"]:.2f}　·　'
+        f'多空 {r["tmb"]:+.2f}　·　正IC月 {r.get("pos_share", 0):.0%}</div>'
+        + (sparkline_svg(ics[r["id"]])
+           if r["id"] in ics else "")
+        + '</div>'
+        for r in sorted([x for x in rows if x.get("both")],
+                        key=lambda x: -(x["oos_ic"] or 0)))
+    if not surv:
+        surv = '<div class="sub">无（诚实零也是结果）</div>'
+    fam_rows = []
+    span = sorted(fams.items(), key=lambda kv: -(kv[1]["best"]["oos_ic"] or -9))
+    hi = max(abs(kv[1]["best"]["oos_ic"] or 0) for kv in span) or 1e-9
+    for fam, b in span:
+        v = b["best"]["oos_ic"] or 0
+        pct = int(abs(v) / hi * 100)
+        cls = "fambar" if v >= 0 else "fambar neg"
+        fam_rows.append(
+            f'<div class="famrow"><code>{_esc(fam)}</code>'
+            f'<div class="{cls}" style="width:{max(pct, 2)}%"></div>'
+            f'<span>{v:+.4f}</span>'
+            f'<span class="sub">({b["best"]["id"]}, {b["n"]} 变体)</span></div>')
+    mark = {"pass": '<span class="ok">✓</span>',
+            "fail": '<span class="no">✗</span>',
+            "inconclusive": '<span class="na">?</span>',
+            None: '<span class="na">—</span>'}
+    trs = []
+    for r in sorted(rows, key=lambda x: -(x["oos_ic"] or -9)):
+        spark = sparkline_svg(ics[r["id"]]) if r["id"] in ics else ""
+        bold = " font-weight:700" if r.get("both") else ""
+        trs.append(
+            f'<tr><td style="color:#24292f{bold}">{_esc(r["id"])}</td>'
+            f'<td><code>{_esc(r.get("family", "?"))}</code></td>'
+            f'<td>{r["oos_ic"]:+.4f}</td><td>{r["icir_a"]:.2f}</td>'
+            f'<td>{mark.get(r.get("s2"))}</td><td>{mark.get(r.get("s2v2"))}</td>'
+            f'<td>{mark.get(r.get("wf"))}</td><td>{spark}</td></tr>')
+    dup = f"　·　{_esc(meta['dedup_note'])}" if meta.get("dedup_note") else ""
+    return f"""<!doctype html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{_esc(meta.get('title', '测试总览'))} · quant-super-agent</title>
+<style>{css}</style></head><body><main>
+<h1>{_esc(meta.get('title', '测试总览'))}</h1>
+<div class="meta">{_esc(meta.get('snap', ''))}　·　样本 {_esc(str(meta.get('n_months', '')))} 月 × {meta.get('n_tickers', '')} 标的　·　判决门=冻结 stage2 + walk-forward（stage2-v2 年化口径待拍板）　·　共 {n} 项，诊断双过 {n_both} 项{dup}</div>
+<h2 style="font-size:16px;margin-top:22px">幸存者（诊断双过，待拍板）</h2>
+<div class="cards">{surv}</div>
+<h2 style="font-size:16px;margin-top:22px">族级对比（各族最强变体，按 OOS IC）</h2>
+{''.join(fam_rows)}
+<h2 style="font-size:16px;margin-top:22px">全部测试项</h2>
+<table><tr><th>因子</th><th>族</th><th>OOS IC</th><th>ICIR(年化)</th>
+<th>stage2</th><th>s2-v2</th><th>walk-fwd</th><th>月度IC（柱=月度，线=累计）</th></tr>
+{''.join(trs)}</table>
+<div class="foot">stage2 列为冻结门（月度 icir&gt;1.0）判决；s2-v2 列为拟议年化口径（待拍板，未入册）；both=✓✓ 不构成对外主张，正式结论唯一路径是冻结 run。指标与门禁/单卡同源同口径。本页零 JS、纯静态（SVG 内嵌），文件本体自足。</div>
+</main></body></html>
+"""
+
+
 def render_index(rows: list[dict[str, Any]], meta: dict[str, Any]) -> str:
     """测试总览页（per-factor 卡之上的组合视图）.
 
