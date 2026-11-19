@@ -8,7 +8,8 @@ import unittest
 
 from qsa.factorcard import (_scale, block_table, ic_chart, metric_table,
                             render_card, render_index, render_index_html,
-                            sparkline_svg, verdict_strip)
+                            sparkline_svg, verdict_strip, _ticker,
+                            waterfall_svg, verdict_chain_svg)
 
 IC = [{"date": f"2023{i:02d}28", "ic": 0.01 * (i % 7 - 3)} for i in range(1, 13)]
 
@@ -105,14 +106,17 @@ class TestCardSections(unittest.TestCase):
 class TestHtmlChannel(unittest.TestCase):
     ROWS = [
         {"id": "a", "family": "f1", "oos_ic": 0.1, "icir_a": 1.2,
-         "tmb": 0.2, "pos_share": 0.6, "s2": "fail", "s2v2": "pass",
-         "wf": "pass", "both": True},
+         "tmb": 0.2, "pos_share": 0.6, "s1": "pass", "s2": "fail",
+         "s2v2": "pass", "wf": "pass", "both": True,
+         "ann_ls": 0.15, "sharpe_ls": 1.2},
         {"id": "b", "family": "f2", "oos_ic": -0.05, "icir_a": 0.5,
-         "tmb": 0.0, "pos_share": 0.5, "s2": "fail", "s2v2": "fail",
-         "wf": "fail", "both": False},
+         "tmb": 0.0, "pos_share": 0.5, "s1": "fail", "s2": "fail",
+         "s2v2": "fail", "wf": "fail", "both": False,
+         "ann_ls": None, "sharpe_ls": None},
     ]
     META = {"title": "t<snap>", "snap": "s", "n_months": "12",
-            "n_tickers": 3}
+            "n_tickers": 3, "engine": "qsa v0", "backend": "numpy",
+            "elapsed_s": "1.0s", "commit": "abc1234"}
 
     def test_sparkline_svg_shape(self):
         svg = sparkline_svg(IC)
@@ -126,6 +130,10 @@ class TestHtmlChannel(unittest.TestCase):
         self.assertNotIn("<script", out)
         self.assertIn("t&lt;snap&gt;", out)          # escaped
         self.assertIn("class=\"surv\"", out)
+        for comp in ("runcard", "tickroll", "wfbar",
+                     "verdict chain", "elimination waterfall",
+                     "prefers-reduced-motion", "abc1234"):
+            self.assertIn(comp, out)
         self.assertEqual(render_index_html(self.ROWS, self.META,
                                            {"a": IC, "b": IC}), out)
 
@@ -134,6 +142,24 @@ class TestHtmlChannel(unittest.TestCase):
         out = render_index_html(rows, self.META, {"b": IC})
         self.assertIn("诚实零", out)
         self.assertNotIn("class=\"surv\"", out)
+
+    def test_ticker_reels_and_statics(self):
+        t = _ticker("+0.0733")
+        self.assertEqual(t.count("<span class=\"dig\">"), 5)  # 0,0,7,3,3
+        self.assertIn("<span class=\"sym\">+</span>", t)
+        self.assertIn("--d:7", t)                 # terminal transform baked
+
+    def test_waterfall_and_chain_shapes(self):
+        wf = waterfall_svg([{"label": "all", "n": 10, "color": "#fff"},
+                            {"label": "zero", "n": 0, "color": "#aaa"}])
+        self.assertIn('stroke-dasharray="3,3"', wf)          # zero placeholder
+        self.assertIn("wfbar", wf)
+        chain = verdict_chain_svg({"s1": "pass", "s2": "fail",
+                                   "s2v2": "pass", "wf": "pass",
+                                   "both": True, "ann_ls": 0.1})
+        self.assertEqual(chain.count("<circle"), 4)
+        self.assertIn("stroke-dasharray", chain)             # failed gate dims
+        self.assertIn("#ffc857", chain)                      # both = gold
 
 
 if __name__ == "__main__":

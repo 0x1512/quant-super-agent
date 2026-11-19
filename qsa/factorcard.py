@@ -203,7 +203,220 @@ def render_pnl_md(p: dict[str, Any], tables: Any) -> str:
     return "\n".join(parts)
 
 
-# -- SVG 原语（HTML 通道；零 JS，文件本体自足） ----------------------------
+# -- 叙事组件（暗色通道；零 JS，CSS/SVG 动画 + reduced-motion 兜底） ------
+
+TICK_KEY = "tick"
+
+
+def _ticker(value: str, cls: str = "tick") -> str:
+    """Number Ticker：每位数字一个滚轮，CSS 动画滚到终值.
+
+    基础 transform 即终值（reduced-motion 禁动画时静态正确显示）；
+    keyframes 从 0 位滚到位，逐位错峰。非数字字符静态直出。
+    """
+    out, i = [], 0
+    for ch in value:
+        if ch.isdigit():
+            d = int(ch)
+            reel = "".join(f"<span>{k}</span>" for k in range(10))
+            out.append(
+                f'<span class="dig"><span class="reel" style="'
+                f"transform:translateY(-{d}em);animation-delay:{i * 60}ms"
+                f';--d:{d}">{reel}</span></span>')
+        else:
+            out.append(f'<span class="sym">{ch}</span>')
+        i += 1
+    return f'<span class="{cls}">{"".join(out)}</span>'
+
+
+def waterfall_svg(stages: list[dict[str, Any]]) -> str:
+    """淘汰瀑布：n0 全部 → 逐级门禁幸存，连接带下落.
+
+    stages: [{label, n, color, note}]；高度∝n（对 n=0 画虚框占位）。
+    """
+    w, h, pad, base = 560, 150, 34, 122
+    n_st = len(stages)
+    col_w = (w - pad * 2) / n_st * 0.52
+    gap = (w - pad * 2) / n_st
+    top = max(s["n"] for s in stages) or 1
+    out = [f'<svg viewBox="0 0 {w} {h}" width="100%" role="img" '
+           'aria-label="elimination waterfall">']
+    prev_x = prev_y = None
+    for i, s in enumerate(stages):
+        x = pad + i * gap
+        hh = max(4, s["n"] / top * (base - 26))
+        y = base - hh
+        color = s["color"]
+        if s["n"] == 0:
+            out.append(f'<rect x="{x:.0f}" y="{base - 10:.0f}" '
+                       f'width="{col_w:.0f}" height="10" fill="none" '
+                       f'stroke="{color}" stroke-dasharray="3,3" '
+                       'opacity="0.55"/>')
+        else:
+            out.append(f'<rect class="wfbar" x="{x:.0f}" y="{y:.0f}" '
+                       f'width="{col_w:.0f}" height="{hh:.0f}" rx="3" '
+                       f'fill="{color}" opacity="0.92" '
+                       f'style="animation-delay:{i * 120}ms"/>')
+            if prev_x is not None:
+                x0, y0 = prev_x + col_w, prev_y
+                x1, y1 = x, base - max(10, s["n"] / top * (base - 26))
+                out.append(f'<polygon points="{x0:.0f},{y0:.0f} '
+                           f'{x0 + gap - col_w:.0f},{y0:.0f} '
+                           f'{x1:.0f},{y1:.0f} {x1:.0f},{base:.0f} '
+                           f'{x0:.0f},{base:.0f}" fill="{color}" '
+                           'opacity="0.18"/>')
+        lbl_y = (y - 8) if s["n"] else base - 18
+        out.append(f'<text x="{x + col_w / 2:.0f}" y="{max(lbl_y, 16):.0f}" '
+                   f'text-anchor="middle" class="wfn">{s["n"]}</text>')
+        out.append(f'<text x="{x + col_w / 2:.0f}" y="{base + 16:.0f}" '
+                   'text-anchor="middle" class="wfl">'
+                   f'{_esc(s["label"])}</text>')
+        if s.get("note"):
+            out.append(f'<text x="{x + col_w / 2:.0f}" y="{base + 30:.0f}" '
+                       'text-anchor="middle" class="wfs">'
+                       f'{_esc(s["note"])}</text>')
+        prev_x, prev_y = x, base - max(4, s["n"] / top * (base - 26))
+    out.append(f'<line x1="{pad - 14}" y1="{base}" x2="{w - 8}" '
+               f'y2="{base}" stroke="#263140" stroke-width="1"/>')
+    return "".join(out) + "</svg>"
+
+
+def verdict_chain_svg(r: dict[str, Any]) -> str:
+    """行内判决链：stage1→s2→s2v2→wf 四门节点 + PnL 终点旗.
+
+    通过=实心+实线；失败=空心+淡线（保留在链上，诚实失败）；
+    双过整链金色；PnL 旗绿(正)/红(负)/灰(无)。
+    """
+    gates = [("s1", r.get("s1")), ("s2", r.get("s2")),
+             ("v2", r.get("s2v2")), ("wf", r.get("wf"))]
+    xs = [7, 24, 41, 58]
+    both = bool(r.get("both"))
+    hot = "#ffc857" if both else None
+    line_c = hot or "#3fd68f"
+    out = ['<svg viewBox="0 0 78 14" width="78" height="14" role="img" '
+           'aria-label="verdict chain">']
+    prev = None
+    for (name, v), x in zip(gates, xs):
+        passed = v == "pass"
+        cur = line_c if passed else "#5b2727"
+        if prev is not None:
+            dash = "" if passed else ' stroke-dasharray="2,2"'
+            out.append(f'<line x1="{prev}" y1="7" x2="{x - 4}" y2="7" '
+                       f'stroke="{cur}" stroke-width="1.4" opacity="'
+                       f'{1.0 if passed else 0.45}"{dash}/>')
+        if passed:
+            fill = hot or ("#3fd68f" if name != "v2" else "#ffc857")
+            out.append(f'<circle cx="{x}" cy="7" r="3.4" fill="{fill}"/>')
+        else:
+            stroke = "#ff6b6b" if v == "fail" else "#57606a"
+            out.append(f'<circle cx="{x}" cy="7" r="3.4" fill="none" '
+                       f'stroke="{stroke}" stroke-width="1.3" '
+                       'opacity="0.8"/>')
+        prev = x + 4
+    ann = r.get("ann_ls")
+    flag = ("#3fd68f" if (ann or 0) > 0 else
+            "#ff6b6b" if ann is not None else "#57606a")
+    out.append(f'<rect x="70" y="3.5" width="7" height="7" rx="1.2" '
+               f'fill="{flag}" opacity="{0.95 if ann is not None else 0.45}"/>')
+    return "".join(out) + "</svg>"
+
+
+def run_header_html(meta: dict[str, Any], rows: list[dict[str, Any]],
+                    n_both: int) -> str:
+    """Run Inspector 头部：一单研究订单的运行卡."""
+    stats = [
+        ("引擎", meta.get("engine", "qsa")),
+        ("后端", meta.get("backend", "stdlib")),
+        ("变体", str(len(rows))),
+        ("扫描耗时", meta.get("elapsed_s", "—")),
+        ("双过", str(n_both)),
+        ("commit", meta.get("commit", "—")),
+    ]
+    cells = "".join(f'<div class="rstat"><div class="rk">{_esc(k)}</div>'
+                    f'<div class="rv">{_esc(v)}</div></div>'
+                    for k, v in stats)
+    return (f'<div class="runcard"><div class="rtop">'
+            f'<span class="rdot"></span>'
+            f'<span class="rtitle">{_esc(meta.get("title", "测试总览"))}'
+            '</span><span class="rsub">研究订单 · 运行回放</span></div>'
+            f'<div class="rstats">{cells}</div></div>')
+
+
+DARK_CSS = """
+*{box-sizing:border-box}
+body{font:14px/1.55 -apple-system,'Segoe UI',Roboto,'PingFang SC',
+'Microsoft YaHei',sans-serif;margin:0;background:#0a0e14;color:#dce3ec;
+background-image:linear-gradient(#0d1420 1px,transparent 1px),
+linear-gradient(90deg,#0d1420 1px,transparent 1px);
+background-size:44px 44px;animation:gridbg 90s linear infinite}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;
+background:radial-gradient(60% 40% at 50% 110%,rgba(76,194,255,.10),
+transparent 70%),radial-gradient(40% 30% at 85% 8%,
+rgba(255,200,87,.05),transparent 70%);z-index:0}
+main{max-width:1080px;margin:0 auto;padding:28px 24px 48px;position:relative;
+z-index:1}
+h1{font-size:22px;margin:0 0 2px;letter-spacing:.3px}
+h2{font-size:15px;margin:26px 0 10px;color:#aebccb;
+text-transform:uppercase;letter-spacing:1.4px}
+.meta{color:#8b98a9;font-size:13px}
+.runcard{border:1px solid #1f2733;background:linear-gradient(180deg,
+#111722,#0d1420);border-radius:12px;padding:16px 18px;margin-top:16px}
+.rtop{display:flex;align-items:center;gap:10px}
+.rdot{width:8px;height:8px;border-radius:50%;background:#3fd68f;
+box-shadow:0 0 8px #3fd68f88;animation:pulse 2.4s ease-in-out infinite}
+.rtitle{font-weight:600;font-size:15px}
+.rsub{color:#8b98a9;font-size:12.5px;margin-left:auto}
+.rstats{display:flex;flex-wrap:wrap;gap:0;margin-top:12px}
+.rstat{padding:4px 22px 4px 0;margin-right:22px;border-right:1px solid #1f2733}
+.rstat:last-child{border-right:none}
+.rk{color:#66788c;font-size:11px;text-transform:uppercase;letter-spacing:1px}
+.rv{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+font-variant-numeric:tabular-nums;font-size:14.5px;color:#dce3ec;margin-top:2px}
+.cards{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0 0}
+.surv{background:linear-gradient(180deg,#131a26,#0f1520);
+border:1px solid #2a3546;border-radius:12px;padding:16px 18px;min-width:300px;
+flex:1;position:relative;overflow:hidden}
+.surv::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;
+background:linear-gradient(#ffc857,#4cc2ff)}
+.surv b{font-size:15.5px;letter-spacing:.3px}
+.big{margin:8px 0 2px;color:#3fd68f;font-family:ui-monospace,monospace;
+font-variant-numeric:tabular-nums;font-size:34px;font-weight:700}
+.sub{color:#8b98a9;font-size:12.5px;line-height:1.7}
+.tick{display:inline-block}
+.dig{display:inline-block;height:1em;overflow:hidden;vertical-align:baseline}
+.reel{display:block;animation:tickroll .9s cubic-bezier(.2,.7,.3,1) both}
+.reel span{display:block;height:1em;line-height:1em}
+.sym{display:inline-block}
+table{border-collapse:collapse;width:100%;font-size:13px;
+font-variant-numeric:tabular-nums}
+th,td{padding:5px 8px;border-bottom:1px solid #1a2230;text-align:left}
+th{color:#8b98a9;font-size:11.5px;text-transform:uppercase;
+letter-spacing:.8px;position:sticky;top:0;background:#0d1420}
+tr:hover td{background:#101826}
+.ok{color:#3fd68f;font-weight:700}.no{color:#ff6b6b}.na{color:#57606a}
+.gold{color:#ffc857;font-weight:700}
+code{background:#161f2d;border-radius:4px;padding:1px 6px;font-size:11.5px;
+color:#9fb6cc}
+.foot{color:#66788c;font-size:12.5px;margin-top:20px;border-top:
+1px solid #1f2733;padding-top:12px;line-height:1.8}
+.famrow{display:flex;align-items:center;gap:10px;margin:5px 0}
+.fambar{height:15px;border-radius:3px;background:#4cc2ff;opacity:.85}
+.fambar.neg{background:#ff6b6b}
+.wfn{fill:#dce3ec;font-size:15px;font-weight:700;
+font-family:ui-monospace,monospace}
+.wfl{fill:#8b98a9;font-size:11px}
+.wfs{fill:#5c6b7d;font-size:10px}
+.wfbar{transform-box:fill-box;transform-origin:bottom;
+animation:wfgrow .8s cubic-bezier(.2,.7,.3,1) both}
+@keyframes gridbg{to{background-position:44px 44px}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes tickroll{from{transform:translateY(0)}to{transform:translateY(var(--d)*-1em)}}
+@keyframes wfgrow{from{transform:scaleY(.15);opacity:.3}to{transform:scaleY(1);opacity:1}}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+@media print{body{background:#fff;color:#111;animation:none}
+body::before{display:none}.surv,.runcard{border-color:#ccc;background:#fff}
+.big{color:#0a7a42}.foot,code{color:#333}}
+"""
 
 def _esc(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -256,44 +469,43 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
         b["n"] += 1
         if b["best"] is None or (r["oos_ic"] or -9) > (b["best"]["oos_ic"] or -9):
             b["best"] = r
-    css = ("body{font:14px/1.5 -apple-system,'Segoe UI',Roboto,"
-           "'PingFang SC','Microsoft YaHei',sans-serif;margin:0;"
-           "background:#f7f8fa;color:#24292f}"
-           "main{max-width:1060px;margin:0 auto;padding:24px}"
-           "h1{font-size:22px;margin:0 0 4px}.meta{color:#57606a;font-size:13px}"
-           ".cards{display:flex;gap:14px;flex-wrap:wrap;margin:18px 0}"
-           ".surv{background:#fff;border:1px solid #d8dee4;border-radius:10px;"
-           "padding:14px 18px;min-width:280px;flex:1}"
-           ".surv b{font-size:17px}.big{font-size:30px;font-weight:700;"
-           "color:#1a7f37;margin:6px 0 2px}"
-           ".sub{color:#57606a;font-size:12.5px}"
-           "table{border-collapse:collapse;width:100%;background:#fff;"
-           "font-size:13px}th,td{padding:5px 9px;border-bottom:1px solid #eaeef2;"
-           "text-align:left}th{background:#f0f2f5;position:sticky;top:0}"
-           ".ok{color:#1a7f37;font-weight:700}.no{color:#cf222e}"
-           ".na{color:#8c959f}code{background:#eff1f3;border-radius:4px;"
-           "padding:1px 5px;font-size:12px}"
-           ".foot{color:#57606a;font-size:12.5px;margin-top:18px;"
-           "border-top:1px solid #d8dee4;padding-top:10px}"
-           ".famrow{display:flex;align-items:center;gap:8px;margin:4px 0}"
-           ".fambar{height:14px;border-radius:3px;background:#2e9e5b}"
-           ".fambar.neg{background:#c94f4f}")
+    dup = f"　·　{_esc(meta['dedup_note'])}" if meta.get("dedup_note") else ""
+    def _surv_card(r: dict[str, Any]) -> str:
+        oos = _ticker(f"{r['oos_ic']:+.4f}")
+        ann = (f'　·　<em>模拟PnL 年化 {r["ann_ls"]:+.1%} / Sharpe '
+               f'{r["sharpe_ls"]:.2f}</em>'
+               if r.get("ann_ls") is not None else "")
+        curve = ""
+        if pnls and r["id"] in pnls:
+            curve = pnl_curve_svg(pnls[r["id"]])
+        elif r["id"] in ics:
+            curve = sparkline_svg(ics[r["id"]])
+        return (f'<div class="surv"><b>{_esc(r["id"])}</b>'
+                f'<div class="big">{oos}</div>'
+                '<div class="sub">OOS IC（后 20% 月份）</div>'
+                f'<div class="sub">ICIR(年化) {r["icir_a"]:.2f}'
+                f'　·　多空 {r["tmb"]:+.2f}'
+                f'　·　正IC月 {r.get("pos_share", 0):.0%}{ann}</div>'
+                f'{curve}</div>')
+
     surv = "".join(
-        f'<div class="surv"><b>{_esc(r["id"])}</b>'
-        f'<div class="big">{r["oos_ic"]:+.4f}</div>'
-        f'<div class="sub">OOS IC　·　ICIR(年化) {r["icir_a"]:.2f}　·　'
-        f'多空 {r["tmb"]:+.2f}　·　正IC月 {r.get("pos_share", 0):.0%}'
-        + (f'　·　模拟PnL 年化 {r["ann_ls"]:+.1%} / Sharpe '
-           f'{r["sharpe_ls"]:.2f}' if r.get("ann_ls") is not None else "")
-        + '</div>'
-        + (pnl_curve_svg(pnls[r["id"]])
-           if pnls and r["id"] in pnls else
-           (sparkline_svg(ics[r["id"]]) if r["id"] in ics else ""))
-        + '</div>'
+        _surv_card(r)
         for r in sorted([x for x in rows if x.get("both")],
                         key=lambda x: -(x["oos_ic"] or 0)))
     if not surv:
         surv = '<div class="sub">无（诚实零也是结果）</div>'
+    n_s2v2 = sum(1 for r in rows if r.get("s2v2") == "pass")
+    n_wf = sum(1 for r in rows if r.get("wf") == "pass")
+    stages = [
+        {"label": "全部变体", "n": len(rows), "color": "#4cc2ff",
+         "note": meta.get("elapsed_s", "")},
+        {"label": "过 s2-v2（年化口径）", "n": n_s2v2, "color": "#7fd4ff",
+         "note": "待拍板"},
+        {"label": "+ walk-forward", "n": n_both, "color": "#3fd68f",
+         "note": "诊断双过"},
+        {"label": "冻结 run 入册", "n": 0, "color": "#8b98a9",
+         "note": "待拍板后执行"},
+    ]
     fam_rows = []
     span = sorted(fams.items(), key=lambda kv: -(kv[1]["best"]["oos_ic"] or -9))
     hi = max(abs(kv[1]["best"]["oos_ic"] or 0) for kv in span) or 1e-9
@@ -304,44 +516,41 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
         fam_rows.append(
             f'<div class="famrow"><code>{_esc(fam)}</code>'
             f'<div class="{cls}" style="width:{max(pct, 2)}%"></div>'
-            f'<span>{v:+.4f}</span>'
+            f'<span class="rv">{v:+.4f}</span>'
             f'<span class="sub">({b["best"]["id"]}, {b["n"]} 变体)</span></div>')
-    mark = {"pass": '<span class="ok">✓</span>',
-            "fail": '<span class="no">✗</span>',
-            "inconclusive": '<span class="na">?</span>',
-            None: '<span class="na">—</span>'}
     trs = []
     for r in sorted(rows, key=lambda x: -(x["oos_ic"] or -9)):
         spark = sparkline_svg(ics[r["id"]]) if r["id"] in ics else ""
-        bold = " font-weight:700" if r.get("both") else ""
+        name_cls = "gold" if r.get("both") else ""
         pnl_cell = ("—" if r.get("ann_ls") is None
                     else f"{r['ann_ls']:+.1%}")
-        pnl_cell = (f'<span style="color:{"#1a7f37" if (r.get("ann_ls") or 0) >= 0 else "#cf222e"}">{pnl_cell}</span>'
-                    if r.get("ann_ls") is not None else pnl_cell)
+        color = ("#3fd68f" if (r.get("ann_ls") or 0) > 0
+                 else "#ff6b6b" if r.get("ann_ls") is not None
+                 else "#57606a")
         trs.append(
-            f'<tr><td style="color:#24292f{bold}">{_esc(r["id"])}</td>'
+            f'<tr><td class="{name_cls}">{_esc(r["id"])}</td>'
             f'<td><code>{_esc(r.get("family", "?"))}</code></td>'
             f'<td>{r["oos_ic"]:+.4f}</td><td>{r["icir_a"]:.2f}</td>'
-            f'<td>{pnl_cell}</td>'
-            f'<td>{mark.get(r.get("s2"))}</td><td>{mark.get(r.get("s2v2"))}</td>'
-            f'<td>{mark.get(r.get("wf"))}</td><td>{spark}</td></tr>')
-    dup = f"　·　{_esc(meta['dedup_note'])}" if meta.get("dedup_note") else ""
+            f'<td style="color:{color}">{pnl_cell}</td>'
+            f'<td>{verdict_chain_svg(r)}</td><td>{spark}</td></tr>')
     return f"""<!doctype html>
 <html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{_esc(meta.get('title', '测试总览'))} · quant-super-agent</title>
-<style>{css}</style></head><body><main>
-<h1>{_esc(meta.get('title', '测试总览'))}</h1>
-<div class="meta">{_esc(meta.get('snap', ''))}　·　样本 {_esc(str(meta.get('n_months', '')))} 月 × {meta.get('n_tickers', '')} 标的　·　判决门=冻结 stage2 + walk-forward（stage2-v2 年化口径待拍板）　·　共 {n} 项，诊断双过 {n_both} 项{dup}</div>
-<h2 style="font-size:16px;margin-top:22px">幸存者（诊断双过，待拍板）</h2>
+<style>{DARK_CSS}</style></head><body><main>
+{run_header_html(meta, rows, n_both)}
+<div class="meta" style="margin-top:10px">{_esc(meta.get('snap', ''))}　·　样本 {_esc(str(meta.get('n_months', '')))} 月 × {meta.get('n_tickers', '')} 标的　·　判决门=冻结 stage2 + walk-forward（stage2-v2 年化口径待拍板）　·　共 {n} 项，诊断双过 {n_both} 项{dup}</div>
+<h2>幸存者（诊断双过，待拍板）</h2>
 <div class="cards">{surv}</div>
-<h2 style="font-size:16px;margin-top:22px">族级对比（各族最强变体，按 OOS IC）</h2>
+<h2>淘汰瀑布（一单跑完的全部变体）</h2>
+{waterfall_svg(stages)}
+<h2>族级对比（各族最强变体，按 OOS IC）</h2>
 {''.join(fam_rows)}
-<h2 style="font-size:16px;margin-top:22px">全部测试项</h2>
-<table><tr><th>因子</th><th>族</th><th>OOS IC</th><th>ICIR(年化)</th><th>多空年化(模拟)</th>
-<th>stage2</th><th>s2-v2</th><th>walk-fwd</th><th>月度IC（柱=月度，线=累计）</th></tr>
+<h2>全部测试项（链 = stage1 → stage2 → s2-v2 → walk-fwd，旗 = 模拟PnL）</h2>
+<table><tr><th>因子</th><th>族</th><th>OOS IC</th><th>ICIR(年化)</th>
+<th>多空年化(模拟)</th><th>判决链</th><th>月度IC（柱=月度，线=累计）</th></tr>
 {''.join(trs)}</table>
-<div class="foot">stage2 列为冻结门（月度 icir&gt;1.0）判决；s2-v2 列为拟议年化口径（待拍板，未入册）；both=✓✓ 不构成对外主张，正式结论唯一路径是冻结 run。PnL 列为组合级<b>模拟</b>（等权五分位、月度换仓、单边 {_esc(f"{(meta.get('fee_bps') or 8):.0f}")}bps、成本摊20日），不含冲击成本/停牌/涨跌停，不构成实盘主张。指标与门禁/单卡同源同口径。本页零 JS、纯静态（SVG 内嵌），文件本体自足。</div>
+<div class="foot">判决链第一/二节点为冻结门 stage1/stage2（月度 icir&gt;1.0）；第三节点 s2-v2 为拟议年化口径（待拍板，未入册）；both=双过不构成对外主张，正式结论唯一路径是冻结 run。PnL 列为组合级<b>模拟</b>（等权五分位、月度换仓、单边 {_esc(f"{(meta.get('fee_bps') or 8):.0f}")}bps、成本摊20日），不含冲击成本/停牌/涨跌停，不构成实盘主张。指标与门禁/单卡同源同口径。本页零 JS、纯静态（CSS/SVG 动画 + reduced-motion 兜底 + 打印样式），文件本体自足。</div>
 </main></body></html>
 """
 

@@ -18,12 +18,16 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+from qsa import __version__ as QSA_VERSION  # noqa: E402
 
 from qsa import factorzoo                      # noqa: E402
 from qsa.admission import STAGE2_ADMISSION, evaluate as adm_eval  # noqa: E402
@@ -31,6 +35,7 @@ from qsa.factorcard import (render_card, render_index,
                             render_index_html)  # noqa: E402
 from qsa.ingest import ingest_csv              # noqa: E402
 from qsa.matrix import evaluate_factor_fast    # noqa: E402
+from qsa.matrix import HAVE_NUMPY               # noqa: E402
 from qsa.pnl import longshort_pnl               # noqa: E402
 from qsa.snapshot import load_closes, load_opens, load_volumes  # noqa: E402
 from qsa.walkforward import walkforward_verdict  # noqa: E402
@@ -134,6 +139,16 @@ def resolve_spec(fid: str, catalog: dict) -> dict | None:
     return None
 
 
+def _git_sha() -> str:
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
+            capture_output=True, text=True, timeout=5
+        ).stdout.strip() or "—"
+    except Exception:
+        return "—"
+
+
 def family_of(fid: str) -> str:
     """族归类（展示用；前缀匹配，未命中归 misc）."""
     if "gap" in fid or "overnight" in fid or "intraday" in fid:
@@ -207,6 +222,7 @@ def main() -> int:
                         + [f"rev_{w}" for w in (5, 10, 21, 63)])
             ids = sorted(catalog) + scan_ids
             rows, ics, pnls = [], {}, {}
+            t_start = time.perf_counter()
             for fid in ids:
                 spec = resolve_spec(fid, catalog)
                 row = evaluate_factor_fast(spec, inputs)
@@ -227,6 +243,8 @@ def main() -> int:
                 pnl = longshort_pnl(closes, inputs["dates"], sig)
                 if pnl is not None:
                     pnls[fid] = pnl
+                s1 = ("pass" if (row.get("oos_ic") or 0) > 0.03
+                      else "fail")
                 rows.append({
                     "id": fid, "family": family_of(fid),
                     "oos_ic": row.get("oos_ic"),
@@ -234,14 +252,19 @@ def main() -> int:
                                if row.get("icir") is not None else 0.0),
                     "tmb": row.get("top_minus_bottom") or 0.0,
                     "pos_share": row.get("ic_positive_share") or 0.0,
-                    "s2": s2, "s2v2": s2v2, "wf": wf,
+                    "s1": s1, "s2": s2, "s2v2": s2v2, "wf": wf,
                     "both": s2v2 == "pass" and wf == "pass",
                     "ann_ls": (pnl or {}).get("ann_ls_net"),
                     "sharpe_ls": (pnl or {}).get("nw_sharpe_ls"),
                 })
             meta = {"title": "现有全部因子效果",
                     "snap": "fixture A股Top300主表",
-                    "n_months": "41–58", "n_tickers": 300}
+                    "n_months": "41–58", "n_tickers": 300,
+                    "engine": f"qsa v{QSA_VERSION}",
+                    "backend": ("numpy" if HAVE_NUMPY
+                                else "stdlib"),
+                    "elapsed_s": f"{time.perf_counter() - t_start:.1f}s",
+                    "commit": _git_sha()}
             libs = [r for r in rows if r["id"] in catalog]
             scans = [r for r in rows if r["id"] not in catalog]
             dup = sum(1 for s in scans
