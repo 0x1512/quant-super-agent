@@ -65,6 +65,7 @@ def _synthetic_inputs(months: int = 8, tickers: int = 24):
             "dates": dates}, signal
 
 
+@unittest.skipUnless(HAVE_NUMPY, "numpy backend not installed")
 class TestSpearmanSemantics(unittest.TestCase):
     def test_rank_tie_averaging_matches_stdlib(self):
         import numpy as np
