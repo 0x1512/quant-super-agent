@@ -1,0 +1,321 @@
+{
+ "ran_at": 1795065136.446559,
+ "n_variants": 35,
+ "results": [
+  {
+   "id": "mom_504_63",
+   "oos_ic": 0.11523871428571429,
+   "icir_a": 0.86,
+   "tmb": 0.25407,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "half-life: late 0.0344 < 0.5 * early 0.0699 \u2014 decayed across"
+  },
+  {
+   "id": "mom_504_0",
+   "oos_ic": 0.11317528571428571,
+   "icir_a": 0.608,
+   "tmb": 0.273314,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20240731..20250630 \u2014 locally dead"
+  },
+  {
+   "id": "mom_504_21",
+   "oos_ic": 0.10120371428571429,
+   "icir_a": 0.611,
+   "tmb": 0.251572,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20250127..20251231 \u2014 locally dead"
+  },
+  {
+   "id": "gap_sum_189",
+   "oos_ic": 0.0966547,
+   "icir_a": 1.143,
+   "tmb": 0.16903600000000002,
+   "s2v2": "pass",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20220429..20230331 \u2014 locally dead"
+  },
+  {
+   "id": "dist_high_504",
+   "oos_ic": 0.09055014285714284,
+   "icir_a": 0.606,
+   "tmb": 0.235547,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20240628..20250530 \u2014 locally dead"
+  },
+  {
+   "id": "dist_high_252",
+   "oos_ic": 0.0757862,
+   "icir_a": 0.415,
+   "tmb": 0.198351,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20220729..20230630 \u2014 locally dead"
+  },
+  {
+   "id": "gap_sum_252",
+   "oos_ic": 0.0733413,
+   "icir_a": 1.162,
+   "tmb": 0.161415,
+   "s2v2": "pass",
+   "wf": "pass",
+   "wf_reason": "no decay trigger; half-life and consistency hold"
+  },
+  {
+   "id": "gap_sum_504",
+   "oos_ic": 0.07105500000000001,
+   "icir_a": 1.097,
+   "tmb": 0.14374,
+   "s2v2": "pass",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20240830..20250731 \u2014 locally dead"
+  },
+  {
+   "id": "mom_189_63",
+   "oos_ic": 0.0691565,
+   "icir_a": 0.77,
+   "tmb": 0.203101,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20220930..20230831 \u2014 locally dead"
+  },
+  {
+   "id": "dist_high_189",
+   "oos_ic": 0.0676968,
+   "icir_a": -0.034,
+   "tmb": 0.074706,
+   "s2v2": null,
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20220429..20230331 \u2014 locally dead"
+  },
+  {
+   "id": "gap_sum_63",
+   "oos_ic": 0.06518025,
+   "icir_a": 0.596,
+   "tmb": 0.08632500000000001,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20210930..20220831 \u2014 locally dead"
+  },
+  {
+   "id": "dist_high_378",
+   "oos_ic": 0.065141,
+   "icir_a": 0.691,
+   "tmb": 0.272667,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20240628..20250530 \u2014 locally dead"
+  },
+  {
+   "id": "gap_sum_378",
+   "oos_ic": 0.0637031111111111,
+   "icir_a": 1.324,
+   "tmb": 0.195862,
+   "s2v2": "pass",
+   "wf": "pass",
+   "wf_reason": "no decay trigger; half-life and consistency hold"
+  },
+  {
+   "id": "mom_189_0",
+   "oos_ic": 0.0568234,
+   "icir_a": 0.02,
+   "tmb": 0.158567,
+   "s2v2": null,
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20220429..20230331 \u2014 locally dead"
+  },
+  {
+   "id": "gap_sum_126",
+   "oos_ic": 0.056545,
+   "icir_a": 0.922,
+   "tmb": 0.137353,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20220128..20221230 \u2014 locally dead"
+  },
+  {
+   "id": "mom_252_63",
+   "oos_ic": 0.05445629999999999,
+   "icir_a": 0.753,
+   "tmb": 0.19558799999999998,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20220729..20230630 \u2014 locally dead"
+  },
+  {
+   "id": "mom_252_0",
+   "oos_ic": 0.052979,
+   "icir_a": 0.267,
+   "tmb": 0.188165,
+   "s2v2": null,
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20220729..20230630 \u2014 locally dead"
+  },
+  {
+   "id": "mom_189_21",
+   "oos_ic": 0.036892999999999995,
+   "icir_a": 0.267,
+   "tmb": 0.099817,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20220429..20230331 \u2014 locally dead"
+  },
+  {
+   "id": "mom_126_63",
+   "oos_ic": 0.03536818181818182,
+   "icir_a": -0.03,
+   "tmb": 0.061824,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20220128..20221230 \u2014 locally dead"
+  },
+  {
+   "id": "mom_252_21",
+   "oos_ic": 0.033501199999999995,
+   "icir_a": 0.415,
+   "tmb": 0.172894,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20220729..20230630 \u2014 locally dead"
+  },
+  {
+   "id": "dist_high_63",
+   "oos_ic": 0.03243758333333333,
+   "icir_a": -0.296,
+   "tmb": -0.016753999999999998,
+   "s2v2": null,
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20210930..20220831 \u2014 locally dead"
+  },
+  {
+   "id": "mom_126_0",
+   "oos_ic": 0.032411999999999996,
+   "icir_a": -0.726,
+   "tmb": 0.05162799999999999,
+   "s2v2": null,
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20220128..20221230 \u2014 locally dead"
+  },
+  {
+   "id": "dist_high_126",
+   "oos_ic": 0.029300999999999997,
+   "icir_a": -0.287,
+   "tmb": 0.020480000000000005,
+   "s2v2": null,
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20220128..20221230 \u2014 locally dead"
+  },
+  {
+   "id": "mom_378_63",
+   "oos_ic": 0.02084322222222222,
+   "icir_a": 0.628,
+   "tmb": 0.166617,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20250127..20251231 \u2014 locally dead"
+  },
+  {
+   "id": "mom_378_0",
+   "oos_ic": 0.019151555555555557,
+   "icir_a": 0.401,
+   "tmb": 0.17474800000000001,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20240628..20250530 \u2014 locally dead"
+  },
+  {
+   "id": "mom_126_21",
+   "oos_ic": 0.012131999999999999,
+   "icir_a": -0.565,
+   "tmb": 0.015877999999999996,
+   "s2v2": null,
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20220128..20221230 \u2014 locally dead"
+  },
+  {
+   "id": "mom_378_21",
+   "oos_ic": 0.004706888888888897,
+   "icir_a": 0.431,
+   "tmb": 0.158527,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20240628..20250530 \u2014 locally dead"
+  },
+  {
+   "id": "rev_5",
+   "oos_ic": -0.00345116666666667,
+   "icir_a": 0.615,
+   "tmb": 0.088241,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20240229..20250127 \u2014 locally dead"
+  },
+  {
+   "id": "vol_20",
+   "oos_ic": -0.005241083333333337,
+   "icir_a": 1.003,
+   "tmb": 0.026038000000000002,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20250430..20260331 \u2014 locally dead"
+  },
+  {
+   "id": "rev_63",
+   "oos_ic": -0.011419999999999998,
+   "icir_a": 1.046,
+   "tmb": 0.047576999999999994,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20221130..20231031 \u2014 locally dead"
+  },
+  {
+   "id": "vol_10",
+   "oos_ic": -0.015265666666666663,
+   "icir_a": 0.772,
+   "tmb": -0.031462000000000004,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20220128..20221230 \u2014 locally dead"
+  },
+  {
+   "id": "rev_10",
+   "oos_ic": -0.029313916666666665,
+   "icir_a": 0.931,
+   "tmb": 0.066865,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20230731..20240628 \u2014 locally dead"
+  },
+  {
+   "id": "vol_60",
+   "oos_ic": -0.038873166666666674,
+   "icir_a": 0.839,
+   "tmb": -0.018689000000000004,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20250127..20251231 \u2014 locally dead"
+  },
+  {
+   "id": "vol_120",
+   "oos_ic": -0.04789045454545455,
+   "icir_a": 0.654,
+   "tmb": -0.049,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20240830..20250731 \u2014 locally dead"
+  },
+  {
+   "id": "rev_21",
+   "oos_ic": -0.05315358333333333,
+   "icir_a": 0.731,
+   "tmb": 0.021855,
+   "s2v2": "fail",
+   "wf": "fail",
+   "wf_reason": "rolling 12m mean IC < 0 at 20230630..20240531 \u2014 locally dead"
+  }
+ ]
+}
