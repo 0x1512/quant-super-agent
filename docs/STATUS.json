@@ -5,8 +5,8 @@
  "date": "2026-11-19",
  "panel": "300-ticker × 1210-day",
  "relative": "4.0x parallel vs sequential, byte-identical for any N",
- "tests": 525,
+ "tests": 544,
  "throughput": "minute-level, auto-sized worker crew",
- "version": "0.1.0",
+ "version": "0.2.0",
  "winners": 14
 }

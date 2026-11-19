@@ -8,11 +8,11 @@
 ![tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x1512/quant-super-agent/main/docs/badge/tests.json) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 
 <!-- BEGIN STATUS CARD — 由 docs/STATUS.json 经 `make readme-render` 渲染；手改会在发版时被覆盖 -->
-**发版口径卡 — v0.1.0（2026-11-19）** · 机器生成，冻结至下一次发版。
+**发版口径卡 — v0.2.0（2026-11-19）** · 机器生成，冻结至下一次发版。
 
-| 截至 v0.1.0 | |
+| 截至 v0.2.0 | |
 |---|---|
-| 测试套件 | 525 项测试，离线确定性 —— `make verify`（实时数量见上方徽章） |
+| 测试套件 | 544 项测试，离线确定性 —— `make verify`（实时数量见上方徽章） |
 | 参考全量跑 | 78 个候选 → 14 张 settle 订单，minute-level, auto-sized worker crew，300-ticker × 1210-day 钉死面板 |
 | 并行性 | 4.0x parallel vs sequential, byte-identical for any N |
 | 对话增量 | bar-only follow-ups rescore zero rows; universe recomputes finish in tens of seconds |

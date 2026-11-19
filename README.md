@@ -5,11 +5,11 @@
 ![status](https://img.shields.io/badge/status-v0.1.0--fresh%20seed-green) ![tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x1512/quant-super-agent/main/docs/badge/tests.json) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 
 <!-- BEGIN STATUS CARD — rendered from docs/STATUS.json by `make readme-render`; hand edits are overwritten at release -->
-**Release status card — v0.1.0 (2026-11-19)** · machine-generated, frozen until the next release.
+**Release status card — v0.2.0 (2026-11-19)** · machine-generated, frozen until the next release.
 
-| as of v0.1.0 | |
+| as of v0.2.0 | |
 |---|---|
-| test suite | 525 tests, offline & deterministic — `make verify` (live count: the badge above) |
+| test suite | 544 tests, offline & deterministic — `make verify` (live count: the badge above) |
 | reference full run | 78 candidates → 14 settled orders, minute-level, auto-sized worker crew, on the 300-ticker × 1210-day pinned panel |
 | parallelism | 4.0x parallel vs sequential, byte-identical for any N |
 | conversation | bar-only follow-ups rescore zero rows; universe recomputes finish in tens of seconds |

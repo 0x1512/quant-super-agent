@@ -45,8 +45,14 @@ def main() -> int:
                       + "\n", encoding="utf-8")
 
     # keep the badge endpoint in lockstep with the card's test count
+    import sys as _sys
     import write_badge  # noqa: E402
-    write_badge.main()
+    _argv = _sys.argv
+    _sys.argv = [_argv[0]]          # our "X.Y.Z" arg is NOT badge output
+    try:
+        write_badge.main()
+    finally:
+        _sys.argv = _argv
 
     for path, lang in [(ROOT / "README.md", "en"),
                        (ROOT / "README.zh-CN.md", "zh")]:

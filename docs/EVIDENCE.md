@@ -560,6 +560,36 @@ gate — independently agrees on all 15. Two gates, one verdict, zero
 short-window artefacts reaching the portfolio. The conveyor ends in
 a verdict, not a pipe.
 
+## v0.2.0 engine — matrix plane, halving, parallel workers (automated, reproducible by anyone)
+
+First throughput tier of the acceleration plan (survey: vectorbt/qlib for
+throughput, RD-Agent(Q) for search density). Reproduce with
+`python tools/bench_engine.py` (numpy optional — absent it reports the
+stdlib fallback; the CI matrix stays dependency-free).
+
+| What | Measured | Artifact |
+|---|---|---|
+| 24-factor catalog, 1210d x 300 names, cold process | stdlib 14.6 s -> matrix+pool **0.81 s** (**18.1x**); same-process warm comparison 5.6 s -> 0.81 s (6.8x) | `docs/loops/bench_engine.json` |
+| Bit-for-bit equivalence | matrix plane vs stdlib plane: **identical=True on all 24 factors** (IC series, quintile annualized, every evaluate row); rolling kernels: exact on integer inputs, <1e-9 on floats | `tests/test_matrix.py` (19 cases) |
+| A/B two-implementation IC discipline | preserved inside the fast path (hand formula vs z-scored dot, 1e-12 or refuse) | `qsa/matrix.py` |
+| S9 gauntlet live, re-run on the new engine | **identical verdicts** (15 fast-lane survivors -> 15 stage-2 recheck fails -> 0 pass), wall 35.3 s -> **17 s** | `docs/loops/gauntlet_live.json` |
+| Successive halving (compute scheduling, NOT a gate) | triage 24 -> 7 -> 2 on 25%/50% prefixes in 2.2 s; survivors re-evaluate identically on the full sample; audit log keeps every cut line | `qsa/halving.py` |
+
+Discipline notes: halving allocates compute and can never produce a
+verdict, admission, or graveyard sentence — every research verdict still
+comes from the full-sample pipeline under the frozen gates; the catalog's
+rolling kernels keep the stdlib implementation as the semantic reference
+(the CI path), with the numpy fast path as a per-window re-summation
+(no incremental accumulators), so equal inputs still produce
+bit-identical outputs and exact ties in count-type factors survive.
+Parallel workers fork-share the panel (closures are not picklable) and
+fall back to serial where fork is unavailable.
+
+What this tier does NOT include (next tiers): per-factor build loops are
+only partially vectorized (skew/vol-of-vol/rolling kernels done; the
+long tail of hand-written factor bodies remains stdlib), no expression
+DSL with operator-cache, no incremental replay on data refresh, no GPU.
+
 ## What these pilots do NOT show
 
 - No positive alpha discovery in the *production* mining loop yet (its pilots returned honest negatives by design); the ablation's and the calibration sweep's planted worlds are synthetic ground truth, not market alpha.

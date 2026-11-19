@@ -37,13 +37,19 @@ import math
 from pathlib import Path
 from typing import Any, Callable
 
-from .backtest import month_key, month_end_indices
 from .replication import (group_monthly_returns, ic_summary,
                           monthly_ic_series)
 
 
 # ---------------------------------------------------------------------------
 # incremental rolling kernels — O(N) per series
+#
+# Each kernel keeps its stdlib implementation (the semantic reference and
+# the CI path) and gains a NUMPY FAST PATH (same skip-None counted-window
+# semantics, per-window re-summation via sliding windows — no incremental
+# accumulators, so equal inputs still produce bit-identical outputs, which
+# preserves exact ties in count-type factors). The fast path is used when
+# numpy is importable; tests assert cross-path agreement on the fixture.
 # ---------------------------------------------------------------------------
 
 def _cumulative(xs: list[float]) -> list[float]:
@@ -53,9 +59,42 @@ def _cumulative(xs: list[float]) -> list[float]:
     return out
 
 
+try:
+    import numpy as _np
+    from numpy.lib.stride_tricks import sliding_window_view as _swv
+    _HAVE_NP = True
+except ImportError:  # pragma: no cover - CI is stdlib-only by design
+    _np = None
+    _HAVE_NP = False
+
+
+def _valid_series(xs: list[float | None]):
+    """(positions, values) of the present entries — the counted window."""
+    v = _np.fromiter((x if x is not None else _np.nan for x in xs),
+                     dtype=float, count=len(xs))
+    mask = ~_np.isnan(v)
+    return _np.where(mask)[0], v[mask]
+
+
+def _to_list(arr) -> list[float | None]:
+    """NaN back to None at the list boundary (the kernels' contract)."""
+    return [None if x != x else x for x in arr.tolist()]
+
+
 def rolling_mean(xs: list[float | None], win: int) -> list[float | None]:
     """Welford-free simple rolling mean over the last ``win`` present
-    values; None until the window fills."""
+    values; None until the window fills (then carried over gaps)."""
+    if _HAVE_NP and len(xs) >= win:
+        pos, vals = _valid_series(xs)
+        if len(vals) >= win:
+            means = _swv(vals, win).sum(axis=1) / win
+            arr = _np.full(len(xs), _np.nan)
+            arr[pos[win - 1:]] = means
+            # carry-over gaps: forward-fill from the first full window
+            idx = _np.where(~_np.isnan(arr), _np.arange(len(arr)), 0)
+            _np.maximum.accumulate(idx, out=idx)
+            arr = arr[idx]
+            return _to_list(arr)
     out: list[float | None] = [None] * len(xs)
     buf: list[float] = []
     for i, x in enumerate(xs):
@@ -71,6 +110,14 @@ def rolling_mean(xs: list[float | None], win: int) -> list[float | None]:
 
 
 def rolling_std(xs: list[float | None], win: int) -> list[float | None]:
+    if _HAVE_NP and len(xs) >= win and win >= 2:
+        pos, vals = _valid_series(xs)
+        if len(vals) >= win:
+            W = _swv(vals, win)
+            d = W - W.mean(axis=1)[:, None]
+            arr = _np.full(len(xs), _np.nan)
+            arr[pos[win - 1:]] = _np.sqrt((d * d).sum(axis=1) / (win - 1))
+            return _to_list(arr)
     out: list[float | None] = [None] * len(xs)
     buf: list[float] = []
     for i, x in enumerate(xs):
@@ -86,6 +133,12 @@ def rolling_std(xs: list[float | None], win: int) -> list[float | None]:
 
 
 def rolling_sum(xs: list[float | None], win: int) -> list[float | None]:
+    if _HAVE_NP and len(xs) >= win:
+        pos, vals = _valid_series(xs)
+        if len(vals) >= win:
+            arr = _np.full(len(xs), _np.nan)
+            arr[pos[win - 1:]] = _swv(vals, win).sum(axis=1)
+            return _to_list(arr)
     out: list[float | None] = [None] * len(xs)
     acc = 0.0
     buf: list[float] = []
@@ -102,6 +155,12 @@ def rolling_sum(xs: list[float | None], win: int) -> list[float | None]:
 
 
 def rolling_max(xs: list[float | None], win: int) -> list[float | None]:
+    if _HAVE_NP and len(xs) >= win:
+        pos, vals = _valid_series(xs)
+        if len(vals) >= win:
+            arr = _np.full(len(xs), _np.nan)
+            arr[pos[win - 1:]] = _swv(vals, win).max(axis=1)
+            return _to_list(arr)
     out: list[float | None] = [None] * len(xs)
     buf: list[float] = []
     for i, x in enumerate(xs):
@@ -115,8 +174,54 @@ def rolling_max(xs: list[float | None], win: int) -> list[float | None]:
     return out
 
 
+def _skew_series(xs, win):
+    """skip-None counted-window skewness, vectorized; None if too short.
+
+    Mirrors the skew_20d stdlib loop exactly: m = mean(win), s2 = sum of
+    squared deviations / (win-1), skew = mean(((b-m)/s)^3), None on s2=0.
+    """
+    if not _HAVE_NP or len(xs) < win:
+        return None
+    v = _np.fromiter((x if x is not None else _np.nan for x in xs),
+                     dtype=float, count=len(xs))
+    mask = ~_np.isnan(v)
+    pos = _np.where(mask)[0]
+    vals = v[mask]
+    if len(vals) < win:
+        return None
+    W = _swv(vals, win)
+    d = W - W.mean(axis=1)[:, None]
+    s2 = (d * d).sum(axis=1) / (win - 1)
+    with _np.errstate(invalid="ignore", divide="ignore"):
+        z = d / _np.sqrt(s2)[:, None]
+        sk = (z ** 3).sum(axis=1) / win
+        sk = _np.where(s2 > 0, sk, _np.nan)
+    arr = _np.full(len(xs), _np.nan)
+    arr[pos[win - 1:]] = sk
+    return [None if x != x else x for x in arr.tolist()]
+
+
 def rolling_corr(xs: list[float | None], ys: list[float | None],
                  win: int) -> list[float | None]:
+    if _HAVE_NP and len(xs) >= win and len(xs) == len(ys):
+        vx = _np.fromiter((x if x is not None else _np.nan for x in xs),
+                          dtype=float, count=len(xs))
+        vy = _np.fromiter((y if y is not None else _np.nan for y in ys),
+                          dtype=float, count=len(ys))
+        mask = ~_np.isnan(vx) & ~_np.isnan(vy)
+        pos = _np.where(mask)[0]
+        if len(pos) >= win:
+            W = _swv(_np.column_stack([vx[pos], vy[pos]]), win, axis=0)
+            d = W - W.mean(axis=1)[:, None, :]
+            cov = (d[:, :, 0] * d[:, :, 1]).sum(axis=1)
+            vxx = (d[:, :, 0] ** 2).sum(axis=1)
+            vyy = (d[:, :, 1] ** 2).sum(axis=1)
+            arr = _np.full(len(xs), _np.nan)
+            ok = (vxx > 0) & (vyy > 0)
+            vals = _np.full(len(cov), _np.nan)
+            vals[ok] = cov[ok] / _np.sqrt(vxx[ok] * vyy[ok])
+            arr[pos[win - 1:]] = vals
+            return _to_list(arr)
     out: list[float | None] = [None] * len(xs)
     bx: list[float] = []
     by: list[float] = []
@@ -141,32 +246,74 @@ def rolling_corr(xs: list[float | None], ys: list[float | None],
 
 # ---------------------------------------------------------------------------
 # per-ticker primitive series builders (from snapshot dicts)
+#
+# The catalog re-derives the same aligned series for every factor (24x per
+# run). Panel-keyed caches (strong refs, same discipline as matrix._C)
+# amortize that to once per panel; returns_of gains a numpy fast path
+# with the identical gap/prev>0 semantics.
 # ---------------------------------------------------------------------------
 
-def series_of(panel: dict[str, dict[str, float]],
-              dates: list[str]) -> dict[str, list[float | None]]:
+_SER_CACHE: dict = {}     # {(id(panel), id(dates)): aligned rows} — the
+_SER_HOLD: dict = {}     # strong refs make id-reuse impossible while live
+
+
+def series_of(panel, dates):
     """{ticker: [value or None per date in dates]} — aligned, gap-aware."""
-    out: dict[str, list[float | None]] = {}
+    key = (id(panel), id(dates))
+    hit = _SER_CACHE.get(key)
+    if hit is not None:
+        return {tk: xs for tk, xs in hit.items()}        # fresh outer dict
+    out = {}
     for tk, row in panel.items():
         out[tk] = [row.get(d) for d in dates]
-    return out
+    if len(_SER_CACHE) >= 8:            # FIFO — 3 panels + margins
+        oldest = next(iter(_SER_CACHE))
+        _SER_CACHE.pop(oldest, None)
+        _SER_HOLD.pop(oldest, None)
+    _SER_CACHE[key] = out
+    _SER_HOLD[key] = (panel, dates)
+    return {tk: xs for tk, xs in out.items()}
 
 
-def returns_of(close_rows: dict[str, list[float | None]],
-               ) -> dict[str, list[float | None]]:
-    out: dict[str, list[float | None]] = {}
-    for tk, xs in close_rows.items():
-        seq: list[float | None] = [None] * len(xs)
-        prev: float | None = None
-        for i, x in enumerate(xs):
-            if x is None:
-                prev = None
-                continue
-            if prev is not None and prev > 0:
-                seq[i] = x / prev - 1.0
-            prev = x
-        out[tk] = seq
-    return out
+_RET_CACHE: dict = {}
+_RET_HOLD: dict = {}
+
+
+def returns_of(close_rows):
+    key = (id(close_rows),)
+    hit = _RET_CACHE.get(key)
+    if hit is not None:
+        return {tk: xs for tk, xs in hit.items()}
+    if _HAVE_NP:
+        out = {}
+        for tk, xs in close_rows.items():
+            v = _np.fromiter((x if x is not None else _np.nan for x in xs),
+                             dtype=float, count=len(xs))
+            prev = _np.concatenate([[_np.nan], v[:-1]])
+            with _np.errstate(invalid="ignore", divide="ignore"):
+                r = _np.where((_np.isnan(prev) | (prev <= 0) | _np.isnan(v)),
+                              _np.nan, v / prev - 1.0)
+            out[tk] = [None if x != x else x for x in r.tolist()]
+    else:
+        out = {}
+        for tk, xs in close_rows.items():
+            seq = [None] * len(xs)
+            prev = None
+            for i, x in enumerate(xs):
+                if x is None:
+                    prev = None
+                    continue
+                if prev is not None and prev > 0:
+                    seq[i] = x / prev - 1.0
+                prev = x
+            out[tk] = seq
+    if len(_RET_CACHE) >= 8:
+        oldest = next(iter(_RET_CACHE))
+        _RET_CACHE.pop(oldest, None)
+        _RET_HOLD.pop(oldest, None)
+    _RET_CACHE[key] = out
+    _RET_HOLD[key] = (close_rows,)
+    return {tk: xs for tk, xs in out.items()}
 
 
 def overnight_of(open_rows, close_rows) -> dict[str, list[float | None]]:
@@ -403,6 +550,10 @@ def build_catalog() -> list[dict[str, Any]]:
         rs = returns_of(cs)
         out = {}
         for tk, r in rs.items():
+            fast = _skew_series(r, 20)
+            if fast is not None:
+                out[tk] = fast
+                continue
             buf: list[float] = []
             seq: list[float | None] = [None] * len(r)
             for i, x in enumerate(r):
@@ -452,20 +603,8 @@ def build_catalog() -> list[dict[str, Any]]:
         rs = returns_of(cs)
         out = {}
         for tk, r in rs.items():
-            s20 = rolling_std(r, 20)
-            buf: list[float] = []
-            seq: list[float | None] = [None] * len(r)
-            for i, x in enumerate(s20):
-                if x is None:
-                    continue
-                buf.append(x)
-                if len(buf) > 20:
-                    buf.pop(0)
-                if len(buf) == 20:
-                    m = sum(buf) / 20
-                    seq[i] = math.sqrt(
-                        sum((b - m) ** 2 for b in buf) / 19)
-            out[tk] = seq
+            # the stdlib loop below is rolling_std(rolling_std(r,20),20)
+            out[tk] = rolling_std(rolling_std(r, 20), 20)
         return out
 
     add("vol_of_vol", "vol-of-vol family (public literature)",

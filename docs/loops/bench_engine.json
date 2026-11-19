@@ -1,0 +1,66 @@
+{
+ "backend": "numpy",
+ "halving": [
+  {
+   "above_floor": 15,
+   "cut_oos_ic": 0.13874733333333333,
+   "dropped": [
+    "amihud_21d",
+    "chan_pos_20d",
+    "dist_52w_high",
+    "gap_freq_21d",
+    "gap_vol_21d",
+    "intraday_21d",
+    "mom_gap_12m",
+    "overnight_gap_21d",
+    "pv_corr_20d",
+    "rev_1w",
+    "sharpe_20d",
+    "signed_vol_20d",
+    "skew_20d",
+    "vol_of_vol",
+    "vol_ratio_5_20",
+    "volume_trend",
+    "zero_ret_freq_21d"
+   ],
+   "evaluated": 24,
+   "fraction": 0.25,
+   "kept": 7,
+   "level": 0,
+   "n_dates": 302
+  },
+  {
+   "above_floor": 5,
+   "cut_oos_ic": 0.10416083333333333,
+   "dropped": [
+    "max_ret_20d",
+    "mom_12_1",
+    "ret_vol_scaled_21d",
+    "rev_1m",
+    "run_length"
+   ],
+   "evaluated": 7,
+   "fraction": 0.5,
+   "kept": 2,
+   "level": 1,
+   "n_dates": 605
+  }
+ ],
+ "panel": {
+  "n_dates": 1210,
+  "n_factors": 24,
+  "n_tickers": 300
+ },
+ "ran_at": 1795058588.4240396,
+ "results_identical": true,
+ "seconds": {
+  "halving_triage": 2.205,
+  "legacy_serial": 5.568,
+  "matrix_pool": 0.815,
+  "matrix_serial": 4.892
+ },
+ "speedup": {
+  "matrix_pool": 6.84,
+  "matrix_serial": 1.14
+ }
+}

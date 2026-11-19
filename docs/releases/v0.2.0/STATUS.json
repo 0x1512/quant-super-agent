@@ -1,0 +1,12 @@
+{
+ "_note": "single source of truth for README storefront numbers; v0.1.0 = repository re-seed (single-commit fresh public history; the research record lives in docs/EVIDENCE.md)",
+ "candidates": 78,
+ "conversation": "bar-only follow-ups rescore zero rows; universe recomputes finish in tens of seconds",
+ "date": "2026-11-19",
+ "panel": "300-ticker × 1210-day",
+ "relative": "4.0x parallel vs sequential, byte-identical for any N",
+ "tests": 544,
+ "throughput": "minute-level, auto-sized worker crew",
+ "version": "0.2.0",
+ "winners": 14
+}
