@@ -164,3 +164,61 @@ class TestHtmlChannel(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestShowcaseV3(unittest.TestCase):
+    """v3 展示组件：AI 感 + 价值感（showcase.py）+ index v3 结构."""
+
+    P = {"months": ["2026-01", "2026-02"], "ls_monthly": [0.03, -0.01],
+         "g5_monthly": [0.04, 0.0], "g1_monthly": [0.0, -0.02],
+         "bench_monthly": [0.01, 0.005], "ls_nav": [1.03, 1.0197],
+         "ann_ls_net": 0.194, "nw_sharpe_ls": 1.54, "max_drawdown_ls": -0.18,
+         "calmar_ls": 1.04, "turnover_monthly_one_side": 0.3,
+         "yearly_ls": [("2026", 0.32)]}
+
+    def test_hero_pnl_svg_shape(self):
+        from qsa.showcase import hero_pnl_svg
+        svg = hero_pnl_svg(self.P, [("gap_sum_252", [0.02, 0.01])])
+        self.assertIn("<svg", svg)
+        self.assertIn("polyline", svg)
+        self.assertNotIn("<script", svg)
+
+    def test_yearly_gauges_lifespan_corr(self):
+        from qsa.showcase import (corr_matrix_svg, gauges_svg,
+                                  lifespan_bars, yearly_gain_svg)
+        self.assertIn("%", yearly_gain_svg([("2026", 0.1)]))
+        g = gauges_svg(self.P)
+        self.assertEqual(g.count("gaugev"), 3)          # 三针
+        ls = lifespan_bars(0.01, 0.02, 0.015)
+        self.assertEqual(ls.count("lsbar"), 3)
+        cm = corr_matrix_svg({"a": [0.01, 0.02, 0.03],
+                              "b": [0.02, 0.01, 0.015]})
+        self.assertIn("1.00", cm)
+
+    def test_ai_components(self):
+        from qsa.showcase import (dataflow_svg, ecg_svg, fingerprint_svg,
+                                  race_svg, trace_flow_html)
+        tf = trace_flow_html(["[ok] line1", "[warn] line2"])
+        self.assertIn(">[ok] line1<", tf)
+        self.assertIn("tline", trace_flow_html(["x"], by_char=True))
+        self.assertIn("ecgline", ecg_svg())
+        self.assertIn("dflow", dataflow_svg())
+        self.assertIn("fingerprint", fingerprint_svg(
+            [{"ic": 0.1, "ic_a": 0.1, "ic_b": 0.1}]))
+        self.assertIn("racer", race_svg())
+
+    def test_index_v3_structure(self):
+        out = render_index_html(TestHtmlChannel.ROWS, TestHtmlChannel.META,
+                                {"a": IC, "b": IC},
+                                {"a": dict(self.P, ls_monthly=[0.02, 0.01],
+                                           bench_monthly=[0.01, 0.0])})
+        for comp in ("推理流", "数据流", "主幸存者净值", "年度等权增强",
+                     "三针仪表", "指纹", "IC 寿命", "并行赛道",
+                     "goldrow", "details class=\"log\"", "chainline"):
+            self.assertIn(comp, out)
+        self.assertNotIn("<script", out)
+
+    def test_fam_mech_labels(self):
+        from qsa.showcase import FAM_MECH
+        self.assertIn("overnight", FAM_MECH)
+        self.assertTrue(all(len(v) >= 2 for v in FAM_MECH.values()))

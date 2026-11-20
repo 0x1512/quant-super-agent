@@ -50,6 +50,37 @@ def _yearly(months: list[str], rets: list[float]) -> list[tuple[str, float]]:
     return sorted((y, v - 1.0) for y, v in by.items())
 
 
+_BENCH_CACHE: dict[Any, Any] = {"key": None, "daily": None}
+
+
+def _bench_monthly(closes: dict[str, dict[str, float]],
+                   dates: list[str],
+                   out_dates: list[str]) -> list[float]:
+    """等权全市场基准的月度复利（与 L-S 同月对齐）.
+
+    基准只依赖 closes/dates（与信号无关），同一数据面下按
+    (id, 边界) 缓存日度等权收益，避免 59 因子重复重算。
+    """
+    from .backtest import daily_returns
+    key = (id(closes), id(dates), dates[0] if dates else "",
+           dates[-1] if dates else "", len(dates))
+    daily = _BENCH_CACHE["daily"]
+    if daily is None or _BENCH_CACHE["key"] != key:
+        rets = daily_returns(closes, dates)
+        by_date: dict[str, float] = {}
+        cnt: dict[str, int] = {}
+        for row in rets.values():
+            for d, r in row.items():
+                by_date[d] = by_date.get(d, 0.0) + r
+                cnt[d] = cnt.get(d, 0) + 1
+        daily = {d: by_date[d] / cnt[d] for d in by_date if cnt.get(d)}
+        _BENCH_CACHE["key"] = key
+        _BENCH_CACHE["daily"] = daily
+    months, mr = _monthly([daily.get(d, 0.0) for d in out_dates],
+                          out_dates)
+    return mr
+
+
 def longshort_pnl(closes: dict[str, dict[str, float]],
                   dates: list[str],
                   signal: dict[str, dict[str, float]],
@@ -85,6 +116,7 @@ def longshort_pnl(closes: dict[str, dict[str, float]],
         "ls_monthly": ls_m,
         "g5_monthly": g5_m,
         "g1_monthly": g1_m,
+        "bench_monthly": _bench_monthly(closes, dates, ls_dates),
         "ls_nav": nav,
         "ann_ls_net": _annualize(ls_daily),
         "ann_g5_net": _annualize(g5["net"][:n]),

@@ -58,8 +58,28 @@ def month_end_indices(dates: list[str]) -> list[int]:
     return ends
 
 
+_DR_CACHE: dict[Any, Any] = {"closes": None, "dates": None, "res": None}
+
+
 def daily_returns(closes: dict[str, dict[str, float]],
                   dates: list[str]) -> dict[str, dict[str, float]]:
+    """{ticker: {date: simple return vs previous available close}}.
+
+    结果只依赖 (closes, dates)（与信号无关）；按对象身份单条缓存，
+    批量扫描时避免同一数据面重复重算。is 比较无哈希碰撞，
+    缓存持强引用防 id 复用。
+    """
+    if _DR_CACHE["closes"] is closes and _DR_CACHE["dates"] is dates:
+        return _DR_CACHE["res"]
+    res = _daily_returns_uncached(closes, dates)
+    _DR_CACHE.update(closes=closes, dates=dates, res=res)
+    return res
+
+
+def _daily_returns_uncached(closes: dict[str, dict[str, float]],
+                            dates: list[str]
+                            ) -> dict[str, dict[str, float]]:
+    """daily_returns 的原始实现（无缓存）."""
     """{ticker: {date: simple return vs previous available close}}.
 
     A ticker's first day and any gap (suspension) yields no return for that
