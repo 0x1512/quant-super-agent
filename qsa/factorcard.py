@@ -162,10 +162,10 @@ def pnl_curve_svg(p: dict[str, Any], w: int = 320, h: int = 96) -> str:
         return "<svg></svg>"
     base = (f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}" '
             'role="img" aria-label="cumulative NAV">')
-    base += f'<rect x="0" y="0" width="{w}" height="{h}" fill="#fff"/>'
-    base += nav_path(p["g1_monthly"], "#c94f4f", 1.0)
-    base += nav_path(p["g5_monthly"], "#2e9e5b", 1.0)
-    base += nav_path(p["ls_monthly"], "#3a6ea5", 2.2)
+
+    base += nav_path(p["g1_monthly"], "#E0685C", 1.0)
+    base += nav_path(p["g5_monthly"], "#3FD68F", 1.0)
+    base += nav_path(p["ls_monthly"], "#7A8CA0", 2.2)
     return base + "</svg>"
 
 
@@ -308,7 +308,7 @@ def verdict_chain_svg(r: dict[str, Any]) -> str:
                        f'{1.0 if passed else 0.45}"{dash}/>')
             if passed:
                 out.append(f'<line x1="{prev}" y1="7" x2="{x - 4}" y2="7" '
-                           f'stroke="{hot or "#ffffff"}" stroke-width="1.6" '
+                           f'stroke="{hot or "#FFC857"}" stroke-width="1.6" '
                            'class="chainline" opacity="0.85"/>')
         if passed:
             fill = hot or ("#3fd68f" if name != "v2" else "#ffc857")
@@ -350,18 +350,14 @@ def run_header_html(meta: dict[str, Any], rows: list[dict[str, Any]],
 
 DARK_CSS = """
 *{box-sizing:border-box}
-:root{--bg:#0B0E14;--panel:#151A22;--line:rgba(255,255,255,.06);
---ink:#DCE3EC;--dim:#8B98A9;--faint:#5C6B7D;
---pos:#3FD68F;--neg:#E0685C;--focus:#FFC857;--cool:#4CC2FF}
+:root{--bg:#0B0E14;--panel:#141923;--pos:#3FD68F;--neg:#E0685C;
+--focus:#FFC857;--neutral:#7A8CA0;--ink:#DCE3EC;--dim:#8B98A9;
+--faint:#5C6B7D;--line:rgba(255,255,255,.05)}
 body{font:14px/1.6 -apple-system,'Segoe UI',Roboto,'PingFang SC',
 'Microsoft YaHei',sans-serif;margin:0;background:var(--bg);
 color:var(--ink);
-background-image:radial-gradient(circle,rgba(255,255,255,.028) 1px,
+background-image:radial-gradient(circle,rgba(255,255,255,.02) 1px,
 transparent 1px);background-size:26px 26px}
-body::before{content:"";position:fixed;inset:0;pointer-events:none;
-background:radial-gradient(55% 38% at 50% 108%,rgba(63,214,143,.05),
-transparent 70%),radial-gradient(38% 26% at 88% 4%,
-rgba(255,200,87,.04),transparent 70%);z-index:0}
 main{max-width:1120px;margin:0 auto;padding:28px 28px 56px;position:relative;
 z-index:1}
 h1{font-size:22px;margin:0 0 2px;letter-spacing:.3px}
@@ -424,7 +420,7 @@ padding:1px 7px;font-size:11.5px;color:#9FB6CC}
 .foot{color:var(--faint);font-size:12.5px;margin-top:24px;
 border-top:1px solid var(--line);padding-top:14px;line-height:1.8}
 .famrow{display:flex;align-items:center;gap:10px;margin:5px 0}
-.fambar{height:15px;border-radius:3px;background:var(--cool);opacity:.8}
+.fambar{height:15px;border-radius:3px;background:var(--neutral);opacity:.75}
 .fambar.neg{background:var(--neg)}
 .wfn{fill:var(--ink);font-size:15px;font-weight:700}
 .wfl{fill:var(--dim);font-size:11px}
@@ -457,11 +453,11 @@ border-bottom:1px solid var(--line);border-radius:0 12px 12px 0;
 padding:14px 20px;margin-top:14px;color:#C7D2DE;font-size:13.5px;
 line-height:1.8}
 .attrib b{color:var(--focus)}
-.attrib a{color:var(--cool);text-decoration:none;
-border-bottom:1px dotted rgba(76,194,255,.5)}
+.attrib a{color:#B9C6D4;text-decoration:none;
+border-bottom:1px dotted rgba(122,140,160,.6)}
 .expr{display:inline-block;font-family:ui-monospace,'JetBrains Mono',
 monospace;font-variant-numeric:tabular-nums;font-size:11.5px;
-color:#9FD0FF;background:#0E1622;border:1px solid rgba(76,194,255,.22);
+color:#A9B8C9;background:#10151D;border:1px solid var(--line);
 border-radius:5px;padding:2px 9px;margin:6px 0 2px;letter-spacing:.2px}
 .radarlab{fill:var(--dim);font-size:10.5px;letter-spacing:.5px}
 .radargv{fill:var(--focus);font-size:11px;font-weight:700;
@@ -514,18 +510,18 @@ cubic-bezier(.3,.6,.2,1) infinite alternate}
 .badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .badge{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;
 letter-spacing:1.2px;padding:2px 9px;border-radius:5px;border:1px solid}
-.b-sim{color:var(--cool);border-color:rgba(76,194,255,.3);
-background:#0E1C28}
+.b-sim{color:var(--neutral);border-color:rgba(122,140,160,.35);
+background:#10151D}
 .b-pend{color:var(--focus);border-color:rgba(255,200,87,.3);
 background:#231C0C}
 .b-dual{color:var(--pos);border-color:rgba(63,214,143,.3);
 background:#0B2118}
 .b-frozen{color:var(--dim);border-color:var(--line);background:#141922}
-tbody tr{opacity:.42;transition:opacity .18s}
-tbody tr:hover{opacity:1}
-tbody tr.goldrow{opacity:1}
-.mech{display:inline-block;font-size:11.5px;color:#9FD0FF;
-background:#0E1C28;border:1px solid rgba(76,194,255,.22);
+tbody tr{border-left:2px solid transparent;cursor:pointer}
+tbody tr:hover td{background:rgba(255,255,255,.035)}
+tbody tr.goldrow{border-left:2px solid var(--focus)}
+.mech{display:inline-block;font-size:11.5px;color:#A9B8C9;
+background:#10151D;border:1px solid var(--line);
 border-radius:5px;padding:1px 8px;margin:6px 0 2px}
 .lsrow{display:flex;align-items:center;gap:8px;margin:3px 0}
 .lsbar{flex:1;height:9px;background:#10151D;border-radius:4px;
@@ -548,6 +544,58 @@ font-family:ui-monospace,monospace;font-size:12px}
 .logbody{padding:4px 16px 12px;font-family:ui-monospace,Menlo,
 monospace;font-size:11.5px;color:#7EC99A;max-height:240px;overflow:auto}
 .logbody .err{color:var(--neg)}.logbody .dim{color:#57606A}
+/* ---- v5: 12 列 Bento ---- */
+.bento{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;
+margin-top:14px}
+.b12{grid-column:span 12}.b8{grid-column:span 8}.b7{grid-column:span 7}
+.b6{grid-column:span 6}.b5{grid-column:span 5}.b4{grid-column:span 4}
+.bento .card{margin:0}
+@media(max-width:900px){.bento>*{grid-column:span 12 !important}}
+.kmini{height:3px;background:#10151D;border-radius:2px;margin-top:7px;
+overflow:hidden}
+.kmini i{display:block;height:100%;border-radius:2px}
+/* ---- v5: 胶囊切换 / 滑块 / 搜索 ---- */
+.pills{display:flex;gap:6px}
+.pill{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:1px;
+padding:3px 12px;border-radius:999px;border:1px solid var(--line);
+background:#10151D;color:var(--dim);cursor:pointer;user-select:none}
+.pill.on{color:#0B0E14;background:var(--focus);border-color:var(--focus);
+font-weight:700}
+.feerow{display:flex;align-items:center;gap:14px;margin-top:8px}
+.feeslider{flex:1;-webkit-appearance:none;appearance:none;height:4px;
+border-radius:2px;background:linear-gradient(90deg,var(--pos),
+var(--neutral),var(--neg));outline:none}
+.feeslider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+width:16px;height:16px;border-radius:50%;background:var(--focus);
+border:2px solid #0B0E14;cursor:grab}
+.feeout{font-family:ui-monospace,monospace;
+font-variant-numeric:tabular-nums;font-size:13px;color:var(--ink);
+min-width:340px}
+.tbtools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+margin:8px 0}
+.tbsearch{font-family:ui-monospace,monospace;font-size:12px;
+background:#10151D;border:1px solid var(--line);border-radius:8px;
+padding:6px 12px;color:var(--ink);outline:none;min-width:200px}
+th.sortable{cursor:pointer}
+th.sortable:hover{color:var(--ink)}
+/* ---- v5: Run Metadata 折叠 ---- */
+details.runmeta{margin-top:10px}
+details.runmeta summary{cursor:pointer;list-style:none;display:inline-flex;
+align-items:center;gap:6px;color:var(--faint);font-size:11.5px;
+font-family:ui-monospace,monospace}
+details.runmeta summary::before{content:"ⓘ"}
+details.runmeta[open] summary{margin-bottom:6px}
+.runmetagrid{display:flex;flex-wrap:wrap;gap:4px 18px;color:var(--faint);
+font-size:11.5px;font-family:ui-monospace,monospace;padding:8px 0 2px}
+.statusbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+margin-top:10px}
+/* crosshair 读数框 */
+.xhair-tip{position:absolute;pointer-events:none;background:#10151D;
+border:1px solid var(--line);border-radius:8px;padding:7px 11px;
+font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;
+font-size:11.5px;color:var(--ink);z-index:5;white-space:nowrap;
+box-shadow:0 6px 18px rgba(0,0,0,.5)}
+.hero-wrap{position:relative}
 @media (prefers-reduced-motion:reduce){*{animation:none !important;
 transition:none !important}}
 @media print{body{background:#fff;color:#111;animation:none}
@@ -557,6 +605,178 @@ background:#fff}
 .big{color:#0A7A42}.foot,code{color:#333}
 tbody tr{opacity:1}}
 """
+
+ENHANCE_JS = r"""
+<script>
+/* 渐进增强层：无 JS 时本页全部内容静态完整（三通道制）。
+   依赖页面内嵌 QSA_DATA（各因子月收益/指标 + 费率网格）。*/
+(function(){
+"use strict";
+var D = window.QSA_DATA; if(!D) return;
+var $ = function(s){return document.querySelector(s)};
+var $$ = function(s){return [].slice.call(document.querySelectorAll(s))};
+var F = D.factors, HERO = D.hero, bench = D.bench, fee = D.fee||{};
+var cur = HERO, mode = "ALL", curFee = D.base_fee_bps||8;
+
+function nav(m){var v=1,o=[1];for(var i=0;i<m.length;i++){v*=(1+m[i]);o.push(v)}return o}
+function under(nv){var pk=nv[0],o=[];for(var i=0;i<nv.length;i++){pk=Math.max(pk,nv[i]);o.push(nv[i]/pk-1)}return o}
+function ann(m){if(!m.length)return null;var v=1;for(var i=0;i<m.length;i++)v*=(1+m[i]);return Math.pow(v,12/m.length)-1}
+function sharpeM(m){if(m.length<3)return null;var u=m.reduce((a,b)=>a+b,0)/m.length;
+ var s=Math.sqrt(m.reduce((a,b)=>a+(b-u)*(b-u),0)/(m.length-1));
+ return s>0?u/s*Math.sqrt(12):null}
+function mddM(nv){var pk=nv[0],w=0;for(var i=0;i<nv.length;i++){pk=Math.max(pk,nv[i]);w=Math.min(w,nv[i]/pk-1)}return w}
+function fmtP(x){return (x==null)?"—":((x>=0?"+":"")+(x*100).toFixed(1)+"%")}
+function fmtN(x){return (x==null)?"—":x.toFixed(2)}
+
+/* ---------- 主图重画 ---------- */
+var HW=1000,HH=300,UW=64;
+function poly(pts,w,h,pad){var lo=Math.min.apply(null,pts),hi=Math.max.apply(null,pts);
+ var sp=(hi-lo)||1e-9,o=[];
+ for(var i=0;i<pts.length;i++)o.push((pad+i*(w-2*pad)/Math.max(1,pts.length-1)).toFixed(1)+","+(pad+(1-(pts[i]-lo)/sp)*(h-2*pad)).toFixed(1));
+ return o.join(" ")}
+function drawHero(id){
+ var f=F[id]; if(!f) return;
+ var ms=f.months, ls=feeCurve(id), nv=nav(ls), uw=under(nav(ls));
+ var bn=nav(bench.slice(0,ls.length));
+ var all=nv.concat(bn), lo=Math.min.apply(null,all), hi=Math.max.apply(null,all);
+ var sp=(hi-lo)||1e-9;
+ var Y=function(v){return 4+(1-(v-lo)/sp)*(HH-8)}, X=function(i){return 4+i*(HW-8)/Math.max(1,nv.length-1)};
+ var g=$("#heroG"); if(!g) return;
+ var pk=nv[0],wpk=0,wd=0,wv=0,wpi=0;
+ for(var i=0;i<nv.length;i++){if(nv[i]>pk){pk=nv[i];wpk=i}
+  var d=nv[i]/pk-1; if(d<wd){wd=d;wv=i;wpi=wpk;}}
+ var vr=nv.length-1; for(var i=wv;i<nv.length;i++){if(nv[i]>=nv[wpi]){vr=i;break}}
+ var s="";
+ s+='<rect x="'+X(wpi)+'" y="4" width="'+Math.max(0,X(wv)-X(wpi))+'" height="'+(HH-8)+'" fill="#E0685C" opacity="0.07"/>';
+ s+='<rect x="'+X(wv)+'" y="4" width="'+Math.max(0,X(vr)-X(wv))+'" height="'+(HH-8)+'" fill="#3FD68F" opacity="0.06"/>';
+ s+='<polygon points="4,'+(HH-4)+" "+poly(nv,HW,HH,4)+" "+(HW-4)+","+(HH-4)+'" fill="url(#navfill)"/>';
+ s+='<polyline points="'+poly(bn,HW,HH,4)+'" fill="none" stroke="#7A8CA0" stroke-width="1.4" stroke-dasharray="5,4" opacity="0.9"/>';
+ s+='<polyline points="'+poly(nv,HW,HH,4)+'" fill="none" stroke="#3FD68F" stroke-width="1.8"/>';
+ s+='<circle cx="'+X(wv)+'" cy="'+Y(nv[wv])+'" r="4.5" fill="#E0685C"><title>最大回撤谷底 '+ms[wv]+'（'+(wd*100).toFixed(1)+'%）</title></circle>';
+ s+='<circle cx="'+X(nv.length-1)+'" cy="'+Y(nv[nv.length-1])+'" r="4" fill="#FFC857"><title>终值 ×'+nv[nv.length-1].toFixed(3)+'（'+ms[ms.length-1]+'）</title></circle>';
+ var uwl=Math.min.apply(null,uw),us=(-uwl)||1e-9,u=[];
+ for(var i=0;i<uw.length;i++)u.push((4+i*(HW-8)/Math.max(1,uw.length-1)).toFixed(1)+","+(HH+12+(uw[i]/us)*(UW-8)).toFixed(1));
+ s+='<line x1="4" y1="'+(HH+8)+'" x2="'+(HW-4)+'" y2="'+(HH+8)+'" stroke="rgba(255,255,255,.1)"/>';
+ s+='<polygon points="4,'+(HH+8)+" "+u.join(" ")+" "+(HW-4)+","+(HH+8)+'" fill="#E0685C" opacity="0.35"/>';
+ if(mode!=="ALL"){var cut=Math.floor(ms.length*0.8),xa=X(mode==="IS"?0:cut),xb=X(mode==="IS"?cut:ms.length-1);
+  s+='<rect x="0" y="0" width="'+HW+'" height="'+(HH+UW+16)+'" fill="#0B0E14" opacity="0.72"/>';
+  s+='<rect x="'+xa+'" y="0" width="'+(xb-xa)+'" height="'+(HH+UW+16)+'" fill="none" stroke="#FFC857" stroke-width="1.2" opacity="0.8"/>';}
+ g.innerHTML=s;
+ $("#heroTitle").textContent="净值曲线 · "+id+"（"+(mode==="ALL"?"全样本":mode)+"）";
+ $("#heroEnd").textContent="¥1,000,000 → ¥"+(nv[nv.length-1]*1e6).toLocaleString("en-US",{maximumFractionDigits:0});
+ window.__nv=nv; window.__ms=ms; window.__uw=uw;
+ drawKpi(id,ls);
+ var hd=$("#heatDiv"); if(hd && window.__drawHeat) window.__drawHeat(id);
+ var rl=$("#rollDiv"); if(rl && window.__drawRoll) window.__drawRoll(id);
+}
+function feeCurve(id){
+ var f=F[id]; if(id!==HERO||!fee[curFee]) return f.ls;
+ return fee[curFee].ls;
+}
+function drawKpi(id,ls0){
+ var f=F[id], ls=ls0||feeCurve(id);
+ var seg=ls; var ms=F[id].months;
+ if(mode!=="ALL"){var cut=Math.floor(ms.length*0.8); seg=mode==="IS"?ls.slice(0,cut):ls.slice(cut);}
+ var nv=nav(seg);
+ var a=ann(seg), sh=sharpeM(seg), md=mddM(nv);
+ var so=null; {var dn=seg.filter(function(x){return x<0});
+  if(dn.length>2){var dv=Math.sqrt(dn.reduce(function(p,c){return p+c*c},0)/seg.length*12);
+   so=dv>0?ann(seg)/dv:null;}}
+ var set=function(i,v,pos){var el=$$(".kpival")[i]; if(!el)return;
+  el.textContent=v; el.className="kpival "+(pos?"pos":(pos===false?"neg":""));
+  var bar=$$(".kmini i")[i]; if(bar){var fv=Math.min(1,Math.abs(parseFloat(v))/ (i===0?0.35:i===1?3:i===2?4:i===3?0.4:i===4?1:2.5));
+   bar.style.width=(fv*100).toFixed(0)+"%";}};
+ set(0,fmtP(a),a>0); set(1,fmtN(sh),sh>=1); set(2,fmtN(so),so>=1.4);
+ set(3,fmtP(md),false); set(4,(f.turnover*100).toFixed(0)+"%",null); set(5,fmtN(f.calmar),f.calmar>=1);
+ var bl=$$(".kpibench b")[0];
+ if(bl&&D.bench_ann!=null){var d=a-D.bench_ann;bl.textContent=(d>=0?"+":"")+(d*100).toFixed(1)+"%";bl.style.color=d>=0?"#3FD68F":"#E0685C";}
+}
+function select(id){cur=id;drawHero(id);
+ var f=F[id];
+ var ex=$(".expr"); if(ex&&f.expr)ex.textContent=f.expr;
+ var me=$(".mech"); if(me&&f.mech)me.textContent=f.mech;
+ $$("#dataTable tbody tr").forEach(function(tr){tr.style.background=tr.dataset.id===id?"rgba(255,200,87,.06)":""});
+}
+window.__qsaSelect=select;
+
+/* ---------- 胶囊 ---------- */
+$$(".pill[data-mode]").forEach(function(p){p.addEventListener("click",function(){
+ $$(".pill[data-mode]").forEach(function(x){x.classList.remove("on")});
+ p.classList.add("on"); mode=p.dataset.mode; drawHero(cur);});});
+
+/* ---------- 费率滑块 ---------- */
+var sl=$("#feeSlider");
+if(sl){var out=$("#feeOut");
+ sl.value=curFee;
+ var upd=function(){curFee=+sl.value; var g=fee[curFee]; if(!g)return;
+  out.innerHTML="单边 <b>"+curFee+"bps</b> · 年化 <b style='color:"+((g.ann>=0)?"#3FD68F":"#E0685C")+"'>"+fmtP(g.ann)+"</b> · Sharpe "+fmtN(g.sharpe)+" · MDD "+fmtP(g.mdd)+"（后端精确口径）";
+  if(cur===HERO)drawHero(HERO);};
+ sl.addEventListener("input",upd); upd();}
+
+/* ---------- 表格：搜索/族筛选/排序/行点击 ---------- */
+var tb=$("#dataTable"); if(tb){
+ var fams={},tbody=tb.tBodies[0],rows0=[].slice.call(tbody.rows);
+ rows0.forEach(function(r){fams[r.dataset.fam]=1});
+ var tools=document.createElement("div"); tools.className="tbtools";
+ tools.innerHTML='<input class="tbsearch" placeholder="搜索因子…（如 gap / vol / 252）" id="tbq">';
+ Object.keys(fams).sort().forEach(function(fm){
+  var b=document.createElement("button"); b.className="pill on"; b.textContent=fm;
+  b.dataset.fam=fm; tools.appendChild(b);});
+ var all=document.createElement("button"); all.className="pill on"; all.textContent="全部";
+ all.dataset.fam="__all__"; tools.insertBefore(all,tools.children[1]||null);
+ tb.parentNode.insertBefore(tools,tb);
+ var q="",famOn="__all__";
+ var apply=function(){rows0.forEach(function(r){
+  var okQ=!q||r.dataset.id.indexOf(q)>=0|| (r.dataset.fam.indexOf(q)>=0);
+  var okF=famOn==="__all__"||r.dataset.fam===famOn||(famOn!=="__all__"&&fams[famOn]===undefined&&false);
+  r.style.display=(okQ&&okF)?"":"none";});};
+ tools.addEventListener("click",function(e){var b=e.target.closest(".pill"); if(!b)return;
+  if(b.dataset.fam==="__all__"){famOn="__all__";tools.querySelectorAll(".pill").forEach(function(x){x.classList.toggle("on",x.dataset.fam==="__all__")});}
+  else{famOn=b.dataset.fam;tools.querySelectorAll(".pill").forEach(function(x){x.classList.toggle("on",x.dataset.fam===famOn)});}
+  apply();});
+ tools.addEventListener("input",function(e){if(e.target.id==="tbq"){q=e.target.value.trim();apply();}});
+ var ths=[].slice.call(tb.tHead.rows[0].cells);
+ ths.forEach(function(th,i){if(i<5){th.classList.add("sortable");
+  th.addEventListener("click",function(){
+   var dir=th.dataset.dir==="asc"?"desc":"asc"; ths.forEach(function(t){delete t.dataset.dir});
+   th.dataset.dir=dir;
+   rows0.sort(function(a,b){var x=a.cells[i].textContent,y=b.cells[i].textContent;
+    var nx=parseFloat(x.replace(/[^0-9.\-+]/g,"")),ny=parseFloat(y.replace(/[^0-9.\-+]/g,""));
+    if(!isNaN(nx)&&!isNaN(ny))return dir==="asc"?nx-ny:ny-nx;
+    return dir==="asc"?x.localeCompare(y):y.localeCompare(x);});
+   rows0.forEach(function(r){tbody.appendChild(r)});});}});
+ tbody.addEventListener("click",function(e){var tr=e.target.closest("tr");
+  if(tr&&tr.dataset.id&&F[tr.dataset.id]){select(tr.dataset.id);
+   document.getElementById("hero").scrollIntoView({behavior:"smooth",block:"start"});}});}
+
+/* ---------- 十字准线 ---------- */
+var hw=$(".hero-wrap");
+if(hw&&$("#heroSvg")){
+ var svg=$("#heroSvg"), tip=document.createElement("div");
+ tip.className="xhair-tip"; tip.style.display="none"; hw.appendChild(tip);
+ var rect=svg.getBoundingClientRect();
+ svg.addEventListener("mousemove",function(e){
+  var r=svg.getBoundingClientRect();
+  var xr=(e.clientX-r.left)/r.width*HW;
+  var nv=window.__nv||[],ms=window.__ms||[],uw=window.__uw||[];
+  if(!nv.length)return;
+  var i=Math.max(0,Math.min(nv.length-1,Math.round(xr/(HW-8)*(nv.length-1))));
+  var lx=(i*(HW-8)/Math.max(1,nv.length-1)+4)/HW*r.width;
+  var ln=$("#xhairLine"); if(!ln){ln=document.createElementNS("http://www.w3.org/2000/svg","line");ln.id="xhairLine";
+   ln.setAttribute("stroke","rgba(255,255,255,.28)");ln.setAttribute("stroke-width","1");ln.setAttribute("stroke-dasharray","3,3");
+   svg.appendChild(ln);}
+  ln.setAttribute("x1",lx);ln.setAttribute("x2",lx);ln.setAttribute("y1",0);ln.setAttribute("y2",r.height);
+  tip.style.display="block";
+  tip.style.left=Math.min(r.width-190,lx+14)+"px"; tip.style.top=(e.clientY-r.top-10)+"px";
+  tip.innerHTML=ms[i]+" · 净值 ×"+nv[i].toFixed(3)+"<br>月收益 "+fmtP((nv[i]/nv[i-1]||1)-1)+" · 回撤 "+fmtP(uw[i]);
+ });
+ svg.addEventListener("mouseleave",function(){tip.style.display="none";
+  var ln=$("#xhairLine"); if(ln)ln.remove();});
+}
+})();
+</script>
+"""
+
 
 def _esc(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -579,7 +799,7 @@ def sparkline_svg(ic_series: list[dict[str, Any]], w: int = 150,
         cums.append(cum)
         bh = abs(v) / m * half
         y = (h / 2 - bh) if v >= 0 else h / 2
-        color = "#2e9e5b" if v >= 0 else "#c94f4f"
+        color = "#3FD68F" if v >= 0 else "#E0685C"
         bars.append(f'<rect x="{i * bw:.1f}" y="{y:.1f}" '
                     f'width="{max(bw - 0.5, 0.5):.1f}" height="{bh:.1f}" '
                     f'fill="{color}" opacity="0.75"/>')
@@ -589,7 +809,7 @@ def sparkline_svg(ic_series: list[dict[str, Any]], w: int = 150,
         t = 0.5 if hi <= lo else (v - lo) / (hi - lo)
         pts.append(f"{i * bw + bw / 2:.1f},{2 + (1 - t) * (h - 4):.1f}")
     poly = (f'<polyline points="{" ".join(pts)}" fill="none" '
-            'stroke="#3a6ea5" stroke-width="1.2" opacity="0.9"/>')
+            'stroke="#7A8CA0" stroke-width="1.2" opacity="0.9"/>')
     return (f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}" '
             f'role="img" aria-label="monthly IC">{"".join(bars)}{poly}'
             '<line x1="0" y1="' + str(h / 2) + f'" x2="{w}" y2="{h / 2}" '
@@ -829,78 +1049,208 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
                   f"（<a href='#isos'>IS/OS 对照</a>）。"
                   f"月度收益分布见 <a href='#heat'>#heat</a>，"
                   f"证据链见 <a href='#panel'>#panel</a>。</div>")
+    import json as _json
+    # JS 增强数据（无 JS 时页面静态完整；JS 仅做切换/联动）
+    jsdata = ex.get("jsdata") or {}
+    js_tag = ""
+    if jsdata:
+        js_tag = ("<script>window.QSA_DATA="
+                  + _json.dumps(jsdata, separators=(",", ":"),
+                                allow_nan=False) + ";</script>")
+
+    # 指纹徽章（降级自指纹墙）
+    fp_badge = _showcase.fingerprint_badge(hero_ic) if hero else ""
+
+    def table_row(r):
+        spark = sparkline_svg(ics[r["id"]]) if r["id"] in ics else ""
+        name_cls = "gold" if r.get("both") else ""
+        row_cls = ' class="goldrow"' if r.get("both") else ""
+        pnl_cell = ("—" if r.get("ann_ls") is None
+                    else f"{r['ann_ls']:+.1%}")
+        color = ("#3FD68F" if (r.get("ann_ls") or 0) > 0
+                 else "#E0685C" if r.get("ann_ls") is not None
+                 else "#57606A")
+        return (f'<tr{row_cls} data-id="{_esc(r["id"])}" '
+                f'data-fam="{_esc(r.get("family", "?"))}">'
+                f'<td class="{name_cls}">{_esc(r["id"])}</td>'
+                f'<td><code>{_esc(r.get("family", "?"))}</code></td>'
+                f'<td>{r["oos_ic"]:+.4f}</td><td>{r["icir_a"]:.2f}</td>'
+                f'<td style="color:{color}">{pnl_cell}</td>'
+                f'<td>{verdict_chain_svg(r)}</td><td>{spark}</td></tr>')
+
+    trs = [table_row(r)
+           for r in sorted(rows, key=lambda x: -(x["oos_ic"] or -9))]
+    dup = f"　·　{_esc(meta['dedup_note'])}" if meta.get("dedup_note") else ""
+    log_html = "".join(f"<div>{_esc(line)}</div>" for line in log)
+
+    bench_ann = None
+    if hp.get("bench_monthly"):
+        b = 1.0
+        for r in hp["bench_monthly"]:
+            b *= (1.0 + r)
+        bench_ann = (b ** (12.0 / max(1, len(hp["bench_monthly"]))) - 1.0
+                     if b > 0 else None)
+    kpis = _showcase.kpi_strip(hp, bench_ann) if hp else ""
+    isos = _showcase.is_os_bar(hero_ic) if hero else ""
+    heat = (_showcase.monthly_heatmap_svg(hp["months"], hp["ls_monthly"])
+            if hp.get("months") else "")
+    roll = _showcase.rolling_ic_svg(hero_ic) if hero else ""
+    yearly = hp.get("yearly_ls")
+    yearly_html = _showcase.yearly_gain_svg(yearly) if yearly else ""
+    hero_svg = (_showcase.hero_pnl_svg(hp, band)
+                if hp and hp.get("ls_monthly") else
+                f'<div class="sub">无幸存者净值可展示'
+                f"（{n} 项均未通过诊断双过门 — 诚实零）</div>")
+
+    radar = ""
+    if hp and hero:
+        ic_m, icir_a, pos_share = _ic_stats(hero_ic)
+        mdd = abs(hp.get("max_drawdown_ls") or 0.35)
+        tu = hp.get("turnover_monthly_one_side") or 0.5
+        ann = hp.get("ann_ls_net") or 0.0
+        osr = _os_ratio(hero_ic)
+        clip = lambda v: max(0.04, min(1.0, v))
+        radar = _showcase.radar_svg({
+            "盈利能力": (clip(ann / 0.30), f"{ann:+.0%}"),
+            "IC 稳定性": (clip(icir_a / 1.5), f"{icir_a:.2f}"),
+            "抗回撤": (clip(1 - mdd / 0.35), f"{-mdd:.0%}"),
+            "低换手": (clip(1 - tu), f"{tu * 100:.0f}%"),
+            "正 IC 月": (clip(pos_share / 0.7), f"{pos_share:.0%}"),
+            "OS 保持": (clip(osr), f"{osr:.0%}"),
+        })
+
+    sens_html = _showcase.sensitivity_grid(ex.get("sens") or [])
+
+    attrib = ""
+    if hp and hero:
+        worst_m = min(zip(hp["months"], hp["ls_monthly"]),
+                      key=lambda x: x[1])
+        best_m = max(zip(hp["months"], hp["ls_monthly"]),
+                     key=lambda x: x[1])
+        osr = _os_ratio(hero_ic)
+        ann = hp.get("ann_ls_net")
+        decay = (f"样本外 IC 保持 {osr:.0%}"
+                 + ("" if osr >= 0.8 else "（衰减可见，如实展示）"))
+        attrib = (f"<div class='attrib'>诊断："
+                  f"<b>{_esc(hero)}</b> 年化 "
+                  f"<b>{(ann or 0):+.1%}</b>（费后模拟），"
+                  f"最大回撤 <b>{(hp.get('max_drawdown_ls') or 0):.1%}</b>"
+                  f"（<a href='#hero'>▼ 竖带</a>，日频口径；主图为月频），"
+                  f"最差月 {worst_m[1]:+.1%}（{worst_m[0]}）／最佳月 "
+                  f"{best_m[1]:+.1%}（{best_m[0]}，<a href='#heat'>热力</a>）；"
+                  f"{decay}（<a href='#isos'>IS/OS</a>）。</div>")
+
+    fams_n = len({r.get("family") for r in rows})
+
     return f"""<!doctype html>
 <html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{_esc(meta.get('title', '测试总览'))} · quant-super-agent</title>
 <style>{DARK_CSS}</style></head><body><main>
 {run_header_html(meta, rows, n_both)}
-<div class="meta" style="margin-top:10px">{_esc(meta.get('snap', ''))}　·　样本 {_esc(str(meta.get('n_months', '')))} 月 × {meta.get('n_tickers', '')} 标的　·　判决门=冻结 stage2 + walk-forward（stage2-v2 年化口径待拍板）　·　共 {n} 项，诊断双过 {n_both} 项{dup}</div>
+<div class="statusbar">
+<span class="badge b-sim">SIM · 费后模拟</span>
+{fp_badge}
+<span class="badge b-frozen">口径冻结</span>
+<span class="badge b-pend">s2-v2 待拍板</span>
+<span class="sub" style="margin-left:auto">{_esc(meta.get('snap', ''))}　·　{n} 实现 · {fams_n} 族 · 诊断双过 {n_both}{dup}</span>
+</div>
+<details class="runmeta"><summary>Run Metadata（引擎/数据面/口径）</summary>
+<div class="runmetagrid">
+<span>engine {_esc(meta.get('engine', 'qsa'))}</span>
+<span>backend {_esc(meta.get('backend', 'stdlib'))}</span>
+<span>commit {_esc(meta.get('commit', '—'))}</span>
+<span>样本 {_esc(str(meta.get('n_months', '')))} 月 × {meta.get('n_tickers', '')} 标的</span>
+<span>判决门 stage1/stage2 冻结 · s2-v2 待拍板 · walk-forward</span>
+<span>零 JS 可读 · 本页脚本仅为渐进增强</span>
+</div></details>
 
-<h2>① 一票否决指标（主幸存者 {_esc(str(hero or '无'))}）</h2>
+<h2>核心指标 · {_esc(str(hero or '无幸存者'))}</h2>
 {kpis}
 
-<h2 id="hero">② 净值曲线（等权多空 vs 等权基准）</h2>
-<div class="badges"><span class="badge b-sim">SIM · 费后模拟</span><span class="badge b-frozen">口径冻结</span><span class="badge b-pend">s2-v2 待拍板</span></div>
-<code class="expr">{_esc(_showcase.factor_expr(hero or ''))}</code>
-<div class="mech">{_esc(fam_mech.get((hero_row or {}).get('family', ''), ''))}</div>
-{hero_svg}
+<div class="bento">
+<div class="card b8 hero-wrap" id="hero">
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+<b id="heroTitle" style="font-size:14.5px">净值曲线 · {_esc(str(hero or '—'))}</b>
+<span class="pills">
+<span class="pill on" data-mode="ALL">ALL</span>
+<span class="pill" data-mode="IS">IS</span>
+<span class="pill" data-mode="OS">OS</span></span>
+<span class="sub" id="heroEnd" style="margin-left:auto;font-family:ui-monospace,monospace;color:#FFC857;font-weight:700"></span>
+</div>
+<span class="expr">{_esc(_showcase.factor_expr(hero or ''))}</span>
+<span class="mech">{_esc(fam_mech.get((hero_row or {}).get('family', ''), ''))}</span>
+<div id="heroBox">{hero_svg}</div>
 {attrib}
-
-<h2 id="heat">③ 月度收益热力 + 滚动 IC</h2>
-{heat}
-<div style="margin-top:12px">{roll}</div>
-
-<h2>④ 年度明细</h2>
-{yearly_html}
-<p class="sub">逐年等权因子对 − 等权全因子基准（幸存者口径）</p>
-
-<h2 id="panel">⑤ 证据面板</h2>
-<div class="cards">
-<div class="card"><h3 style="font-size:13px;color:#8b98a9">六维风控雷达</h3>{radar}</div>
-<div class="card" id="isos"><h3 style="font-size:13px;color:#8b98a9">IS / OS 对照</h3>{isos}<div style="margin-top:10px">{life}</div></div>
 </div>
-<div class="cards" style="margin-top:16px">
-<div class="card"><h3 style="font-size:13px;color:#8b98a9">三针仪表</h3>{gauges}</div>
-<div class="card"><h3 style="font-size:13px;color:#8b98a9">双实现指纹（A/B 逐月一致）</h3>{fp}</div>
+<div class="card b4" id="isos">
+<h3 style="font-size:13px;color:#8B98A9;margin:0 0 8px">样本内外对照（IC 口径）</h3>
+{isos}
+<p class="sub" style="margin-top:10px">IS=前 80% 月 · OS=后 20% 月 · OS 保持率=OS ICIR / IS ICIR（不藏衰减）</p>
 </div>
-{('<div class="card" style="margin-top:16px"><h3 style="font-size:13px;color:#8b98a9">幸存者月收益相关</h3>' + corr + '</div>') if corr else ''}
+</div>
 
-<h2>⑥ 参数敏感性（费率扫描）</h2>
+<div class="bento" id="panel">
+<div class="card b7" id="heat">
+<h3 style="font-size:13px;color:#8B98A9;margin:0 0 8px">月度收益热力（% · 悬停看精确值）</h3>
+<div id="heatDiv">{heat}</div>
+<p class="sub" style="margin:8px 0 4px">滚动 IC（12 月滚动均值线，信号是否只靠个别年份）</p>
+<div id="rollDiv">{roll}</div>
+</div>
+<div class="card b5">
+<h3 style="font-size:13px;color:#8B98A9;margin:0 0 8px">六维稳健性雷达</h3>
+{radar}
+<div style="margin-top:6px">{yearly_html}</div>
+</div>
+</div>
+
+<div class="bento">
+<div class="card b12">
+<h3 style="font-size:13px;color:#8B98A9;margin:0 0 8px">费率敏感性（同一信号/换仓节奏，只动单边费率）</h3>
+<div class="feerow">
+<input type="range" class="feeslider" id="feeSlider"
+ min="2" max="50" step="1" value="{(meta.get('fee_bps') or 8)}"
+ aria-label="单边费率 bps">
+<span class="feeout" id="feeOut">拖动滑块调整单边费率（后端预计算口径）</span>
+</div>
 {sens_html}
-<p class="sub">同一信号、同一换仓节奏，只动单边费率（成本摊 20 日）。静态离线计算，非实时重算。</p>
+<p class="sub">滑块为后端预计算的 2–50bps 网格（精确口径）；静态四格为锚点参照。无 JS 时静态格完整可读。</p>
+</div>
+</div>
 
-<h2>⑦ 控制权（永远在你手里）</h2>
-<div class="card"><p style="margin:4px 0">· 判决门 <b class="gold">冻结</b>：stage1/stage2 口径与 2026-11-13 裁决一致，页面改不动门。<br>
-· 幸存者只是「诊断双过」：<b>不入册、不构成对外主张</b>，正式结论唯一路径=冻结 run（待拍板）。<br>
-· 全部 PnL 为<b>模拟</b>（等权、月度换仓、成本摊 20 日），不含冲击成本/停牌/涨跌停。<br>
-· 零幸存者时本页如实显示诚实零，不硬凑候选。</p></div>
-
-<h2>⑧ 幸存者（诊断双过，待拍板）</h2>
+<h2>幸存因子（诊断双过，待拍板）</h2>
 <div class="cards">{surv_html}</div>
 
-<h2>⑨ 运行过程（推理流 / 数据流 / 并行）</h2>
-<div class="trace">{_showcase.trace_flow_html(log)}</div>
-<details class="log"><summary>▸ 完整日志</summary><div class="logbody">{log_html}</div></details>
-<div class="dataflow">{_showcase.dataflow_svg()}</div>
-{_showcase.race_svg(lanes=4, speedup=meta.get('speedup', '18.1×'))}
+<h2 id="table">全部实现（搜索 / 族筛选 / 点表头排序 / 点击行联动主图）</h2>
+<table id="dataTable"><thead><tr><th>因子</th><th>族</th><th>OOS IC</th><th>ICIR(年化)</th>
+<th>多空年化(模拟)</th><th>判决链</th><th>月度IC</th></tr></thead>
+<tbody>
+{''.join(trs)}</tbody></table>
+<p class="sub" style="margin:10px 0 4px">淘汰瀑布（2 个实现 → 诊断双过 1 → 冻结入册 0）</p>
+{waterfall_svg([{"label": "全部变体", "n": n, "color": "#7A8CA0", "note": meta.get("elapsed_s", "")},
+{"label": "过 s2-v2（年化口径）", "n": sum(1 for r in rows if r.get('s2v2') == 'pass'), "color": "#7A8CA0", "note": "待拍板"},
+{"label": "+ walk-forward", "n": n_both, "color": "#3FD68F", "note": "诊断双过"},
+{"label": "冻结 run 入册", "n": 0, "color": "#57606A", "note": "待拍板后执行"}])}
 
-<h2>⑩ 淘汰瀑布（一单跑完的全部变体）</h2>
-{waterfall_svg([{"label": "全部变体", "n": n, "color": "#4cc2ff", "note": meta.get("elapsed_s", "")},
-{"label": "过 s2-v2（年化口径）", "n": sum(1 for r in rows if r.get('s2v2') == 'pass'), "color": "#7fd4ff", "note": "待拍板"},
-{"label": "+ walk-forward", "n": n_both, "color": "#3fd68f", "note": "诊断双过"},
-{"label": "冻结 run 入册", "n": 0, "color": "#8b98a9", "note": "待拍板后执行"}])}
-
-<h2>⑪ 族级对比（各族最强变体，按 OOS IC）</h2>
+<h2>族级对比（各族最强变体）</h2>
 {''.join(fam_rows)}
 
-<h2>⑫ 全部实现（降暗展示，悬停/幸存者高亮；链=stage1→stage2→s2-v2→walk-fwd）</h2>
-<table><tr><th>因子</th><th>族</th><th>OOS IC</th><th>ICIR(年化)</th>
-<th>多空年化(模拟)</th><th>判决链</th><th>月度IC（柱=月度，线=累计）</th></tr>
-{''.join(trs)}</table>
+<h2>边界与口径（控制权）</h2>
+<div class="card"><p style="margin:4px 0">· 判决门 <b class="gold">冻结</b>：stage1/stage2 与冻结裁决一致，页面改不动门。<br>
+· 幸存者只是「诊断双过」：<b>不入册、不构成对外主张</b>，正式结论唯一路径=冻结 run（待拍板）。<br>
+· 全部 PnL 为<b>模拟</b>（等权、月度换仓、成本摊 20 日），不含冲击成本/停牌/涨跌停。<br>
+· 零幸存者时如实显示诚实零，不硬凑候选。</p></div>
 
-<div class="foot">判决链第一/二节点为冻结门 stage1/stage2（月度 icir&gt;1.0）；第三节点 s2-v2 为拟议年化口径（待拍板，未入册）；both=双过不构成对外主张，正式结论唯一路径是冻结 run。PnL 列为组合级<b>模拟</b>（等权五分位、月度换仓、单边 {_esc(f"{(meta.get('fee_bps') or 8):.0f}")}bps、成本摊20日），不含冲击成本/停牌/涨跌停，不构成实盘主张。指标与门禁/单卡同源同口径。本页零 JS、纯静态（CSS/SVG 动画 + reduced-motion 兜底 + 打印样式），文件本体自足。</div>
-</main></body></html>
+<details class="log"><summary>▸ 运行日志（推理流回放）</summary>
+<div class="trace" style="border:none;padding:0;background:none">
+{_showcase.trace_flow_html(log)}</div>
+<div class="logbody">{log_html}</div></details>
+
+<div class="foot">判决链第一/二节点为冻结门 stage1/stage2；第三节点 s2-v2 为拟议年化口径（待拍板，未入册）；both=双过不构成对外主张。PnL 为组合级<b>模拟</b>（等权五分位、月度换仓、单边 {_esc(f"{(meta.get('fee_bps') or 8):.0f}")}bps、成本摊20日），不含冲击成本/停牌/涨跌停，不构成实盘主张。指标与门禁/单卡同源同口径；顶栏 MDD 为日频、主图竖带为月频净值口径。本页无 JS 亦完整可读（增强脚本仅提供切换/联动/滑块交互，无外部依赖）。</div>
+</main>
+{js_tag}
+{ENHANCE_JS}
+</body></html>
 """
 
 

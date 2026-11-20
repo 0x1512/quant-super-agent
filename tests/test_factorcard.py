@@ -125,9 +125,16 @@ class TestHtmlChannel(unittest.TestCase):
         self.assertIn("<polyline", svg)
         self.assertEqual(sparkline_svg([]), "<svg></svg>")
 
-    def test_render_index_html_no_js_and_escaped(self):
+    def test_render_index_html_enhanced_js_and_escaped(self):
         out = render_index_html(self.ROWS, self.META, {"a": IC, "b": IC})
-        self.assertNotIn("<script", out)
+        # 渐进增强（v5）：内嵌脚本允许，但不得有外部依赖或内联事件处理器
+        self.assertNotIn("script src=", out)
+        self.assertNotIn("onclick=", out)
+        self.assertNotIn("onload=", out)
+        self.assertEqual(out.count("<script>"), out.count("</script>"))
+        head = out.split("<script>")[0]              # 零 JS 可读性底线
+        for static in (" dataTable".strip(), "foot", "kpival"):
+            self.assertIn(static, head)
         self.assertIn("t&lt;snap&gt;", out)          # escaped
         self.assertIn("class=\"surv\"", out)
         for comp in ("runcard", "tickroll", "wfbar",
@@ -212,14 +219,17 @@ class TestShowcaseV3(unittest.TestCase):
                                 {"a": IC, "b": IC},
                                 {"a": dict(self.P, ls_monthly=[0.02, 0.01],
                                            bench_monthly=[0.01, 0.0])})
-        for comp in ("一票否决指标", "净值曲线", "月度收益热力", "滚动 IC",
-                     "年度明细", "证据面板", "六维风控雷达", "IS / OS 对照",
-                     "参数敏感性", "控制权", "三针仪表", "指纹", "前半样本均值",
-                     "运行过程", "推理流", "parallel race", "淘汰瀑布",
+        for comp in ("核心指标", "净值曲线", "月度收益热力", "滚动 IC",
+                     "六维稳健性雷达", "样本内外对照", "费率敏感性",
+                     "幸存因子", "全部实现", "淘汰瀑布", "族级对比",
+                     "边界与口径", "运行日志",
                      "goldrow", 'details class="log"', "chainline",
-                     "kpival", "expr", "rank("):
+                     "kpival", "expr", "rank(",
+                     'id="dataTable"', 'class="pill', "feeslider",
+                     "runmeta", "bento", "Dual-Impl"):
             self.assertIn(comp, out)
-        self.assertNotIn("<script", out)
+        # 渐进增强脚本挂载点（v5）：内嵌、可关、零 JS 时主体完整
+        self.assertIn("渐进增强", out)
         self.assertIn('id="hero"', out)
         self.assertIn('id="heat"', out)
 

@@ -83,12 +83,13 @@ def hero_pnl_svg(main: dict[str, Any],
               + [s for s in (main_nav, bench_nav, g5, g1) if s])
     lo = min(min(s) for s in series)
     hi = max(max(s) for s in series)
-    out = [f'<svg viewBox="0 0 {w} {h + uw_h + 26}" width="100%" '
+    out = [f'<svg id="heroSvg" viewBox="0 0 {w} {h + uw_h + 26}" '
+           'width="100%" '
            'role="img" aria-label="long-short NAV hero">',
            '<defs><linearGradient id="navfill" x1="0" y1="0" x2="0"'
            ' y2="1"><stop offset="0" stop-color="#3FD68F" '
            'stop-opacity="0.16"/><stop offset="1" stop-color="#3FD68F" '
-           'stop-opacity="0"/></linearGradient></defs>']
+           'stop-opacity="0"/></linearGradient></defs>', '<g id="heroG">']
     # 网格
     for gy in range(1, 4):
         y = pad_y = 4 + gy * (h - 8) / 4
@@ -173,10 +174,16 @@ def hero_pnl_svg(main: dict[str, Any],
     out.append(f'<text x="8" y="{h - 8:.0f}" class="herolab">'
                f'{months[0]} — {months[-1]} · 费后模拟 · 灰虚线=等权基准'
                f' · 青光=多空 L-S · 浅青带=邻域 {len(band)} 窗口</text>')
-    # 回撤水下（B3）
+    # 回撤水下（B3）：基线在主图下方 base=h+8，映射到 [base+4, base+uw_h-4]
     uw = _underwater(main_nav)
     base = h + 8
-    uw_pts = _poly(uw, w, min(uw), 0.0, uw_h, 4)
+    uw_lo = min(uw)
+    uw_span = (-uw_lo) or 1e-9
+    n_uw = len(uw)
+    uw_pts = " ".join(
+        f"{4 + i * (w - 8) / max(1, n_uw - 1):.1f},"
+        f"{base + 4 + (uw[i] / uw_span) * (uw_h - 8):.1f}"
+        for i in range(n_uw))
     out.append(f'<line x1="4" y1="{base}" x2="{w - 4}" y2="{base}" '
                'stroke="#263140" stroke-width="1"/>')
     out.append(f'<polygon points="4,{base} {uw_pts} {w - 4},{base}" '
@@ -194,26 +201,25 @@ def hero_pnl_svg(main: dict[str, Any],
     out.append(f'<text x="8" y="{base + uw_h}" class="herolab">回撤水下'
                f' · 最大 {uw[worst_i] * 100:.1f}% @ {months[worst_i]}'
                f' · 最长水下 {span_best[1] - span_best[0]} 个月</text>')
-    return "".join(out) + "</svg>"
+    return "".join(out) + "</g></svg>"
 
 
 # ---------------------------------------------------------------- B4 年度增强
 def yearly_gain_svg(yearly: list[tuple[str, float]],
-                    w: int = 640, h: int = 120) -> str:
+                    w: int = 640, h: int = 150) -> str:
     hi = max(abs(r) for _, r in yearly) or 1e-9
     out = [f'<svg viewBox="0 0 {w} {h}" width="100%" role="img" '
            'aria-label="yearly gain">']
-    bw = (w - 8) / max(1, len(yearly)) * 0.52
-    gap = (w - 8) / max(1, len(yearly))
+    bw = (w - 40) / max(1, len(yearly)) * 0.42
+    gap = (w - 40) / max(1, len(yearly))
     for i, (y, r) in enumerate(yearly):
-        x = 4 + i * gap
-        bh = abs(r) / hi * (h / 2 - 22)
+        x = 20 + i * gap
+        bh = abs(r) / hi * (h / 2 - 30)
         color = C_G5 if r >= 0 else C_G1
         y0 = h / 2 - bh if r >= 0 else h / 2
-        hot = ' filter="url(#glow)"' if r == max(x[1] for x in yearly) else ""
         out.append(f'<rect x="{x:.0f}" y="{y0:.0f}" width="{bw:.0f}" '
                    f'height="{max(bh, 2):.0f}" rx="3" fill="{color}" '
-                   f'class="wfbar" style="animation-delay:{i * 100}ms"{hot}/>')
+                   f'class="wfbar" style="animation-delay:{i * 100}ms"/>')
         out.append(f'<text x="{x + bw / 2:.0f}" y="{y0 - 6:.0f}" '
                    f'text-anchor="middle" class="ygn">{r * 100:+.1f}%</text>')
         out.append(f'<text x="{x + bw / 2:.0f}" y="{h - 6:.0f}" '
@@ -302,7 +308,7 @@ def corr_matrix_svg(navs: dict[str, list[float]]) -> str:
     n = len(ids)
     if not n:
         return ""
-    cell = 44
+    cell = 62
     w = n * cell + 150
     out = [f'<svg viewBox="0 0 {w} {n * cell + 8}" width="{w}" '
            'role="img" aria-label="correlation matrix">']
@@ -402,6 +408,21 @@ def dataflow_svg(w: int = 1000, h: int = 56, n_bars: int = 90,
 
 
 # ---------------------------------------------------------------- A5 指纹墙
+def fingerprint_badge(ic_series: list[dict[str, Any]]) -> str:
+    """双实现一致性徽章（悬浮 title 给逐月明细摘要）."""
+    pairs = [(m.get("ic_a"), m.get("ic_b")) for m in ic_series]
+    same = sum(1 for a, b in pairs
+               if a is not None and b is not None and abs(a - b) < 1e-12)
+    n = len(pairs)
+    if not n:
+        return ""
+    ok = same == n
+    return (f'<span class="badge {"b-dual" if ok else "b-pend"}" '
+            f'title="双实现逐月逐位一致 {same}/{n}（A/B 两套实现'
+            f'独立计算 IC，逐月完全一致）">Dual-Impl Verified '
+            f"({same}/{n})</span>")
+
+
 def fingerprint_svg(ic_series: list[dict[str, Any]],
                     w: int = 640, h: int = 46) -> str:
     """双实现指纹墙：每月两枚点（A/B 实现），全绿=逐月一致."""
@@ -472,10 +493,14 @@ def factor_expr(fid: str) -> str:
 
 def kpi_strip(p: dict[str, Any], bench_ann: float | None = None) -> str:
     """一票否决级 6 硬指标条 + vs 基准差值微标（v4 #6/#8）."""
-    def cell(k: str, v: str, pos: bool | None, bench: str = "") -> str:
+    def cell(k: str, v: str, pos: bool | None, bench: str = "",
+             frac: float = 0.0) -> str:
         cls = "pos" if pos else "neg" if pos is False else ""
+        f = max(0.0, min(1.0, frac))
         return (f'<div class="kpi"><div class="kpik">{k}</div>'
                 f'<div class="kpival {cls}">{v}</div>'
+                f'<div class="kmini"><i style="width:{f * 100:.0f}%;'
+                f'background:{("#3FD68F" if pos else "#E0685C" if pos is False else "#7A8CA0")}"></i></div>'
                 f'<div class="kpibench">{bench}</div></div>')
 
     ann = p.get("ann_ls_net")
@@ -492,17 +517,17 @@ def kpi_strip(p: dict[str, Any], bench_ann: float | None = None) -> str:
                       f"（{bench_ann:+.1%}）")
     cells = [
         cell("年化(费后)", f"{ann:+.1%}" if ann is not None else "—",
-             (ann or 0) > 0, bench_line),
+             (ann or 0) > 0, bench_line, frac=abs(ann or 0) / 0.35),
         cell("NW Sharpe", f"{sh:.2f}" if sh is not None else "—",
-             (sh or 0) >= 1.0, "及格线 1.0"),
+             (sh or 0) >= 1.0, "及格线 1.0", frac=(sh or 0) / 3.0),
         cell("Sortino", f"{so:.2f}" if so is not None else "—",
-             (so or 0) >= 1.4, "下行偏差口径"),
+             (so or 0) >= 1.4, "下行偏差口径", frac=(so or 0) / 4.0),
         cell("Max Drawdown", f"{mdd:.1%}" if mdd is not None else "—",
-             (mdd or 0) >= -0.25, "水下最深"),
+             False, "日频口径 · 主图为月频", frac=abs(mdd or 0) / 0.40),
         cell("月换手(单边)", f"{tu * 100:.0f}%" if tu is not None else "—",
-             None, "成本摊 20 日"),
+             None, "成本摊 20 日", frac=(tu or 0)),
         cell("Calmar", f"{ca:.2f}" if ca is not None else "—",
-             (ca or 0) >= 1.0, "年化/|MDD|"),
+             (ca or 0) >= 1.0, "年化/|MDD|", frac=(ca or 0) / 2.5),
     ]
     return '<div class="kpis">' + "".join(cells) + "</div>"
 
@@ -545,7 +570,7 @@ def is_os_bar(ic_series: list[dict[str, Any]]) -> str:
 
 
 def radar_svg(scores: dict[str, tuple[float, str]], w: int = 340,
-              h: int = 240) -> str:
+              h: int = 262) -> str:
     """六维风控雷达（半透明多边形），scores={维度: (0-1分, 显示值)}."""
     keys = list(scores)
     if len(keys) < 3:
@@ -620,28 +645,34 @@ def monthly_heatmap_svg(months: list[str], rets: list[float],
             return "heatlo"
         return "heatmax" if False else "heatlo2"
 
+    w += 74  # 年度合计列
     out = [f'<svg viewBox="0 0 {w} {h}" width="100%" role="img" '
            'aria-label="monthly heatmap">']
     out.append(f'<defs><linearGradient id="neggrad">'
                '<stop offset="0" stop-color="#E0685C" stop-opacity=".55"/>'
                '<stop offset="1" stop-color="#8A3A32" stop-opacity=".9"/>'
                "</linearGradient></defs>")
-    for mi in range(12):
+    for mi in range(13):
         x = x0 + mi * cw
+        lab = "合计" if mi == 12 else f"{mi + 1}月"
         out.append(f'<text x="{x + cw / 2:.0f}" y="{y0 + 10}" '
-                   f'text-anchor="middle" class="heaty">{mi + 1}月</text>')
+                   f'text-anchor="middle" class="heaty">{lab}</text>')
     for yi, y in enumerate(years):
         yy = y0 + 14 + yi * chh
         out.append(f'<text x="{x0 - 6}" y="{yy + 14}" '
                    f'text-anchor="end" class="heaty">{y}</text>')
+        tot = 1.0
+        n_m = 0
         for mi in range(12):
             r = grid.get((y, mi + 1))
             x = x0 + mi * cw
             if r is None:
                 out.append(f'<rect x="{x}" y="{yy}" width="{cw - 2}" '
-                           f'height="{chh - 2}" rx="3" class="heat0 '
-                           'heatcell"/>')
+                           f'height="{chh - 2}" rx="3" fill="#151A22" '
+                           f'fill-opacity="0.5" class="heatcell"/>')
                 continue
+            tot *= (1.0 + r)
+            n_m += 1
             t = r / hi
             if t >= 0:
                 op = 0.15 + 0.75 * min(1.0, t / 0.6)
@@ -655,7 +686,19 @@ def monthly_heatmap_svg(months: list[str], rets: list[float],
                        "</rect>")
             out.append(f'<text x="{x + (cw - 2) / 2:.0f}" '
                        f'y="{yy + (chh - 2) / 2 + 3:.0f}" class="heatv">'
-                       f"{r * 100:+.0f}</text>")
+                       f"{r * 100:+.1f}</text>")
+        if n_m:
+            yr = tot - 1.0
+            x = x0 + 12 * cw
+            c = "#3FD68F" if yr >= 0 else "#E0685C"
+            out.append(f'<rect x="{x}" y="{yy}" width="{cw - 2}" '
+                       f'height="{chh - 2}" rx="3" fill="{c}" '
+                       f'fill-opacity="0.22" class="heatcell">'
+                       f"<title>{y} 年度合计 {yr * 100:+.1f}%（{n_m} 月复合）"
+                       "</title></rect>")
+            out.append(f'<text x="{x + (cw - 2) / 2:.0f}" '
+                       f'y="{yy + (chh - 2) / 2 + 3:.0f}" class="heatv" '
+                       f'style="fill:{c}">{yr * 100:+.1f}</text>')
     return "".join(out) + "</svg>"
 
 

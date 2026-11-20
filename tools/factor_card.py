@@ -31,6 +31,7 @@ from qsa import __version__ as QSA_VERSION  # noqa: E402
 
 from qsa import factorzoo                      # noqa: E402
 from qsa.admission import STAGE2_ADMISSION, evaluate as adm_eval  # noqa: E402
+import qsa.showcase as _showcase
 from qsa.factorcard import (render_card, render_index,
                             render_index_html)  # noqa: E402
 from qsa.ingest import ingest_csv              # noqa: E402
@@ -274,36 +275,104 @@ def main() -> int:
             if dup:
                 meta["dedup_note"] = (f"库内名与扫描名同参重合 {dup} 对"
                                       "（双实现数字一致，交叉验证）")
-            # v4 敏感性：主幸存者（与 render 同选法）费率扫描
+            # v4 敏感性 + v5 JS 网格：主幸存者（与 render 同选法）费率扫描
             surv_rows = [r for r in rows if r.get("both")]
             hero_row = (max(surv_rows, key=lambda x: x.get("ann_ls")
                             if x.get("ann_ls") is not None else -9)
                         if surv_rows else None)
             sens = []
+            fee_grid: dict[str, dict] = {}
+            fee_curve_cache: dict[int, dict] = {}
             if hero_row:
                 hspec = resolve_spec(hero_row["id"], catalog)
                 hsig = factorzoo._finalize(hspec["build"](inputs),
                                            inputs["dates"],
                                            hspec.get("flip", False))
-                for bps, lab in ((2, "费率 万0.2（2bps）"),
-                                 (8, "费率 万0.8（8bps，基准）"),
-                                 (20, "费率 万2（20bps）"),
-                                 (50, "费率 万5（50bps，压力）")):
-                    sp = longshort_pnl(closes, inputs["dates"], hsig,
-                                       fee_one_side=bps / 10000.0)
+                for bps in (2, 8, 20, 50):
+                    sp = fee_curve_cache.get(bps)
+                    if sp is None:
+                        sp = longshort_pnl(closes, inputs["dates"], hsig,
+                                           fee_one_side=bps / 10000.0)
+                        fee_curve_cache[bps] = sp
                     if sp is None:
                         continue
                     sens.append({
-                        "k": lab,
+                        "k": {2: "费率 万0.2（2bps）",
+                              8: "费率 万0.8（8bps，基准）",
+                              20: "费率 万2（20bps）",
+                              50: "费率 万5（50bps，压力）"}[bps],
                         "v": f"{sp['ann_ls_net']:+.1%}",
                         "sub": (f"Sharpe {sp['nw_sharpe_ls']:.2f}"
                                 f" · MDD {sp['max_drawdown_ls']:.0%}"),
                         "pos": (sp["ann_ls_net"] or 0) > 0})
+                # JS 滑块网格：2–50bps 步进 2（后端精确口径）
+                for bps in range(2, 51, 2):
+                    sp = fee_curve_cache.get(bps)
+                    if sp is None:
+                        sp = longshort_pnl(closes, inputs["dates"], hsig,
+                                           fee_one_side=bps / 10000.0)
+                        fee_curve_cache[bps] = sp
+                    if sp is None:
+                        continue
+                    ls = [round(x, 6) for x in sp["ls_monthly"]
+                          if x is not None]
+                    if len(ls) != len(sp["ls_monthly"]):
+                        continue
+                    fee_grid[str(bps)] = {
+                        "ls": ls,
+                        "ann": round(sp["ann_ls_net"] or 0.0, 5),
+                        "sharpe": round(sp["nw_sharpe_ls"] or 0.0, 4),
+                        "mdd": round(sp["max_drawdown_ls"] or 0.0, 5)}
+            # v5 JS 增强数据：幸存者月序列 + 基准 + 费率网格
+            jsdata = {}
+            if hero_row:
+                fams_mech = {f: m for f, m in
+                             ((fam, _showcase.FAM_MECH.get(fam, ""))
+                              for fam in {r.get("family")
+                                          for r in rows})}
+                fjs = {}
+                for r in surv_rows:
+                    p = pnls.get(r["id"])
+                    if not p or not p.get("ls_monthly"):
+                        continue
+                    ls = [round(x, 6) for x in p["ls_monthly"]
+                          if x is not None]
+                    if len(ls) != len(p["ls_monthly"]):
+                        continue
+                    sp0 = fee_curve_cache.get(8) if r is hero_row else None
+                    fjs[r["id"]] = {
+                        "months": p["months"],
+                        "ls": ls,
+                        "turnover": round(
+                            p.get("turnover_monthly_one_side") or 0.0, 4),
+                        "calmar": round(sp0["calmar_ls"]
+                                        if sp0 and r is hero_row and
+                                        sp0.get("calmar_ls") is not None
+                                        else (p.get("calmar_ls") or 0.0), 3),
+                        "expr": _showcase.factor_expr(r["id"]),
+                        "mech": fams_mech.get(r.get("family"), "")}
+                if fjs:
+                    bm = pnls.get(hero_row["id"], {}).get("bench_monthly")
+                    bench_ann = None
+                    if bm:
+                        v = 1.0
+                        for x in bm:
+                            v *= (1.0 + x)
+                        bench_ann = (round(v ** (12.0 / len(bm)) - 1.0, 5)
+                                     if v > 0 else None)
+                    jsdata = {
+                        "factors": fjs,
+                        "hero": hero_row["id"],
+                        "bench": [round(x, 6) for x in (bm or [])
+                                  if x is not None],
+                        "bench_ann": bench_ann,
+                        "base_fee_bps": 8,
+                        "fee": fee_grid}
             page = render_index(rows, meta)
             fp = out_dir / "INDEX.md"
             fp.write_text(page, encoding="utf-8")
             html = render_index_html(rows, meta, ics, pnls,
-                                     extras={"sens": sens})
+                                     extras={"sens": sens, "jsdata": jsdata})
             fh = out_dir / "overview.html"
             fh.write_text(html, encoding="utf-8")
             n_both = sum(1 for r in rows if r["both"])
