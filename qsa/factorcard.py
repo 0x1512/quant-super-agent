@@ -163,9 +163,9 @@ def pnl_curve_svg(p: dict[str, Any], w: int = 320, h: int = 96) -> str:
     base = (f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}" '
             'role="img" aria-label="cumulative NAV">')
 
-    base += nav_path(p["g1_monthly"], "#E0685C", 1.0)
-    base += nav_path(p["g5_monthly"], "#3FD68F", 1.0)
-    base += nav_path(p["ls_monthly"], "#7A8CA0", 2.2)
+    base += nav_path(p["g1_monthly"], "#D0695A", 1.0)
+    base += nav_path(p["g5_monthly"], "#34C186", 1.0)
+    base += nav_path(p["ls_monthly"], "#7C8A9B", 2.2)
     return base + "</svg>"
 
 
@@ -291,6 +291,9 @@ def verdict_chain_svg(r: dict[str, Any]) -> str:
     """
     gates = [("s1", r.get("s1")), ("s2", r.get("s2")),
              ("v2", r.get("s2v2")), ("wf", r.get("wf"))]
+    _gate_name = {"s1": "Stage1 IC 门", "s2": "Stage2 冻结门",
+                  "v2": "S2-v2 年化门（拟议，待拍板）",
+                  "wf": "Walk-Forward 门"}
     xs = [7, 24, 41, 58]
     both = bool(r.get("both"))
     hot = "#E0B04B" if both else None
@@ -306,27 +309,37 @@ def verdict_chain_svg(r: dict[str, Any]) -> str:
             out.append(f'<line x1="{prev}" y1="7" x2="{x - 4}" y2="7" '
                        f'stroke="{cur}" stroke-width="1.4" opacity="'
                        f'{1.0 if passed else 0.45}"{dash}/>')
-        # 节点：通过=实心+✓，失败=空心+✗（不单靠颜色，色弱可读）
+        # 节点：通过=实心+✓，失败=空心+✗（不单靠颜色，色弱可读）+ <title>
+        _tip = (f"{_gate_name[name]}：{'通过' if passed else '未通过'}"
+                f"（{r.get('id', '—')}）")
         if passed:
             fill = hot or ("#34C186" if name != "v2" else "#E0B04B")
-            out.append(f'<circle cx="{x}" cy="7" r="3.6" fill="{fill}"/>'
+            out.append(f'<circle cx="{x}" cy="7" r="3.6" fill="{fill}">'
+                       f"<title>{_tip}</title></circle>"
                        f'<text x="{x}" y="9.6" text-anchor="middle" '
-                       f'font-size="7.5" font-weight="700" fill="#0B0E14">'
+                       f'font-size="7.5" font-weight="700" fill="#0B0E14" '
+                       'pointer-events="none">'
                        "\u2713</text>")
         else:
             stroke = "#D0695A" if v == "fail" else "#7C8A9B"
             out.append(f'<circle cx="{x}" cy="7" r="3.6" fill="none" '
                        f'stroke="{stroke}" stroke-width="1.3" '
-                       'opacity="0.85"/>'
+                       'opacity="0.85"><title>'
+                       f"{_tip}</title></circle>"
                        f'<text x="{x}" y="9.8" text-anchor="middle" '
-                       f'font-size="8" font-weight="700" fill="{stroke}">'
+                       f'font-size="8" font-weight="700" fill="{stroke}" '
+                       'pointer-events="none">'
                        "\u2715</text>")
         prev = x + 4
     ann = r.get("ann_ls")
     flag = ("#34C186" if (ann or 0) > 0 else
-            "#ff6b6b" if ann is not None else "#57606a")
+            "#D0695A" if ann is not None else "#7C8A9B")
+    _flag_tip = (f"PnL 费后年化 {ann:+.1%}（模拟）"
+                 if ann is not None else "PnL：样本不足，无组合净值")
     out.append(f'<rect x="70" y="3.5" width="7" height="7" rx="1.2" '
-               f'fill="{flag}" opacity="{0.95 if ann is not None else 0.45}"/>')
+               f'fill="{flag}" '
+               f'opacity="{0.95 if ann is not None else 0.45}">'
+               f"<title>{_flag_tip}</title></rect>")
     return "".join(out) + "</svg>"
 
 
@@ -405,8 +418,8 @@ details.guide{margin:10px 0 2px;border:1px solid rgba(224,176,75,.22);
 background:rgba(224,176,75,.05);border-radius:10px;padding:0}
 details.guide summary{cursor:pointer;padding:9px 16px;color:var(--ink-2);
 font-size:var(--fs-1);list-style:none;display:flex;gap:8px;align-items:center}
-details.guide summary::before{content:"\25B8"}
-details.guide[open] summary::before{content:"\25BE"}
+details.guide summary::before{content:"▸"}
+details.guide[open] summary::before{content:"▾"}
 details.guide .gbody{padding:2px 16px 12px;color:var(--ink-2);
 font-size:var(--fs-1);line-height:1.9}
 details.guide b{color:var(--ink-1);font-weight:600}
@@ -449,7 +462,7 @@ font-variant-numeric:tabular-nums}
 th,td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.045);
 text-align:left}
 th{color:var(--ink-2);font-size:var(--fs-0);text-transform:uppercase;
-letter-spacing:1px;position:sticky;top:41px;background:#131824;
+letter-spacing:1px;position:sticky;top:var(--toc-h,41px);background:#131824;
 z-index:5}
 td.r{text-align:right}
 tbody tr:nth-child(even) td{background:rgba(255,255,255,.012)}
@@ -504,6 +517,7 @@ border-radius:5px;padding:2px 9px;margin:6px 0 2px;letter-spacing:.2px}
 .mech{display:inline-block;font-size:var(--fs-1);color:#B9C6D4;
 background:var(--panel-2);border:1px solid var(--line);
 border-radius:5px;padding:1px 8px;margin:6px 0 2px}
+.alias{font-size:var(--fs-0);color:var(--ink-3);font-weight:400;font-family:var(--mono);letter-spacing:0;cursor:help}
 .radarlab{fill:var(--ink-2);font-size:var(--fs-0);letter-spacing:.4px}
 .radargv{fill:var(--gold);font-size:var(--fs-1);font-weight:700;
 font-family:var(--mono)}
@@ -514,7 +528,8 @@ text-anchor:middle}
 .rollbar-pos{fill:var(--up);opacity:.7}
 .rollbar-neg{fill:var(--down);opacity:.7}
 .rollline{fill:none;stroke:var(--gold);stroke-width:1.6;opacity:.95}
-.isos{display:flex;gap:0;border-radius:14px;overflow:hidden}
+.isos{display:flex;flex-wrap:wrap;gap:0;border-radius:14px;overflow:hidden}
+.isos>div{min-width:150px}
 .isos>div{flex:1;padding:15px 22px}
 .isos>div+div{border-left:1px solid rgba(255,255,255,.05)}
 .isos .lab{color:var(--ink-3);font-size:var(--fs-0);text-transform:uppercase;
@@ -543,14 +558,14 @@ details.log{margin-top:14px;border:1px solid var(--line);
 border-radius:10px;background:#0C1119}
 details.log summary{cursor:pointer;padding:9px 16px;color:var(--ink-2);
 font-family:var(--mono);font-size:var(--fs-1);list-style:none}
-details.log summary::before{content:"\25B8 "}
-details.log[open] summary::before{content:"\25BE "}
+details.log summary::before{content:"▸ "}
+details.log[open] summary::before{content:"▾ "}
 details.runmeta{margin-top:8px}
 details.runmeta summary{cursor:pointer;list-style:none;display:inline-flex;
 align-items:center;gap:6px;color:var(--ink-3);font-size:var(--fs-1);
 font-family:var(--mono)}
-details.runmeta summary::before{content:"\25B8 "}
-details.runmeta[open] summary::before{content:"\25BE "}
+details.runmeta summary::before{content:"▸ "}
+details.runmeta[open] summary::before{content:"▾ "}
 details.runmeta[open] summary{margin-bottom:6px}
 .runmetagrid{display:flex;flex-wrap:wrap;gap:4px 18px;color:var(--ink-3);
 font-size:var(--fs-1);font-family:var(--mono);padding:8px 0 2px}
@@ -615,11 +630,13 @@ padding:6px 12px;color:var(--ink-1);outline:none;min-width:200px}
 .tbsearch:focus-visible{border-color:rgba(224,176,75,.5)}
 th.sortable{cursor:pointer}
 th.sortable:hover{color:var(--ink-1)}
-th.sortable::after{content:" \2195";opacity:.35;font-size:9px}
-th.sortable[data-dir=asc]::after{content:" \2191";opacity:.9;
+th.sortable::after{content:" ↕";opacity:.35;font-size:9px}
+th.sortable[data-dir=asc]::after{content:" ↑";opacity:.9;
 color:var(--gold)}
-th.sortable[data-dir=desc]::after{content:" \2193";opacity:.9;
+th.sortable[data-dir=desc]::after{content:" ↓";opacity:.9;
 color:var(--gold)}
+.tblegend{color:var(--ink-3);font-size:var(--fs-0);margin:0 0 6px;line-height:1.6}
+.tblegend b{color:var(--ink-2);font-family:var(--mono);font-weight:600}
 .tbstats{display:flex;gap:16px;flex-wrap:wrap;color:var(--ink-3);
 font-family:var(--mono);font-size:var(--fs-0);letter-spacing:.6px;
 margin:6px 0 2px}
@@ -659,6 +676,12 @@ ENHANCE_JS = r"""
 var D = window.QSA_DATA; if(!D) return;
 var $ = function(s){return document.querySelector(s)};
 var $$ = function(s){return [].slice.call(document.querySelectorAll(s))};
+/* D2 窄屏 toc 换行 → 表头 sticky 跟随实测高度 */
+(function(){var toc=$(".toc"),st=document.documentElement;
+ function th(){st.style.setProperty("--toc-h",(toc?toc.offsetHeight:41)+"px");}
+ if(toc){th();addEventListener("resize",th);
+  if(window.ResizeObserver)new ResizeObserver(th).observe(toc);}
+ else{st.style.setProperty("--toc-h","41px");}})();
 var F = D.factors, HERO = D.hero, bench = D.bench, fee = D.fee||{};
 var cur = HERO, mode = "ALL", curFee = D.base_fee_bps||8;
 
@@ -691,20 +714,20 @@ function drawHero(id){
   var d=nv[i]/pk-1; if(d<wd){wd=d;wv=i;wpi=wpk;}}
  var vr=nv.length-1; for(var i=wv;i<nv.length;i++){if(nv[i]>=nv[wpi]){vr=i;break}}
  var s="";
- s+='<rect x="'+X(wpi)+'" y="4" width="'+Math.max(0,X(wv)-X(wpi))+'" height="'+(HH-8)+'" fill="#E0685C" opacity="0.07"/>';
- s+='<rect x="'+X(wv)+'" y="4" width="'+Math.max(0,X(vr)-X(wv))+'" height="'+(HH-8)+'" fill="#3FD68F" opacity="0.06"/>';
+ s+='<rect x="'+X(wpi)+'" y="4" width="'+Math.max(0,X(wv)-X(wpi))+'" height="'+(HH-8)+'" fill="#D0695A" opacity="0.07"/>';
+ s+='<rect x="'+X(wv)+'" y="4" width="'+Math.max(0,X(vr)-X(wv))+'" height="'+(HH-8)+'" fill="#34C186" opacity="0.06"/>';
  s+='<polygon points="4,'+(HH-4)+" "+poly(nv,HW,HH,4)+" "+(HW-4)+","+(HH-4)+'" fill="url(#navfill)"/>';
- s+='<polyline points="'+poly(bn,HW,HH,4)+'" fill="none" stroke="#7A8CA0" stroke-width="1.4" stroke-dasharray="5,4" opacity="0.9"/>';
- s+='<polyline points="'+poly(nv,HW,HH,4)+'" fill="none" stroke="#3FD68F" stroke-width="1.8"/>';
- s+='<circle cx="'+X(wv)+'" cy="'+Y(nv[wv])+'" r="4.5" fill="#E0685C"><title>最大回撤谷底 '+ms[wv]+'（'+(wd*100).toFixed(1)+'%）</title></circle>';
- s+='<circle cx="'+X(nv.length-1)+'" cy="'+Y(nv[nv.length-1])+'" r="4" fill="#FFC857"><title>终值 ×'+nv[nv.length-1].toFixed(3)+'（'+ms[ms.length-1]+'）</title></circle>';
+ s+='<polyline points="'+poly(bn,HW,HH,4)+'" fill="none" stroke="#7C8A9B" stroke-width="1.4" stroke-dasharray="5,4" opacity="0.9"/>';
+ s+='<polyline points="'+poly(nv,HW,HH,4)+'" fill="none" stroke="#34C186" stroke-width="1.8"/>';
+ s+='<circle cx="'+X(wv)+'" cy="'+Y(nv[wv])+'" r="4.5" fill="#D0695A"><title>最大回撤谷底 '+ms[wv]+'（'+(wd*100).toFixed(1)+'%）</title></circle>';
+ s+='<circle cx="'+X(nv.length-1)+'" cy="'+Y(nv[nv.length-1])+'" r="4" fill="#E0B04B"><title>终值 ×'+nv[nv.length-1].toFixed(3)+'（'+ms[ms.length-1]+'）</title></circle>';
  var uwl=Math.min.apply(null,uw),us=(-uwl)||1e-9,u=[];
  for(var i=0;i<uw.length;i++)u.push((4+i*(HW-8)/Math.max(1,uw.length-1)).toFixed(1)+","+(HH+12+(uw[i]/us)*(UW-8)).toFixed(1));
  s+='<line x1="4" y1="'+(HH+8)+'" x2="'+(HW-4)+'" y2="'+(HH+8)+'" stroke="rgba(255,255,255,.1)"/>';
- s+='<polygon points="4,'+(HH+8)+" "+u.join(" ")+" "+(HW-4)+","+(HH+8)+'" fill="#E0685C" opacity="0.35"/>';
+ s+='<polygon points="4,'+(HH+8)+" "+u.join(" ")+" "+(HW-4)+","+(HH+8)+'" fill="#D0695A" opacity="0.35"/>';
  if(mode!=="ALL"){var cut=Math.floor(ms.length*0.8),xa=X(mode==="IS"?0:cut),xb=X(mode==="IS"?cut:ms.length-1);
   s+='<rect x="0" y="0" width="'+HW+'" height="'+(HH+UW+16)+'" fill="#0B0E14" opacity="0.72"/>';
-  s+='<rect x="'+xa+'" y="0" width="'+(xb-xa)+'" height="'+(HH+UW+16)+'" fill="none" stroke="#FFC857" stroke-width="1.2" opacity="0.8"/>';}
+  s+='<rect x="'+xa+'" y="0" width="'+(xb-xa)+'" height="'+(HH+UW+16)+'" fill="none" stroke="#E0B04B" stroke-width="1.2" opacity="0.8"/>';}
  g.innerHTML=s;
  $("#heroTitle").textContent="净值曲线 · "+id+"（"+(mode==="ALL"?"全样本":mode)+"）";
  $("#heroEnd").textContent="¥1,000,000 → ¥"+(nv[nv.length-1]*1e6).toLocaleString("en-US",{maximumFractionDigits:0});
@@ -735,7 +758,7 @@ function drawKpi(id,ls0){
   setTimeout(function(){el.classList.remove("flash")},450);});
  set(3,fmtP(md),false); set(4,(f.turnover*100).toFixed(0)+"%",null); set(5,fmtN(f.calmar),f.calmar>=1);
  var bl=$$(".kpibench b")[0];
- if(bl&&D.bench_ann!=null){var d=a-D.bench_ann;bl.textContent=(d>=0?"+":"")+(d*100).toFixed(1)+"%";bl.style.color=d>=0?"#3FD68F":"#E0685C";}
+ if(bl&&D.bench_ann!=null){var d=a-D.bench_ann;bl.textContent=(d>=0?"+":"")+(d*100).toFixed(1)+"%";bl.style.color=d>=0?"#34C186":"#D0695A";}
 }
 function select(id){cur=id;drawHero(id);
  var f=F[id];
@@ -755,7 +778,7 @@ var sl=$("#feeSlider");
 if(sl){var out=$("#feeOut");
  sl.value=curFee;
  var upd=function(){curFee=+sl.value; var g=fee[curFee]; if(!g)return;
-  out.innerHTML="单边 <b>"+curFee+"bps</b> · 年化 <b style='color:"+((g.ann>=0)?"#3FD68F":"#E0685C")+"'>"+fmtP(g.ann)+"</b> · Sharpe "+fmtN(g.sharpe)+" · MDD "+fmtP(g.mdd)+"（后端精确口径）";
+  out.innerHTML="单边 <b>"+curFee+"bps</b> · 年化 <b style='color:"+((g.ann>=0)?"#34C186":"#D0695A")+"'>"+fmtP(g.ann)+"</b> · Sharpe "+fmtN(g.sharpe)+" · MDD "+fmtP(g.mdd)+"（后端精确口径）";
   if(cur===HERO)drawHero(HERO);};
  sl.addEventListener("input",upd); upd();}
 
@@ -818,7 +841,29 @@ var tb=$("#dataTable"); if(tb){
  tbody.addEventListener("click",function(e){var tr=e.target.closest("tr");
   if(tr&&tr.dataset.id&&F[tr.dataset.id]){select(tr.dataset.id);
    rows0.forEach(function(r){r.classList.toggle("sel",r===tr)});
-   document.getElementById("hero").scrollIntoView({behavior:"smooth",block:"start"});}});
+   var hv=document.getElementById("hero").getBoundingClientRect();
+   if(hv.top>=0&&hv.bottom<=innerHeight){
+    /* 主图在视口内：正常联动，无需滚动 */}
+   else{linkTip();}}});
+ /* D3 联动提示条：行点击后主图不在视口时，给"已联动→定位"的迷你提示 */
+ var tipEl=null;
+ function linkTip(){
+  if(!tipEl){tipEl=document.createElement("div");
+   tipEl.id="linkTip";
+   tipEl.innerHTML="已联动主图曲线 · <a href='#hero'>▲ 定位到主图</a>"
+    +'<button class="ltipx" aria-label="关闭">×</button>';
+   tipEl.style.cssText=("position:fixed;left:50%;transform:translateX(-50%);"
+    +"bottom:18px;z-index:60;background:#131824;border:1px solid #E0B04B;"
+    +"border-radius:6px;padding:7px 14px;font-size:12px;color:#DCE3EC;"
+    +"box-shadow:0 6px 24px rgba(0,0,0,.5);");
+   document.body.appendChild(tipEl);
+   tipEl.querySelector("a").addEventListener("click",function(){
+    tipEl.style.display="none";});
+   tipEl.querySelector(".ltipx").addEventListener("click",function(){
+    tipEl.style.display="none";});}
+  tipEl.style.display="block";
+  clearTimeout(tipEl._t);
+  tipEl._t=setTimeout(function(){tipEl.style.display="none";},4000);}
  /* 键盘：/ 搜索，j/k 行移动，Enter 选中（B8 终端感） */
  var ki=0;
  document.addEventListener("keydown",function(e){
@@ -904,7 +949,7 @@ def sparkline_svg(ic_series: list[dict[str, Any]], w: int = 150,
         cums.append(cum)
         bh = abs(v) / m * half
         y = (h / 2 - bh) if v >= 0 else h / 2
-        color = "#3FD68F" if v >= 0 else "#E0685C"
+        color = "#34C186" if v >= 0 else "#D0695A"
         bars.append(f'<rect x="{i * bw:.1f}" y="{y:.1f}" '
                     f'width="{max(bw - 0.5, 0.5):.1f}" height="{bh:.1f}" '
                     f'fill="{color}" opacity="0.75"/>')
@@ -914,7 +959,7 @@ def sparkline_svg(ic_series: list[dict[str, Any]], w: int = 150,
         t = 0.5 if hi <= lo else (v - lo) / (hi - lo)
         pts.append(f"{i * bw + bw / 2:.1f},{2 + (1 - t) * (h - 4):.1f}")
     poly = (f'<polyline points="{" ".join(pts)}" fill="none" '
-            'stroke="#7A8CA0" stroke-width="1.2" opacity="0.9"/>')
+            'stroke="#7C8A9B" stroke-width="1.2" opacity="0.9"/>')
     return (f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}" '
             f'role="img" aria-label="monthly IC">{"".join(bars)}{poly}'
             '<line x1="0" y1="' + str(h / 2) + f'" x2="{w}" y2="{h / 2}" '
@@ -1032,7 +1077,9 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
         mech = fam_mech.get(r.get("family", ""), "")
         return (f'<div class="surv"><b>{_esc(r["id"])}</b>'
                 '<div class="badges"><span class="badge b-sim">SIM</span>'
-                '<span class="badge b-dual">双实现一致</span>'
+                '<span class="badge b-dual" '
+                'title="与库内同名/同参实现对照：IC/ICIR/年化数字'
+                '一致（非逐月逐位双实现）">库内同参对照一致</span>'
                 '<span class="badge b-pend">待拍板</span></div>'
                 f'<div class="big">{oos}</div>'
                 '<div class="sub">OOS IC（后 20% 月份）</div>'
@@ -1044,9 +1091,7 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
                 f"　·　正IC月 {r.get('pos_share', 0):.0%}{ann}</div>"
                 f'{curve}</div>')
 
-    surv_html = "".join(_surv_card(r) for r in surv) or (
-        '<div class="sub">无幸存者（诚实零也是结果：全部变体未过'
-        "诊断双过门，不硬凑候选）</div>")
+
 
     fams: dict[str, dict[str, Any]] = {}
     for r in rows:
@@ -1070,24 +1115,6 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
             f'<span class="sub">({_esc(b["best"]["id"])}, {b["n"]} 变体 · '
             f'{_esc(fam_mech.get(fam, ""))})</span></div>')
 
-    trs = []
-    for r in sorted(rows, key=lambda x: -(x["oos_ic"] or -9)):
-        spark = sparkline_svg(ics[r["id"]]) if r["id"] in ics else ""
-        name_cls = "gold" if r.get("both") else ""
-        row_cls = ' class="goldrow"' if r.get("both") else ""
-        pnl_cell = ("—" if r.get("ann_ls") is None
-                    else f"{r['ann_ls']:+.1%}")
-        color = ("#3fd68f" if (r.get("ann_ls") or 0) > 0
-                 else "#e0685c" if r.get("ann_ls") is not None
-                 else "#57606a")
-        trs.append(
-            f'<tr{row_cls}><td class="{name_cls}">{_esc(r["id"])}</td>'
-            f'<td><code>{_esc(r.get("family", "?"))}</code></td>'
-            f'<td>{r["oos_ic"]:+.4f}</td><td>{r["icir_a"]:.2f}</td>'
-            f'<td style="color:{color}">{pnl_cell}</td>'
-            f'<td>{verdict_chain_svg(r)}</td><td>{spark}</td></tr>')
-
-    dup = f"　·　{_esc(meta['dedup_note'])}" if meta.get("dedup_note") else ""
     log_html = "".join(f"<div>{_esc(line)}</div>" for line in log)
 
     # ---- v4 数据组件 ----
@@ -1156,16 +1183,70 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
                   f"月度收益分布见 <a href='#heat'>#heat</a>，"
                   f"证据链见 <a href='#panel'>#panel</a>。</div>")
     import json as _json
-    # JS 增强数据（无 JS 时页面静态完整；JS 仅做切换/联动）
+    # 指纹徽章（降级自指纹墙）
+    fp_badge = _showcase.fingerprint_badge(hero_ic) if hero else ""
+
+    fams_n = len({r.get("family") for r in rows})
+
+    # ---- 同参重合去重（B8）：按数值指纹分组（IC/ICIR/TMB 精确相等，
+    # 与 tools 的 dup 判定同口径），库内名优先为主行，别名并入 ----
+    import qsa.factorzoo as _fz
+    _cat_ids = {s["id"] for s in _fz.build_catalog()}
+    _grp: dict[tuple, list[dict[str, Any]]] = {}
+    for _r in rows:
+        _fp = (_r.get("oos_ic"), _r.get("icir_a"), _r.get("tmb"))
+        if any(v is None for v in _fp):
+            continue
+        _grp.setdefault(_fp, []).append(_r)
+    _alias: dict[str, list[str]] = {}   # 主 id -> [别名...]
+    _drop: set[str] = set()
+    for _key, _g in _grp.items():
+        if len(_g) < 2:
+            continue
+        _g_sorted = sorted(_g, key=lambda x: (x["id"] not in _cat_ids,
+                                               x["id"]))
+        _main = _g_sorted[0]["id"]
+        _alias[_main] = [x["id"] for x in _g_sorted[1:]]
+        _drop.update(x["id"] for x in _g_sorted[1:])
+    _n_alias = sum(len(v) for v in _alias.values())
+    rows = [r for r in rows if r["id"] not in _drop]
+    n_rows = len(rows)
+    # surv 同步去重（_drop 里若含 both 行，主行仍在则幸存卡不重复）
+    surv = [s for s in surv if s["id"] not in _drop]
+    _ls = (hp or {}).get("ls_monthly") or []
+    _nav = 1.0
+    for _r in _ls:
+        _nav *= (1 + _r)
+    hero_end = (f"¥1,000,000 → ¥{_nav * 1e6:,.0f}" if _nav > 1.02
+                else "—") if _ls else "—"
+    alias_note = (f'<span>同参别名并入 <b>{_n_alias}</b>（主行名旁标注）</span>'
+                  if _n_alias else "")
+    _n_both_dedup = sum(1 for r in rows if r.get("both"))
+    _both_note = (f"（独立 {_n_both_dedup}"
+                  + (f" · 同参别名 {n_both - _n_both_dedup}"
+                     if n_both > _n_both_dedup else "") + "）"
+                  if n_both != _n_both_dedup else "")
+    dedup_surv_n = len(surv)
+    alias_surv_note = (" · 同参别名并入主行"
+                       if _n_both_dedup < n_both or _n_alias else "")
+    # JS 增强数据（无 JS 时页面静态完整；JS 仅做切换/联动）；
+    # 别名行联动数据（B8）：别名与主因子共享月度数据
     jsdata = ex.get("jsdata") or {}
+    if jsdata.get("factors") and _alias:
+        import copy as _copy
+        for _mi, _als in _alias.items():
+            if _mi in jsdata["factors"]:
+                for _a in _als:
+                    jsdata["factors"][_a] = _copy.deepcopy(
+                        jsdata["factors"][_mi])
     js_tag = ""
     if jsdata:
         js_tag = ("<script>window.QSA_DATA="
                   + _json.dumps(jsdata, separators=(",", ":"),
                                 allow_nan=False) + ";</script>")
-
-    # 指纹徽章（降级自指纹墙）
-    fp_badge = _showcase.fingerprint_badge(hero_ic) if hero else ""
+    surv_html = "".join(_surv_card(r) for r in surv) or (
+        '<div class="sub">无幸存者（诚实零也是结果：全部变体未过'
+        "诊断双过门，不硬凑候选）</div>")
 
     def table_row(r):
         spark = sparkline_svg(ics[r["id"]]) if r["id"] in ics else ""
@@ -1177,9 +1258,14 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
         color = ("#34C186" if (pnl or 0) > 0
                  else "#D0695A" if pnl is not None else "")
         style = f' style="color:{color}"' if color else ""
+        _al = _alias.get(r["id"])
+        _alias_html = ("　<span class='alias' "
+                       f'title="同参重合别名（表达式相同，数字一致）">'
+                       + " / ".join(_esc(a) for a in _al) + "</span>") if _al \
+            else ""
         return (f'<tr{row_cls} data-id="{_esc(r["id"])}" '
                 f'data-fam="{_esc(r.get("family", "?"))}">'
-                f'<td class="{name_cls}">{_esc(r["id"])}</td>'
+                f'<td class="{name_cls}">{_esc(r["id"])}{_alias_html}</td>'
                 f'<td><code>{_esc(r.get("family", "?"))}</code></td>'
                 f'<td class="r">{r["oos_ic"]:+.4f} / {r["icir_a"]:.2f}</td>'
                 f'<td class="r"{style}>{pnl_cell}</td>'
@@ -1189,8 +1275,11 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
         return f"{x:+.1%}"
 
     # C4 每屏结论胶囊 / F9 空态印章 / E9 统计条
-    conc_kpi = (f"双过 {n_both} · 最佳 {_esc(str(hero))}" if hero
-                else "诚实零 · 无幸存者")
+    conc_kpi = (f"双过 {n_both}（独立 {_n_both_dedup}）· "
+                f"最佳 {_esc(str(hero))}"
+                if hero and _n_both_dedup != n_both
+                else (f"双过 {n_both} · 最佳 {_esc(str(hero))}" if hero
+                      else "诚实零 · 无幸存者"))
     conc_heat = ""
     conc_fee = ""
     if hp.get("months") and hp.get("ls_monthly"):
@@ -1268,7 +1357,6 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
                   f"{best_m[1]:+.1%}（{best_m[0]}，<a href='#heat'>热力</a>）；"
                   f"{decay}（<a href='#isos'>IS/OS</a>）。</div>")
 
-    fams_n = len({r.get("family") for r in rows})
 
     return f"""<!doctype html>
 <html lang="zh"><head><meta charset="utf-8">
@@ -1293,7 +1381,7 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
 ③ <b>凭什么信</b>：右下「边界与口径」写明模拟假设与冻结门——<b>双过≠入册</b>，正式结论只认冻结 run（待拍板）。<br>
 <span style="color:var(--ink-3)">交互：表内点任意行联动主图；费率滑块拖动看成本杀伤力；零 JS 时本页全部内容静态可读。</span>
 </div></details>
-<span class="sub">{_esc(meta.get('snap', ''))}　·　{n} 实现 · {fams_n} 族 · 诊断双过 {n_both}{dup}</span>
+<span class="sub">{_esc(meta.get('snap', ''))}　·　{n} 实现（同参去重后 {n_rows} 主行）· {fams_n} 族 · 诊断双过 {n_both}{_both_note}{dup}</span>
 <details class="runmeta"><summary>Run Metadata（引擎/数据面/口径）</summary>
 <div class="runmetagrid">
 <span>engine {_esc(meta.get('engine', 'qsa'))}</span>
@@ -1314,7 +1402,7 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
 <span class="pill on" data-mode="ALL">ALL</span>
 <span class="pill" data-mode="IS">IS</span>
 <span class="pill" data-mode="OS">OS</span></span>
-<span class="sub" id="heroEnd" style="margin-left:auto;font-family:var(--mono);color:var(--gold);font-weight:700"></span>
+<span class="sub" id="heroEnd" style="margin-left:auto;font-family:var(--mono);color:var(--gold);font-weight:700">{hero_end}</span>
 </div>
 <span class="expr">{_esc(_showcase.factor_expr(hero or ''))}</span>
 <span class="mech">{_esc(fam_mech.get((hero_row or {}).get('family', ''), ''))}</span>
@@ -1356,13 +1444,14 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
 </div>
 </div>
 
-<h2>幸存因子（诊断双过，待拍板）</h2>
+<h2>幸存因子（诊断双过，待拍板）<span class="concl">独立 {dedup_surv_n} / 双过 {n_both}{alias_surv_note}</span></h2>
 <div class="cards">{surv_html}</div>
 
-<h2 id="table">全部实现<span class="concl">{n} 变体 · 双过 {n_both}</span></h2>
-<div class="tbstats"><span>共 <b>{n}</b> 变体</span><span>双过 <b>{n_both}</b></span>
+<h2 id="table">全部实现<span class="concl">{n_rows} 主行 · 双过 {n_both}{_both_note}</span></h2>
+<div class="tbstats"><span>共 <b>{n_rows}</b> 主行</span><span>双过 <b>{n_both}</b>{_both_note}</span>{alias_note}
 <span>最佳 <b class="gold">{_esc(str(hero or '—'))}</b>{f" {_showcase_pct(ann_hero)}" if ann_hero is not None else ''}</span>
 <span>OOS IC 中位 <b>{med_oos:.4f}</b></span></div>
+<div class="tblegend" role="note">判决链图例：<b>s1</b> Stage1 IC 门 · <b>s2</b> Stage2 冻结门 · <b>v2</b> S2-v2 年化门（拟议，待拍板） · <b>wf</b> Walk-Forward · 末格方旗 = PnL 费后年化（<span style="color:#34C186">■</span>正 / <span style="color:#D0695A">■</span>负 / <span style="color:#7C8A9B">■</span>无）；悬停节点可见逐项判决</div>
 <table id="dataTable"><colgroup>
 <col style="width:16%"><col style="width:9%"><col style="width:17%">
 <col style="width:13%"><col style="width:16%"><col style="width:29%">

@@ -14,12 +14,12 @@ import math
 from typing import Any
 
 # 色板（与页面 DARK_CSS 一致）
-C_LS = "#4cc2ff"        # 多空主线（青）
-C_G5 = "#3fd68f"        # 多头（绿）
-C_G1 = "#ff6b6b"        # 空头（红）
+C_LS = "#34C186"        # 多空主线（青）
+C_G5 = "#34C186"        # 多头（绿）
+C_G1 = "#D0695A"        # 空头（红）
 C_BENCH = "#8b98a9"     # 基准（灰）
 C_GOLD = "#E0B04B"      # 幸存者（金）
-C_DIM = "#57606a"
+C_DIM = "#7C8A9B"
 
 
 def _navs(monthly: list[float]) -> list[float]:
@@ -50,7 +50,7 @@ def _poly(xs: list[float], w: float, lo: float, hi: float,
 # ---------------------------------------------------------------- B1+B2+B3+B9+B10
 # 族机制标签（B5，一句话人话）
 FAM_MECH = {
-    "overnight": "隔夜缺口动量：过去 N 日「收盘-当日最高」缺口的累积（负缺口=被砸出空间）",
+    "overnight": "隔夜跳空动量：过去 N 日 ln(今开/昨收) 的累积（开盘跳空方向与强度的动量）",
     "near-high": "近高动量：收盘距 N 日高点的距离（贴近高点=强势）",
     "momentum": "窗口动量：过去 N 日累计收益（跳过 s 日避免短期反转污染）",
     "volatility": "波动率：过去 N 日收益标准差（低波=质量代理）",
@@ -166,11 +166,9 @@ def hero_pnl_svg(main: dict[str, Any],
                f'r="4" fill="{C_GOLD}">'
                f"<title>终值 ×{main_nav[-1]:.3f}（{months[-1]}）</title>"
                "</circle>")
-    # 终值徽章（B10）
+    # 终值徽章（B10）：放标题栏 #heroEnd（避免压曲线峰值）
     final = main_nav[-1]
-    out.append(f'<text x="{w - 10}" y="20" text-anchor="end" '
-               f'class="heroend">¥1,000,000 → ¥{final * 1e6:,.0f}'
-               '</text>')
+    hero_pnl_svg.final_text = f"¥1,000,000 → ¥{final * 1e6:,.0f}"
     # 图内左上图例（C3：常显、色块样例、不依赖读者扫到图底）
     out.append('<g id="heroLegend">')
     lg = [("多空 L-S", "#34C186", ""), ("等权基准", "#7C8A9B", "5,4"),
@@ -428,9 +426,15 @@ def fingerprint_badge(ic_series: list[dict[str, Any]]) -> str:
     if not n:
         return ""
     ok = same == n
-    return (f'<span class="badge {"b-dual" if ok else "b-pend"}" '
-            f'title="双实现逐月逐位一致 {same}/{n}（A/B 两套实现'
-            f'独立计算 IC，逐月完全一致）">Dual-Impl Verified '
+    if ok:
+        return (f'<span class="badge b-dual" '
+                f'title="双实现逐月逐位一致 {same}/{n}（A/B 两套实现'
+                f'独立计算 IC，逐月完全一致）">Dual-Impl Verified '
+                f"({same}/{n})</span>")
+    return (f'<span class="badge b-pend" '
+            f'title="全量双实现覆盖 {same}/{n} 月（A/B 两套实现独立'
+            f'计算 IC 的逐月逐位比对，当前 {same} 月一致，未达全量'
+            f'覆盖——不构成双实现一致性主张）">Dual-Impl Coverage '
             f"({same}/{n})</span>")
 
 
@@ -572,7 +576,7 @@ def is_os_bar(ic_series: list[dict[str, Any]]) -> str:
             f'<div class="lab">IS 样本内（前 {cut} 月）</div>'
             f'<div class="val">{im:+.4f} <span style="font-size:13px;'
             f'color:#8B98A9">IC</span></div>'
-            f'<div class="val" style="color:#4CC2FF">{iir:+.2f} '
+            f'<div class="val" style="color:#34C186">{iir:+.2f} '
             f'<span style="font-size:13px;color:#8B98A9">ICIR(年化)</span>'
             f"</div></div><div>"
             f'<div class="lab">OS 样本外（后 {n - cut} 月）</div>'
@@ -587,13 +591,13 @@ def is_os_bar(ic_series: list[dict[str, Any]]) -> str:
             f"OS ICIR / IS ICIR（不藏衰减）</div></div></div>")
 
 
-def radar_svg(scores: dict[str, tuple[float, str]], w: int = 340,
-              h: int = 262) -> str:
+def radar_svg(scores: dict[str, tuple[float, str]], w: int = 400,
+              h: int = 282) -> str:
     """六维风控雷达（半透明多边形），scores={维度: (0-1分, 显示值)}."""
     keys = list(scores)
     if len(keys) < 3:
         return ""
-    cx, cy, r = w / 2, h / 2 + 6, min(w, h) / 2 - 34
+    cx, cy, r = w / 2, h / 2 + 6, h / 2 - 44
     import math as _m
     n = len(keys)
     ang = lambda i: -_m.pi / 2 + i * 2 * _m.pi / n
@@ -613,7 +617,7 @@ def radar_svg(scores: dict[str, tuple[float, str]], w: int = 340,
         x, y = pt(i, 1.0)
         out.append(f'<line x1="{cx:.0f}" y1="{cy:.0f}" x2="{x:.0f}" '
                    f'y2="{y:.0f}" stroke="rgba(255,255,255,.07)"/>')
-        lx, ly = pt(i, 1.22)
+        lx, ly = pt(i, 1.15)
         anchor = "middle"
         if lx > cx + 8:
             anchor = "start"
@@ -621,11 +625,9 @@ def radar_svg(scores: dict[str, tuple[float, str]], w: int = 340,
             anchor = "end"
         out.append(f'<text x="{lx:.0f}" y="{ly:.0f}" '
                    f'text-anchor="{anchor}" class="radarlab">'
-                   f"{keys[i]}</text>")
-        vx, vy = pt(i, 1.22)
-        out.append(f'<text x="{vx:.0f}" y="{vy + 11:.0f}" '
-                   f'text-anchor="{anchor}" class="radargv">'
-                   f'{scores[keys[i]][1]}</text>')
+                   f"{keys[i]} "
+                   f'<tspan class="radargv">{scores[keys[i]][1]}</tspan>'
+                   "</text>")
     poly = " ".join(f"{pt(i, max(0.04, min(1.0, scores[k][0])))[0]:.1f},"
                     f"{pt(i, max(0.04, min(1.0, scores[k][0])))[1]:.1f}"
                     for i, k in enumerate(keys))
@@ -646,7 +648,8 @@ def monthly_heatmap_svg(months: list[str], rets: list[float],
     years = sorted({m[:4] for m in months})
     grid: dict[tuple[str, int], float] = {}
     for m, r in zip(months, rets):
-        grid[(m[:4], int(m[5:7]))] = r
+        _mm = m[5:7] if len(m) > 6 and m[4] == "-" else m[4:6]
+        grid[(m[:4], int(_mm))] = r
     hi = max(abs(r) for r in rets) or 1e-9
     cw, chh, x0, y0 = 46, 22, 44, 6
     h = y0 + len(years) * chh + 18
