@@ -1,11 +1,12 @@
-# Quant Super Agent — 可信量化研究闭环
+# Quant Super Agent — 可信量化研究工厂
 
-> 论文标题: *Quant Super Agent: A Verifiable Agentic Quant Research Factory*
-> 论文地址: [arXiv:2601.04736](https://arxiv.org/abs/2601.04736) · [github.com/0x1512/quant-super-agent](https://github.com/0x1512/quant-super-agent)
+[English](README.md) · **中文**
 
-**定位:Quant Super Agent = DeepSeek Super Agent(dsh-superagent)的 quant 版**——一个 orchestrator + 一队 worker,研究订单进来、研报出去;优先级恒为 易上手 > 产能 > 可验证 > 风控。
+**DeepSeek Super Agent（dsh-superagent）的 quant 版**——一个 orchestrator + 一队分身，研究订单进来、研报出去，分钟级产能。每个数字都由机器结算、门禁复算。
 
-![tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x1512/quant-super-agent/main/docs/badge/tests.json) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue)
+![tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/0x1512/quant-super-agent/main/docs/badge/tests.json) ![license](https://img.shields.io/badge/license-MIT-blue) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![last-commit](https://img.shields.io/github/last-commit/0x1512/quant-super-agent) ![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)
+
+**4.0× 并行安全** · **30 因子**引用库 · **300 × 1210** 钉死面板 · **零密钥、零联网、完全离线**
 
 <!-- BEGIN STATUS CARD — 由 docs/STATUS.json 经 `make readme-render` 渲染；手改会在发版时被覆盖 -->
 **发版口径卡 — v0.2.0（2026-11-19）** · 机器生成，冻结至下一次发版。
@@ -20,121 +21,176 @@
 数字住 [EVIDENCE](docs/EVIDENCE.md) · [NEWS](docs/NEWS.md) · [CASES](docs/CASES.md) · [TOUR_NUMBERS.json](docs/TOUR_NUMBERS.json)（再生与漂移检查：`make tour`）。本卡是本 README 唯一的数字内容，只经 `make release-readme` 变更。
 <!-- END STATUS CARD -->
 
-**四问开门见山:**
+## 30 秒看它守住底线
 
-- **得到什么**:一句话意图 → 带指纹的研究计划树 + 具名编制(GateKeeper / RepoSmith / FlowMapper / SmokeRunner)+ 一次打分的因子进攻 + settle 成冻结参数的订单;追问(「门槛提到 0.05」「剔除小盘」)只复用或只重算被改动影响的部分。
-- **多快**:参考全量跑在单机**分钟级**收口,worker 编制自动扩;仅改门槛的追问零行重算。产能以量级表述而非秒表数字——钉死口径见上方发版口径卡。
-- **凭什么信**:每条主张都是机器复算的证据卡(数据指纹、无前瞻、因子代码沙盒重放);重试被 deflation 下限约束,闭环无法给自己 p-hack;准入从未触及的视界上结算,反刍规则只紧不松;注入基准把失效模式测出来而非假设掉。
-- **现在做什么:**
+克隆后把同一个演示跑两遍——一遍诚实，一遍往结果卡里悄悄注入伪造：
 
 ```bash
-git clone https://github.com/0x1512/quant-super-agent.git && cd quant-super-agent
-make offense-full   # 参考全量跑:计划树、编制、settle 订单(或诚实零)
-make tour           # 从工件再生所有演示数字;漂移即报警
+python examples/run_lifecycle.py
 ```
 
-> 本 README 是**稳定门面**(能力动词 + 命令即证据),逐轮测量数字住 [NEWS](docs/NEWS.md) / [EVIDENCE](docs/EVIDENCE.md) / [CASES](docs/CASES.md);门面政策见 [README_POLICY.md](docs/README_POLICY.md)。仅研究用途,非投资建议。
+```
+[5] experiment E-0001  rankic_mean=-0.0146, n_dates=79
+    honest verdict = fail (rankic_mean fails pre-registered >= 0.02)
+[6] push       research/H-0001… -> CI 'verify' = success
+[7] merge      MERGED
 
----
+lifecycle complete: merged=True, verdict=fail, ci=success
+```
 
-## 快速开始
-
-环境:Python ≥ 3.10,运行期零第三方依赖。每行注明产物与自验命令,数字由你自己跑出来:
+假设没过预注册门槛——而合并**照样成功**，因为诚实的负结果也是结果。现在注入经典伪造（声称测出来的数字比实际好）：
 
 ```bash
-python3 -m unittest discover -s tests -v      # 整套机器契约(实时数量见徽章)
-
-# 版本验收(每个脚本都是确定性回归契约,CI 矩阵 3.10–3.13 全跑)
-python3 examples/run_evidence_plane.py        # v0.2 证据平面:诚实卡通过、注入卡被拒且错误指明字段
-python3 examples/run_research_loop.py         # v0.3 研究闭环:预注册、沙盒、去重、Bonferroni 收缩、一次性 OOS
-python3 examples/run_roles.py                 # v0.4 角色与辩论:角色链、消融表、裁判降级
-python3 examples/run_settlement.py            # v0.5 结算与校准:90 天视界、哈希链账本、只紧不松
-python3 examples/run_fib.py                   # v0.6 注入基准:17 场景 × 2 基线 + 门禁
-python3 examples/run_calibration.py           # v0.7 校准与预算读数:结算、衰减斜率、净/毛
-python3 examples/run_discovery.py             # v0.7 发现率@B:共享账本下的收缩曲线 + 包线
-python3 examples/run_frontier.py              # v0.7 α-前沿:功效 vs 假阳率 + 包线
-python3 examples/run_orders.py                # v1.2 订单簿:门→黑板→fork 卡→生命周期→漂移拦截→recall
-python3 examples/run_offense.py               # v1.3 进攻层:因子库×残差目标→交互/变异→订单(冒烟,数十秒级)
-python3 examples/run_offense.py --full        # v1.3 全量:钉死 fixture,300 票×1210 日
-python -m qsa.planner "小盘股隔夜反转,沙盒生成补缺口"   # v1.4 意图 → 指纹化计划树
-make tour                                     # 再生每个演示数字;漂移即报警
-python3 -m qsa.ingest myprices.csv mydata/    # 你的数据:CSV → 合法带指纹快照
+python examples/run_lifecycle.py --fib 7
 ```
 
----
+```
+[5] experiment E-0001  (identical numbers — the lie is only in the card)
+[6] push       research/H-0001… -> CI 'verify' = failure
+[7] merge      BLOCKED by branch protection
 
-## 能力地图(动词化,数字住证据页)
+FIB 7 outcome: GATE CAUGHT IT (merge blocked)
+```
 
-- **规划研究**:一句话意图编译为指纹化计划树与具名编制;重跑 recall 已 settle 的工作而非重算。
-- **打分候选因子**:带出处的因子库(WQ101 子集/幅度波动/流动性)+ 成对交互 + 窗口变异,全部按**残差目标**(对 zoo 幸存者正交化)打分——克隆因子零分。
-- **听清追问**:仅改门槛 → 缓存榜单重判、零行重算;改宇宙 → 只重算被移动的行,kept/added/dropped 写明;无法解析的请求 → 拒绝而非猜测。
-- **补缺口**:沙盒 forge 环把机器检测到的缺口用 AST 白名单代码补上,同一残差口径打分,行行带 `sandbox-forge` 源标记与代码哈希。
-- **结算主张**:准入从未触及的视界上结算,进哈希链账本 + 校准曲线 + **只紧不松**反刍规则。
-- **拒绝自己的失效**:预注册排序、deflation 下限、一次性 OOS 窗口;注入基准(FIB)把失效模式测出来,判定标准与原始日志公开。
-- **并行安全**:自动扩编的 worker 分片候选池;并行与顺序路径任意 N 字节级一致。
+同样的数据、同样的数字——门禁在沙盒里重放了因子代码，发现卡与代码对不上，拦下了合并。**这道护栏就是产品本身**，下面的一切都是把这套机制放大成一座研究工厂。
 
-每一层的实现与验收位置(模块、验收脚本、测试)见 [EVIDENCE.md](docs/EVIDENCE.md) 各版本表。
+## 它能为你做什么
 
-## 案例(索引;档案在 CASES.md)
+- **规划研究**——一句话意图编译成带指纹的计划树 + 具名编制（GateKeeper / RepoSmith / FlowMapper / SmokeRunner）；重跑时召回已结算的工作，不重算
+- **进攻因子前沿**——30 因子引用库（WorldQuant 101 子集、range-vol、流动性）+ 两两交互 + 变异搜索，全部对齐**残差目标**：与库里已有 alpha 重复的克隆得零分
+- **记住对话**——「门槛提到 0.05」零行重算直接改判缓存榜单；「剔除小盘」只重算被移动的行，保留/新增/剔除逐行写明；听不懂的请求会被拒绝，而不是瞎猜
+- **补自己的缺口**——测出的缺口没人写过因子时，沙盒 forge 循环用 AST 白名单生成候选，同一把残差标尺，每行带代码哈希
+- **结算主张**——过门因子在准入从未触及的视界上结算，进哈希链账本、画校准曲线；结算不达标的族，门槛按只紧不松规则上调
+
+## 凭什么信
+
+- **每条主张机器可查**——数据指纹、无前瞻窗口、引擎钉版、因子代码沙盒重放且指标必须对得上。不能被机器验证的主张，等于不存在。
+- **诚实零是一等公民**——上面的演示*合并了一个失败*。伪造的卡被分支保护拦下；诚实的负结果不会被拦。
+- **闭环无法给自己 p-hack**——预注册顺序、随结算次数上升的 Bonferroni 下限、一次性样本外窗口。第 10 个「新想法」面对第 1 个没有过的门槛；降门槛重试会机械失败。
+- **失效模式是测出来的，不是假设的**——注入基准把 17 类伪造场景机制化成确定性假 PR，分别路由给无门禁单 agent、仅 schema 审查、全门禁三方，rubric 与原始日志公开。
+
+自主性是带围栏的旋钮（观察 → 建议 → 过门放行 → 自主），由试点验证的亚秒级看门狗兜底。底层论题——*产能便宜，验证才是约束*——在 [THESIS.md](docs/THESIS.md) 里逐项给出估计器。仅研究用途，非投资建议。
+
+## 案例
 
 | # | 案例 | 一句话 |
 |---|---|---|
-| 1 | Top-300 基线 | 口径卡背后那条参考全量跑 |
-| 2 | 小盘残差进攻 | 一条命令全面板,沙盒生成因子过线 |
-| 3 | Forge 翻身 | 一个被测出的缺口 → 沙盒生成的候选 |
+| 1 | Top-300 基线 | 状态卡背后那场参考全量跑 |
+| 2 | 小盘残差进攻 | 一条命令、全量面板、一个 forge 因子过线 |
+| 3 | Forge 逆转 | 测出的缺口被沙盒生成的候选补上 |
 
-档案(日期、计划指纹、复现命令、完整数字):[CASES.md](docs/CASES.md)。
+带日期、指纹与复现命令的档案：[CASES.md](docs/CASES.md)。
 
-## 设计不变量
+## 横向对比
 
-1. **确定性**:运行期零第三方依赖、零墙钟、零网络;同一输入字节级可复现(测试断言 + CI 矩阵 3.10–3.13 保证)。
-2. **可复算**:每条主张可被独立门禁复算;任何与代码/数据指纹不符的指标被拒绝且错误指明字段。
-3. **只紧不松**:校准与多重检验只能收紧门槛,绝不放松。
-4. **证据优先**:交付主张必须随附估计器;未覆盖的 FIB 类显式标注为范围外。
+| 能力 | TradingAgents | ai-hedge-fund | RD-Agent | FinRL | **Quant Super Agent** |
+|---|---|---|---|---|---|
+| 带机械职责的多角色 | ✔ 辩论 | ✔ 人格 | ✔ 循环 | — | ✔ 角色对*实测*不稳定性行使否决 |
+| 准入前的对抗审查 | ✔ | — | — | n/a | ✔ 声称的否决必须能复算 |
+| 主张结算 + 校准曲线 | — | — | — | 仅回测 | ✔ 结算 → 校准 → 只紧不松 |
+| 预注册研究闭环 | — | — | ✔ | — | ✔ deflation 下限、一次性 OOS |
+| 主张级 CI 门禁 | — | — | 部分 | — | ✔ 沙盒代码重算 |
+| 多重检验控制 | — | — | — | — | ✔ 族 N 上的 Bonferroni 下限 |
+| 伪造注入基准 | — | — | — | — | ✔ FIB harness，rubric 与日志公开 |
+| 跨会话记忆 + 订单生命周期 | — | — | — | — | ✔ 哈希链黑板、重跑即召回 |
+| 对话式增量 | — | — | — | — | ✔ 零行重算的追问 |
 
----
+我们欣赏并借鉴的相关工作：[TradingAgents](https://github.com/TauricResearch/TradingAgents)（角色、辩论、结算记忆）、[ai-hedge-fund](https://github.com/virattt/ai-hedge-fund)（独立判断 → 聚合）、[RD-Agent](https://github.com/microsoft/RD-Agent)（因子研发迭代）、[FinRL](https://github.com/AI4Finance-Foundation/FinRL)（环境严谨性）。harness 模式来自 DeepSeek MIT 许可的 dsh-superagent 研究原型——见[致谢](#致谢)。
+
+## 上手
+
+Python ≥ 3.10，运行期零第三方依赖、零密钥、零联网。三步走，每步都写明产物与自验命令：
+
+**第 1 步——看护栏**（秒级）：上面那两条命令。
+
+**第 2 步——跑全量进攻**（分钟级，一条命令）：
+
+```bash
+make offense-full   # 计划树、具名编制、因子打分、结算订单——或诚实零
+make tour           # 从工件再生所有演示数字；漂移即报警
+```
+
+**第 3 步——换你自己的数据**：
+
+```bash
+python -m qsa.ingest myprices.csv mydata/   # CSV → 合法、带指纹的快照（本地优先）
+```
+
+<details>
+<summary><b>更多演示</b> —— 每个脚本都是确定性回归契约，CI 矩阵 3.10–3.13 全跑</summary>
+
+```bash
+python examples/run_mining.py        # deflation 下限机械拒绝「换个说法重测」
+python examples/run_ablation.py      # 角色 × 辩论轮数消融：植入信号世界 vs 噪声世界
+python examples/run_calibration.py   # 结算账本 + 校准曲线
+python examples/run_fib.py           # 完整注入基准
+python examples/run_discovery.py     # 发现率@B：试验累积下广度收缩
+python examples/run_frontier.py      # α-前沿：功效 vs 假阳率
+python examples/run_orders.py        # zoo 即订单簿；第二遍 = 召回而非重算
+python -m qsa.planner "小盘股隔夜反转，沙盒生成补缺口因子"   # 意图 → 计划树
+make followup                        # 「门槛提高」：行全复用、零行重算
+python -m unittest discover -s tests -v                        # 整套机器契约
+```
+</details>
+
+## 工作原理
+
+```mermaid
+flowchart LR
+    A[Research order<br/>+ iteration budget] --> B[LLM proposes hypothesis<br/>admission bar pre-committed]
+    B --> C[(Experiment registry<br/>append-only, hypothesis<br/>before experiment)]
+    C --> D[Sandboxed factor code<br/>AST whitelist · sees closes ≤ t only]
+    D --> E{Mechanical verdict<br/>Bonferroni floor at family N}
+    E -- fail --> F[Attribution<br/>threshold · instability · deflation · oos]
+    E -- in-sample pass --> G{One-shot OOS window}
+    G -- fail --> F
+    G -- pass --> V{Roles + bull/bear review<br/>risk: half-split stability veto<br/>debate: checkable claims verified}
+    V -- veto --> F
+    V -- admitted --> H[Verify gate as forge CI<br/>recomputes factor_code + vetoes]
+    F -- next hypothesis<br/>budget-bounded --> B
+    H --> I[PR + merge under<br/>branch protection]
+```
+
+三个平面承载闭环：**证据平面**（H/E 卡 + 验证门禁——[ARCHITECTURE.md](docs/ARCHITECTURE.md)）、**结算平面**（声称 vs 兑现、校准、只紧不松——[ARCHITECTURE.md](docs/ARCHITECTURE.md)）、**预算估计器**（论题方程逐项测量——[THESIS.md](docs/THESIS.md)）。
+
+## 证据与文档
+
+数字住在 README 之外、逐轮机器再生：[EVIDENCE.md](docs/EVIDENCE.md)（验收表、判决、复现命令）· [NEWS.md](docs/NEWS.md)（逐轮日志）· [CASES.md](docs/CASES.md) · [STATUS.md](docs/STATUS.md) · [TOUR_NUMBERS.json](docs/TOUR_NUMBERS.json)。
+
+- [门面政策](docs/README_POLICY.md)——数字住哪、README 能说什么
+- [架构](docs/ARCHITECTURE.md)——组件、订单生命周期、门禁内部、自主性监督
+- [论题](docs/THESIS.md)——迁移理论：预算方程、命题、估计器协议
+- [注入基准](docs/BENCHMARK.md) · [FIB rubric](docs/RUBRICS.md)
+- [因子库](docs/FACTOR_LIBRARY.md)——引用因子、残差目标、诚实零政策
+- [v1.0 场景](docs/V1_SCENARIOS.md) · [路线图](docs/ROADMAP.md) · 开发状态：[README.dev.md](README.dev.md) · 自演示：[demo_video.html](docs/demo_video.html)
+
+所有主张都能从本仓复现：完全离线、确定性的测试套件（实时数量见徽章）+ Python 3.10–3.13 CI 矩阵，把验收演示当回归契约跑。
 
 ## 路线图
 
-| 版本 | 范围 | 状态 |
-|---|---|---|
-| v0.1 | 设计 + 基准规范 + 证据文档 | ✅ 已交付 |
-| v0.2 | 证据平面:卡 + verify 门禁 + 确定性 forge | ✅ 已交付 |
-| v0.3 | 研究闭环:registry、deflation、sandboxed mining、一次性 OOS、CSV ingest | ✅ 已交付 |
-| v0.4 | 可消融量化角色 + bull/bear 评审门禁 + 消融表 | ✅ 已交付 |
-| v0.5 | 结算账本 + 校准曲线 + 只紧不松反刍规则 | ✅ 已交付 |
-| v0.6 | FIB 注入基准 harness + 判定标准 | ✅ 已交付;下一步外部框架跑 |
-| v0.7 | 预算等式估计器:沙盒 v2(volumes)、coverage/宇宙钉死、成本容量核算、队列衰减斜率、discovery@B + α-前沿 + 包线 | ✅ 已交付 |
-| v0.8 | 组合主张:P 卡、组合、walk-forward folds、真实数据结算 | 计划中 |
-| v1.0 | 三大经典场景端到端 — 规范:docs/V1_SCENARIOS.md | 🔶 Scenario A 已交付(诚实判定 not_replicated);B/C 计划中 |
-| v1.1 | 因子工厂快车道:公开文献因子一键排序 + 可交易性回测 | ✅ 已交付 |
-| v1.2 | 组织记忆层:黑板 + infra 门 + 订单状态机 + fork 拍板卡 | ✅ 已交付 |
-| v1.3 | 进攻层:引用因子库 + 残差目标 + 交互/变异,一条命令,诚实零 | ✅ 已交付 |
-| v1.3.x | 补丁线(自 v1.3 起):新能力面才升 minor | 🔶 计划中 |
-| v1.4 | 对话与自编排平面:意图入口、计划树、自动编制、对话增量、修复阶梯、沙盒 forge、分层报告、tour 漂移报警 | ✅ 已交付 |
+- **已交付**——九个能力平面：证据门禁 · 研究闭环 · 角色+辩论 · 结算+校准 · FIB harness · 预算估计器 · 订单簿 · 进攻层 · 对话平面
+- **下一步**——把已发表的 FIB 场景跑在第三方 agent 框架上；组合主张（P 卡、walk-forward 折叠、真实数据结算）
+- **后续**——三个经典场景端到端（报告复现 · 观点验证 · regime 总结）；场景 A 已可运行：`python examples/run_replication.py`
 
-完整版:[docs/ROADMAP.md](docs/ROADMAP.md)。逐轮数字:[NEWS.md](docs/NEWS.md)。
+完整版本史：[ROADMAP.md](docs/ROADMAP.md)；逐轮日志：[NEWS.md](docs/NEWS.md)。
 
-## 文档导航
+## 致谢
 
-- [门面政策](docs/README_POLICY.md) — 数字住哪、README 能说什么、怎么改(20 项机制)
-- [论文主张](docs/THESIS.md) · [架构](docs/ARCHITECTURE.md) · [注入基准](docs/BENCHMARK.md) · [判定标准](docs/RUBRICS.md)
-- [证据](docs/EVIDENCE.md) · [逐轮 NEWS](docs/NEWS.md) · [案例档案](docs/CASES.md) · [状态页](docs/STATUS.md)
-- [因子库](docs/FACTOR_LIBRARY.md) · [v1.0 场景](docs/V1_SCENARIOS.md) · [路线图](docs/ROADMAP.md)
-- [开发面状态 README.dev.md](README.dev.md)(自由更新,非门面)
-
----
+- 订单生命周期 harness 模式（orchestrator/worker、worktree 隔离、面板 API）改编自 [dsh-superagent](https://github.com/deepseek-ai/dsh-superagent-prototype)（MIT），DeepSeek Harness 团队的研究原型（harness：[deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)）。Quant Super Agent 是独立项目，与 DeepSeek 无隶属或背书关系。
+- 角色/辩论/结算思想受 TradingAgents（Xiao et al., arXiv:2412.20138）启发；因子迭代框架受 RD-Agent 启发；组合现实主义受 ai-hedge-fund 与 FinRL 启发。
 
 ## 引用
 
 ```bibtex
-@misc{quant-super-agent-2026,
+@misc{quantsuperagent2026,
   title  = {Quant Super Agent: A Verifiable Agentic Quant Research Factory},
   author = {Quant Super Agent Contributors},
   year   = {2026},
-  note   = {证据平面, 门禁研究闭环, 角色, 辩论, 结算, 校准, FIB 基准, 预算估计器, 订单簿, 进攻层, 对话平面},
+  note   = {Evidence plane, gated research loop, roles, debate, settlement, calibration, FIB harness, budget estimators, order book, offense layer, conversation plane},
   url    = {https://github.com/0x1512/quant-super-agent}
 }
 ```
 
-MIT 许可。本研究软件不构成投资建议,不应交易真实资金;所有试点结果均在仿真环境取得。
+## 许可与免责
+
+MIT——见 [LICENSE](LICENSE)。本研究软件不做任何投资建议，任何内容都不应用于真实资金交易。所有试点结果均在仿真环境获得。
