@@ -350,77 +350,156 @@ def run_header_html(meta: dict[str, Any], rows: list[dict[str, Any]],
 
 DARK_CSS = """
 *{box-sizing:border-box}
-body{font:14px/1.55 -apple-system,'Segoe UI',Roboto,'PingFang SC',
-'Microsoft YaHei',sans-serif;margin:0;background:#0a0e14;color:#dce3ec;
-background-image:linear-gradient(#0d1420 1px,transparent 1px),
-linear-gradient(90deg,#0d1420 1px,transparent 1px);
-background-size:44px 44px;animation:gridbg 90s linear infinite}
+:root{--bg:#0B0E14;--panel:#151A22;--line:rgba(255,255,255,.06);
+--ink:#DCE3EC;--dim:#8B98A9;--faint:#5C6B7D;
+--pos:#3FD68F;--neg:#E0685C;--focus:#FFC857;--cool:#4CC2FF}
+body{font:14px/1.6 -apple-system,'Segoe UI',Roboto,'PingFang SC',
+'Microsoft YaHei',sans-serif;margin:0;background:var(--bg);
+color:var(--ink);
+background-image:radial-gradient(circle,rgba(255,255,255,.028) 1px,
+transparent 1px);background-size:26px 26px}
 body::before{content:"";position:fixed;inset:0;pointer-events:none;
-background:radial-gradient(60% 40% at 50% 110%,rgba(76,194,255,.10),
-transparent 70%),radial-gradient(40% 30% at 85% 8%,
-rgba(255,200,87,.05),transparent 70%);z-index:0}
-main{max-width:1080px;margin:0 auto;padding:28px 24px 48px;position:relative;
+background:radial-gradient(55% 38% at 50% 108%,rgba(63,214,143,.05),
+transparent 70%),radial-gradient(38% 26% at 88% 4%,
+rgba(255,200,87,.04),transparent 70%);z-index:0}
+main{max-width:1120px;margin:0 auto;padding:28px 28px 56px;position:relative;
 z-index:1}
 h1{font-size:22px;margin:0 0 2px;letter-spacing:.3px}
-h2{font-size:15px;margin:26px 0 10px;color:#aebccb;
+h2{font-size:14px;margin:30px 0 12px;color:var(--dim);
 text-transform:uppercase;letter-spacing:1.4px}
-.meta{color:#8b98a9;font-size:13px}
-.runcard{border:1px solid #1f2733;background:linear-gradient(180deg,
-#111722,#0d1420);border-radius:12px;padding:16px 18px;margin-top:16px}
+.meta{color:var(--dim);font-size:13px}
+.num,td,.rv,.big,.gaugev,.wfn,.kpival,.herolab,.ygn{font-family:
+ui-monospace,'JetBrains Mono','IBM Plex Mono',SFMono-Regular,Menlo,
+Consolas,monospace;font-variant-numeric:tabular-nums}
+/* 数字列右对齐（全表 3-5 列为数值） */
+table td:nth-child(3),table td:nth-child(4),table td:nth-child(5)
+{text-align:right}
+.runcard{border:1px solid var(--line);background:var(--panel);
+border-radius:14px;padding:20px 24px;margin-top:16px}
 .rtop{display:flex;align-items:center;gap:10px}
-.rdot{width:8px;height:8px;border-radius:50%;background:#3fd68f;
-box-shadow:0 0 8px #3fd68f88;animation:pulse 2.4s ease-in-out infinite}
+.rdot{width:8px;height:8px;border-radius:50%;background:var(--pos);
+box-shadow:0 0 8px rgba(63,214,143,.55);animation:pulse 2.4s
+ease-in-out infinite}
 .rtitle{font-weight:600;font-size:15px}
-.rsub{color:#8b98a9;font-size:12.5px;margin-left:auto}
-.rstats{display:flex;flex-wrap:wrap;gap:0;margin-top:12px}
-.rstat{padding:4px 22px 4px 0;margin-right:22px;border-right:1px solid #1f2733}
+.rsub{color:var(--dim);font-size:12.5px;margin-left:auto}
+.rstats{display:flex;flex-wrap:wrap;gap:0;margin-top:14px}
+.rstat{padding:4px 24px 4px 0;margin-right:24px;
+border-right:1px solid var(--line)}
 .rstat:last-child{border-right:none}
-.rk{color:#66788c;font-size:11px;text-transform:uppercase;letter-spacing:1px}
-.rv{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-font-variant-numeric:tabular-nums;font-size:14.5px;color:#dce3ec;margin-top:2px}
-.cards{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0 0}
-.surv{background:linear-gradient(180deg,#131a26,#0f1520);
-border:1px solid #2a3546;border-radius:12px;padding:16px 18px;min-width:300px;
-flex:1;position:relative;overflow:hidden}
+.rk{color:var(--faint);font-size:11px;text-transform:uppercase;
+letter-spacing:1px}
+.rv{font-variant-numeric:tabular-nums;font-size:14.5px;
+color:var(--ink);margin-top:2px}
+.cards{display:flex;gap:16px;flex-wrap:wrap;margin:12px 0 0}
+.card{background:var(--panel);border:1px solid var(--line);
+border-radius:14px;padding:20px 24px;flex:1;min-width:280px}
+.surv{background:var(--panel);border:1px solid var(--line);
+border-radius:14px;padding:20px 24px;min-width:300px;flex:1;
+position:relative;overflow:hidden}
 .surv::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;
-background:linear-gradient(#ffc857,#4cc2ff)}
+background:linear-gradient(var(--focus),rgba(255,200,87,.25))}
 .surv b{font-size:15.5px;letter-spacing:.3px}
-.big{margin:8px 0 2px;color:#3fd68f;font-family:ui-monospace,monospace;
-font-variant-numeric:tabular-nums;font-size:34px;font-weight:700}
-.sub{color:#8b98a9;font-size:12.5px;line-height:1.7}
+.big{margin:10px 0 2px;color:var(--pos);font-size:28px;font-weight:700;
+line-height:1.1}
+.big.hero{font-size:36px}
+.sub{color:var(--dim);font-size:12.5px;line-height:1.7}
 .tick{display:inline-block}
-.dig{display:inline-block;height:1em;overflow:hidden;vertical-align:baseline}
+.dig{display:inline-block;height:1em;overflow:hidden;
+vertical-align:baseline}
 .reel{display:block;animation:tickroll .9s cubic-bezier(.2,.7,.3,1) both}
 .reel span{display:block;height:1em;line-height:1em}
 .sym{display:inline-block}
 table{border-collapse:collapse;width:100%;font-size:13px;
 font-variant-numeric:tabular-nums}
-th,td{padding:5px 8px;border-bottom:1px solid #1a2230;text-align:left}
-th{color:#8b98a9;font-size:11.5px;text-transform:uppercase;
-letter-spacing:.8px;position:sticky;top:0;background:#0d1420}
-tr:hover td{background:#101826}
-.ok{color:#3fd68f;font-weight:700}.no{color:#ff6b6b}.na{color:#57606a}
-.gold{color:#ffc857;font-weight:700}
-code{background:#161f2d;border-radius:4px;padding:1px 6px;font-size:11.5px;
-color:#9fb6cc}
-.foot{color:#66788c;font-size:12.5px;margin-top:20px;border-top:
-1px solid #1f2733;padding-top:12px;line-height:1.8}
+th,td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);
+text-align:left}
+th{color:var(--dim);font-size:11.5px;text-transform:uppercase;
+letter-spacing:.8px;position:sticky;top:0;background:#10141C}
+tr:hover td{background:rgba(255,255,255,.03)}
+.ok{color:var(--pos);font-weight:700}.no{color:var(--neg)}
+.na{color:#57606A}
+.gold{color:var(--focus);font-weight:700}
+code{background:#10151D;border:1px solid var(--line);border-radius:5px;
+padding:1px 7px;font-size:11.5px;color:#9FB6CC}
+.foot{color:var(--faint);font-size:12.5px;margin-top:24px;
+border-top:1px solid var(--line);padding-top:14px;line-height:1.8}
 .famrow{display:flex;align-items:center;gap:10px;margin:5px 0}
-.fambar{height:15px;border-radius:3px;background:#4cc2ff;opacity:.85}
-.fambar.neg{background:#ff6b6b}
-.wfn{fill:#dce3ec;font-size:15px;font-weight:700;
-font-family:ui-monospace,monospace}
-.wfl{fill:#8b98a9;font-size:11px}
-.wfs{fill:#5c6b7d;font-size:10px}
+.fambar{height:15px;border-radius:3px;background:var(--cool);opacity:.8}
+.fambar.neg{background:var(--neg)}
+.wfn{fill:var(--ink);font-size:15px;font-weight:700}
+.wfl{fill:var(--dim);font-size:11px}
+.wfs{fill:var(--faint);font-size:10px}
 .wfbar{transform-box:fill-box;transform-origin:bottom;
 animation:wfgrow .8s cubic-bezier(.2,.7,.3,1) both}
-@keyframes gridbg{to{background-position:44px 44px}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
-@keyframes tickroll{from{transform:translateY(0)}to{transform:translateY(var(--d)*-1em)}}
-@keyframes wfgrow{from{transform:scaleY(.15);opacity:.3}to{transform:scaleY(1);opacity:1}}
+@keyframes tickroll{from{transform:translateY(0)}
+to{transform:translateY(var(--d)*-1em)}}
+@keyframes wfgrow{from{transform:scaleY(.15);opacity:.3}
+to{transform:scaleY(1);opacity:1}}
+/* ---- v4: KPI 硬指标条 ---- */
+.kpis{display:flex;flex-wrap:wrap;gap:0;margin-top:12px;
+background:var(--panel);border:1px solid var(--line);
+border-radius:14px;padding:18px 10px}
+.kpi{flex:1;min-width:130px;padding:2px 20px;
+border-right:1px solid rgba(255,255,255,.05)}
+.kpi:last-child{border-right:none}
+.kpik{color:var(--faint);font-size:10.5px;text-transform:uppercase;
+letter-spacing:1.2px}
+.kpival{font-size:24px;font-weight:700;margin-top:3px;line-height:1.15}
+.kpival.pos{color:var(--pos)}.kpival.neg{color:var(--neg)}
+.kpibench{color:var(--faint);font-size:11px;margin-top:2px;
+font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.kpibench b{color:var(--dim);font-weight:600}
+/* ---- v4: 归因卡 / 表达式 / 雷达 / 热力 ---- */
+.attrib{border-left:3px solid var(--focus);background:var(--panel);
+border-top:1px solid var(--line);border-right:1px solid var(--line);
+border-bottom:1px solid var(--line);border-radius:0 12px 12px 0;
+padding:14px 20px;margin-top:14px;color:#C7D2DE;font-size:13.5px;
+line-height:1.8}
+.attrib b{color:var(--focus)}
+.attrib a{color:var(--cool);text-decoration:none;
+border-bottom:1px dotted rgba(76,194,255,.5)}
+.expr{display:inline-block;font-family:ui-monospace,'JetBrains Mono',
+monospace;font-variant-numeric:tabular-nums;font-size:11.5px;
+color:#9FD0FF;background:#0E1622;border:1px solid rgba(76,194,255,.22);
+border-radius:5px;padding:2px 9px;margin:6px 0 2px;letter-spacing:.2px}
+.radarlab{fill:var(--dim);font-size:10.5px;letter-spacing:.5px}
+.radargv{fill:var(--focus);font-size:11px;font-weight:700;
+font-family:ui-monospace,monospace}
+.heat0{fill:#10141C}.heatlo{fill:#7A3A34}.heatmid{fill:#2A2622}
+.heathi{fill:#1F6B4C}.heatmax{fill:#3FD68F}
+.heatcell{stroke:var(--bg);stroke-width:1}
+.heatv{fill:var(--dim);font-size:9px;font-family:ui-monospace,
+monospace;text-anchor:middle}
+.heaty{fill:var(--dim);font-size:10px;font-family:ui-monospace,monospace}
+.rollbar-pos{fill:var(--pos);opacity:.7}
+.rollbar-neg{fill:var(--neg);opacity:.7}
+.rollline{fill:none;stroke:var(--focus);stroke-width:1.6;opacity:.95}
+.isos{display:flex;gap:0;background:var(--panel);
+border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.isos>div{flex:1;padding:16px 24px}
+.isos>div+div{border-left:1px solid rgba(255,255,255,.05)}
+.isos .lab{color:var(--faint);font-size:10.5px;text-transform:uppercase;
+letter-spacing:1.2px}
+.isos .val{font-family:ui-monospace,monospace;
+font-variant-numeric:tabular-nums;font-size:21px;font-weight:700;
+margin-top:3px}
+.sens{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,
+1fr));gap:10px}
+.senscell{background:#10151D;border:1px solid var(--line);
+border-radius:10px;padding:12px 14px}
+.sensk{color:var(--faint);font-size:10.5px;letter-spacing:.8px;
+text-transform:uppercase}
+.sensv{font-family:ui-monospace,monospace;
+font-variant-numeric:tabular-nums;font-size:16.5px;font-weight:700;
+margin-top:3px}
+.senssub{color:var(--faint);font-size:10.5px;
+font-family:ui-monospace,monospace}
+/* ---- v3 组件样式（保留） ---- */
 .trace{font-family:ui-monospace,Menlo,Consolas,monospace;
-font-size:12.5px;color:#8fe3b0;background:#0c1119;border:1px solid #1a2432;
-border-radius:8px;padding:12px 14px;margin-top:14px;overflow:hidden}
+font-size:12.5px;color:#8FE3B0;background:#0C1119;
+border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+margin-top:14px;overflow:hidden}
 .tline{white-space:nowrap;text-overflow:ellipsis}
 .trace span{opacity:0;animation:tappear .05s both}
 @keyframes tappear{to{opacity:1}}
@@ -429,47 +508,54 @@ border-radius:8px;padding:12px 14px;margin-top:14px;overflow:hidden}
 .dataflow{margin-top:6px;opacity:.9}
 .dflow{animation:dflow 20s linear infinite}
 @keyframes dflow{to{transform:translateX(-500px)}}
-.racer{transform-box:fill-box;animation:racerun 3s cubic-bezier(.3,.6,.2,1)
-infinite alternate}
+.racer{transform-box:fill-box;animation:racerun 3s
+cubic-bezier(.3,.6,.2,1) infinite alternate}
 @keyframes racerun{to{transform:translateX(540px)}}
 .badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .badge{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;
-letter-spacing:1.2px;padding:2px 9px;border-radius:4px;border:1px solid}
-.b-sim{color:#4cc2ff;border-color:#2a4a5e;background:#0e1c28}
-.b-pend{color:#ffc857;border-color:#5e4f1f;background:#231c0c}
-.b-dual{color:#3fd68f;border-color:#1f4a35;background:#0b2118}
-.b-frozen{color:#8b98a9;border-color:#333d4a;background:#141922}
+letter-spacing:1.2px;padding:2px 9px;border-radius:5px;border:1px solid}
+.b-sim{color:var(--cool);border-color:rgba(76,194,255,.3);
+background:#0E1C28}
+.b-pend{color:var(--focus);border-color:rgba(255,200,87,.3);
+background:#231C0C}
+.b-dual{color:var(--pos);border-color:rgba(63,214,143,.3);
+background:#0B2118}
+.b-frozen{color:var(--dim);border-color:var(--line);background:#141922}
 tbody tr{opacity:.42;transition:opacity .18s}
 tbody tr:hover{opacity:1}
 tbody tr.goldrow{opacity:1}
-.big{font-size:56px;line-height:1.05}
-.mech{display:inline-block;font-size:11.5px;color:#9fd0ff;background:#0e1c28;
-border:1px solid #2a4a5e;border-radius:4px;padding:1px 8px;margin:6px 0 2px}
+.mech{display:inline-block;font-size:11.5px;color:#9FD0FF;
+background:#0E1C28;border:1px solid rgba(76,194,255,.22);
+border-radius:5px;padding:1px 8px;margin:6px 0 2px}
 .lsrow{display:flex;align-items:center;gap:8px;margin:3px 0}
-.lsbar{flex:1;height:9px;background:#131b28;border-radius:4px;overflow:hidden}
+.lsbar{flex:1;height:9px;background:#10151D;border-radius:4px;
+overflow:hidden}
 .lsbar div{height:100%;border-radius:4px}
-.heroend{fill:#ffc857;font-size:17px;font-weight:700;
+.heroend{fill:var(--focus);font-size:17px;font-weight:700;
 font-family:ui-monospace,monospace}
-.herolab{fill:#5c6b7d;font-size:11px}
-.ygn{fill:#3fd68f;font-size:13px;font-weight:700;
+.herolab{fill:var(--faint);font-size:11px}
+.ygn{fill:var(--pos);font-size:13px;font-weight:700;
 font-family:ui-monospace,monospace}
-.gaugev{fill:#dce3ec;font-size:15px;font-weight:700;
-font-family:ui-monospace,monospace}
-.corrv{fill:#0a0e14;font-size:12px;font-weight:700;
+.gaugev{fill:var(--ink);font-size:15px;font-weight:700}
+.corrv{fill:#0A0E14;font-size:12px;font-weight:700;
 font-family:ui-monospace,monospace}
 .chainline{stroke-dasharray:5 46;animation:chainrun 2.4s linear infinite}
 @keyframes chainrun{to{stroke-dashoffset:-51}}
-details.log{margin-top:14px;border:1px solid #1a2432;border-radius:8px;
-background:#0c1119}
-details.log summary{cursor:pointer;padding:8px 14px;color:#8b98a9;
+details.log{margin-top:14px;border:1px solid var(--line);
+border-radius:10px;background:#0C1119}
+details.log summary{cursor:pointer;padding:9px 16px;color:var(--dim);
 font-family:ui-monospace,monospace;font-size:12px}
-.logbody{padding:4px 14px 12px;font-family:ui-monospace,Menlo,monospace;
-font-size:11.5px;color:#7ec99a;max-height:240px;overflow:auto}
-.logbody .err{color:#ff6b6b}.logbody .dim{color:#57606a}
-@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+.logbody{padding:4px 16px 12px;font-family:ui-monospace,Menlo,
+monospace;font-size:11.5px;color:#7EC99A;max-height:240px;overflow:auto}
+.logbody .err{color:var(--neg)}.logbody .dim{color:#57606A}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;
+transition:none !important}}
 @media print{body{background:#fff;color:#111;animation:none}
-body::before{display:none}.surv,.runcard{border-color:#ccc;background:#fff}
-.big{color:#0a7a42}.foot,code{color:#333}}
+body::before{display:none}
+.surv,.runcard,.card,.kpis,.isos,.attrib{border-color:#ccc;
+background:#fff}
+.big{color:#0A7A42}.foot,code{color:#333}
+tbody tr{opacity:1}}
 """
 
 def _esc(s: str) -> str:
@@ -523,13 +609,40 @@ def _lifespan(ics: list[dict[str, Any]]) -> tuple[float | None, float | None,
     return early, late, last12
 
 
+def _ic_stats(ic_series: list[dict[str, Any]]) -> tuple[float, float,
+                                                          float]:
+    vals = [x.get("ic") for x in ic_series if x.get("ic") is not None]
+    if not vals:
+        return 0.0, 0.0, 0.0
+    m = sum(vals) / len(vals)
+    sd = (sum((x - m) ** 2 for x in vals) / max(1, len(vals) - 1)) ** 0.5
+    icir = (m / sd) * (12 ** 0.5) if sd > 0 else 0.0
+    pos = sum(1 for v in vals if v > 0) / len(vals)
+    return m, icir, pos
+
+
+def _os_ratio(ic_series: list[dict[str, Any]]) -> float:
+    vals = [x.get("ic") for x in ic_series if x.get("ic") is not None]
+    if len(vals) < 6:
+        return 0.0
+    cut = max(3, int(len(vals) * 0.8))
+    def _ir(xs):
+        if len(xs) < 2:
+            return 0.0
+        m = sum(xs) / len(xs)
+        sd = (sum((x - m) ** 2 for x in xs) / max(1, len(xs) - 1)) ** 0.5
+        return (m / sd) * (12 ** 0.5) if sd > 0 else 0.0
+    iir, oir = _ir(vals[:cut]), _ir(vals[cut:])
+    return (oir / iir) if abs(iir) > 1e-9 else 0.0
+
+
 def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
                       ics: dict[str, list[dict[str, Any]]],
                       pnls: dict[str, dict[str, Any]] | None = None,
                       extras: dict[str, Any] | None = None) -> str:
-    """总览页 HTML v3（AI 科技感 + 策略价值感；与 INDEX.md 同口径，零 JS）.
+    """总览页 HTML v4（纵深动线：KPI→曲线→分布→逐年→证据→AI 区收编）.
 
-    extras 可选：{hero_id, band:[(id, ls_monthly)], log:[str], mech:{fam:str}}。
+    零 JS、与 INDEX.md 同口径。extras={hero_id, band, log, mech, sens}。
     """
     pnls = pnls or {}
     ex = extras or {}
@@ -537,12 +650,10 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
     n = len(rows)
     n_both = sum(1 for x in rows if x.get("both"))
 
-    # 幸存者
     surv = sorted([x for x in rows if x.get("both")],
                   key=lambda x: -(x.get("ann_ls")
                                   if x.get("ann_ls") is not None
                                   else (x["oos_ic"] or 0)))
-    # hero = 幸存者中年化最高；诚实零时无 hero（不硬凑）
     hero = ex.get("hero_id") if ex.get("hero_id") in [
         s["id"] for s in surv] else None
     if hero is None and surv:
@@ -551,8 +662,8 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
                                         else -9))["id"]
     hero_row = next((r for r in rows if r["id"] == hero), None)
     hp = pnls.get(hero) or {} if hero else {}
+    hero_ic = ics.get(hero, []) if hero else []
 
-    # 邻域带：同族其余窗口
     band = ex.get("band")
     if band is None and hero:
         band = [(r["id"], pnls[r["id"]]["ls_monthly"])
@@ -562,33 +673,26 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
     else:
         band = band or []
 
-    # 日志（A1/A6 终端回放，真实口径来自 meta）
     log = ex.get("log") or [
-        f"[00:00:00.0] run order=scan-all  engine={meta.get('engine', 'qsa')} "
-        f"backend={meta.get('backend', 'stdlib')} commit={meta.get('commit', '—')}",
+        f"[run] engine={meta.get('engine', 'qsa')} "
+        f"backend={meta.get('backend', 'stdlib')} "
+        f"commit={meta.get('commit', '—')}",
         f"[scan] {n} 个实现 → 矩阵化引擎（零逐因子回退）",
         "[stage2] 逐级淘汰：stage1 → stage2(冻结) → s2-v2(待拍板) → walk-forward",
         f"[pnl] 幸存者 {len(surv)} → 等权五分位多空，月度换仓，"
         f"单边 {(meta.get('fee_bps') or 8):.0f}bps，成本摊 20 日",
-        f"[done] elapsed={meta.get('elapsed_s', '—')}  "
-        f"双过 {n_both}/{n}",
+        f"[done] elapsed={meta.get('elapsed_s', '—')}  双过 {n_both}/{n}",
     ]
 
-    # 指纹墙（A5）：hero 的双实现月度一致性
-    fp = _showcase.fingerprint_svg(ics.get(hero, [])) if hero else ""
-
-    # 相关矩阵（B8）
+    fp = _showcase.fingerprint_svg(hero_ic) if hero else ""
     corr = (_showcase.corr_matrix_svg(
         {r["id"]: pnls[r["id"]]["ls_monthly"]
          for r in surv if r["id"] in pnls})
         if sum(1 for r in surv if r["id"] in pnls) >= 2 else "")
 
-    # 寿命（B7）
-    e, l, last12 = (_lifespan(ics.get(hero, [])) if hero
-                    else (None, None, None))
+    e, l, last12 = (_lifespan(hero_ic) if hero else (None, None, None))
     life = _showcase.lifespan_bars(e, l, last12) if e is not None else ""
 
-    # 幸存者卡（原有 + 指纹 + 机制）
     def _surv_card(r: dict[str, Any]) -> str:
         oos = _ticker(f"{r['oos_ic']:+.4f}")
         ann = (f"　·　<em>模拟PnL 年化 {r['ann_ls']:+.1%} / Sharpe "
@@ -602,8 +706,13 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
             curve = sparkline_svg(ics[r["id"]])
         mech = fam_mech.get(r.get("family", ""), "")
         return (f'<div class="surv"><b>{_esc(r["id"])}</b>'
+                '<div class="badges"><span class="badge b-sim">SIM</span>'
+                '<span class="badge b-dual">双实现一致</span>'
+                '<span class="badge b-pend">待拍板</span></div>'
                 f'<div class="big">{oos}</div>'
                 '<div class="sub">OOS IC（后 20% 月份）</div>'
+                f'<code class="expr">{_esc(_showcase.factor_expr(r["id"]))}'
+                "</code>"
                 f'<div class="mech">{_esc(mech)}</div>'
                 f'<div class="sub">ICIR(年化) {r["icir_a"]:.2f}'
                 f"　·　多空 {r['tmb']:+.2f}"
@@ -614,7 +723,6 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
         '<div class="sub">无幸存者（诚实零也是结果：全部变体未过'
         "诊断双过门，不硬凑候选）</div>")
 
-    # 族级对比
     fams: dict[str, dict[str, Any]] = {}
     for r in rows:
         f = r.get("family", "?")
@@ -637,7 +745,6 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
             f'<span class="sub">({_esc(b["best"]["id"])}, {b["n"]} 变体 · '
             f'{_esc(fam_mech.get(fam, ""))})</span></div>')
 
-    # 全表（A4 降暗，幸存行高亮）
     trs = []
     for r in sorted(rows, key=lambda x: -(x["oos_ic"] or -9)):
         spark = sparkline_svg(ics[r["id"]]) if r["id"] in ics else ""
@@ -646,7 +753,7 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
         pnl_cell = ("—" if r.get("ann_ls") is None
                     else f"{r['ann_ls']:+.1%}")
         color = ("#3fd68f" if (r.get("ann_ls") or 0) > 0
-                 else "#ff6b6b" if r.get("ann_ls") is not None
+                 else "#e0685c" if r.get("ann_ls") is not None
                  else "#57606a")
         trs.append(
             f'<tr{row_cls}><td class="{name_cls}">{_esc(r["id"])}</td>'
@@ -657,13 +764,71 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
 
     dup = f"　·　{_esc(meta['dedup_note'])}" if meta.get("dedup_note") else ""
     log_html = "".join(f"<div>{_esc(line)}</div>" for line in log)
+
+    # ---- v4 数据组件 ----
+    bench_ann = None
+    if hp.get("bench_monthly"):
+        b = 1.0
+        for r in hp["bench_monthly"]:
+            b *= (1.0 + r)
+        bench_ann = (b ** (12.0 / max(1, len(hp["bench_monthly"]))) - 1.0
+                     if b > 0 else None)
+    kpis = _showcase.kpi_strip(hp, bench_ann) if hp else ""
+    isos = _showcase.is_os_bar(hero_ic) if hero else ""
+    heat = (_showcase.monthly_heatmap_svg(hp["months"], hp["ls_monthly"])
+            if hp.get("months") else "")
+    roll = _showcase.rolling_ic_svg(hero_ic) if hero else ""
     yearly = hp.get("yearly_ls")
     yearly_html = _showcase.yearly_gain_svg(yearly) if yearly else ""
     gauges = _showcase.gauges_svg(hp) if hp else ""
     hero_svg = (_showcase.hero_pnl_svg(hp, band)
                 if hp and hp.get("ls_monthly") else
-                '<div class="sub">无幸存者净值可展示'
+                f'<div class="sub">无幸存者净值可展示'
                 f"（{n} 项均未通过诊断双过门 — 诚实零）</div>")
+
+    # 雷达六维（0-1 分）
+    radar = ""
+    if hp and hero:
+        ic_m, icir_a, pos_share = _ic_stats(hero_ic)
+        mdd = abs(hp.get("max_drawdown_ls") or 0.35)
+        tu = hp.get("turnover_monthly_one_side") or 0.5
+        ann = hp.get("ann_ls_net") or 0.0
+        osr = _os_ratio(hero_ic)
+        clip = lambda v: max(0.04, min(1.0, v))
+        radar = _showcase.radar_svg({
+            "盈利能力": (clip(ann / 0.30), f"{ann:+.0%}"),
+            "IC 稳定性": (clip(icir_a / 1.5), f"{icir_a:.2f}"),
+            "抗回撤": (clip(1 - mdd / 0.35), f"{-mdd:.0%}"),
+            "低换手": (clip(1 - tu), f"{tu * 100:.0f}%"),
+            "正 IC 月": (clip(pos_share / 0.7), f"{pos_share:.0%}"),
+            "OS 保持": (clip(osr), f"{osr:.0%}"),
+        })
+
+    # 敏感性（fee 扫描，由 tools 预算好传入）
+    sens_html = _showcase.sensitivity_grid(ex.get("sens") or [])
+
+    # 归因卡（规则引擎生成，非 LLM 吹生成；锚链溯源）
+    attrib = ""
+    if hp and hero:
+        worst_m = min(zip(hp["months"], hp["ls_monthly"]),
+                      key=lambda x: x[1])
+        best_m = max(zip(hp["months"], hp["ls_monthly"]),
+                     key=lambda x: x[1])
+        osr = _os_ratio(hero_ic)
+        ann = hp.get("ann_ls_net")
+        decay = ("样本外 IC 保持 " + f"{osr:.0%}"
+                 if osr < 0.8 else f"样本外 IC 保持 {osr:.0%}（未见明显衰减）")
+        attrib = (f"<div class='attrib'>诊断（规则引擎，非 AI 生成）："
+                  f"<b>{_esc(hero)}</b> 年化 "
+                  f"<b>{(ann or 0):+.1%}</b>（费后模拟），"
+                  f"最大回撤 <b>{(hp.get('max_drawdown_ls') or 0):.1%}</b>"
+                  f"（<a href='#hero'>▼ 回撤竖带</a>），最差月 "
+                  f"{worst_m[1]:+.1%}（{worst_m[0]}）／最佳月 "
+                  f"{best_m[1]:+.1%}（{best_m[0]}，"
+                  f"<a href='#heat'>热力矩阵</a>）；{decay}"
+                  f"（<a href='#isos'>IS/OS 对照</a>）。"
+                  f"月度收益分布见 <a href='#heat'>#heat</a>，"
+                  f"证据链见 <a href='#panel'>#panel</a>。</div>")
     return f"""<!doctype html>
 <html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -672,45 +837,64 @@ def render_index_html(rows: list[dict[str, Any]], meta: dict[str, Any],
 {run_header_html(meta, rows, n_both)}
 <div class="meta" style="margin-top:10px">{_esc(meta.get('snap', ''))}　·　样本 {_esc(str(meta.get('n_months', '')))} 月 × {meta.get('n_tickers', '')} 标的　·　判决门=冻结 stage2 + walk-forward（stage2-v2 年化口径待拍板）　·　共 {n} 项，诊断双过 {n_both} 项{dup}</div>
 
-<h2>① 一次运行的推理流（终端回放）</h2>
-<div class="trace">{_showcase.trace_flow_html(log)}</div>
-<details class="log"><summary>▸ 完整日志</summary><div class="logbody">{log_html}</div></details>
+<h2>① 一票否决指标（主幸存者 {_esc(str(hero or '无'))}）</h2>
+{kpis}
 
-<h2>② 数据流：订单 → 面板 → 信号 → 判决</h2>
-<div class="dataflow">{_showcase.dataflow_svg()}</div>
-
-<h2>③ 主幸存者净值（{ _esc(str(hero or '无')) }，等权多空 vs 等权基准）</h2>
+<h2 id="hero">② 净值曲线（等权多空 vs 等权基准）</h2>
 <div class="badges"><span class="badge b-sim">SIM · 费后模拟</span><span class="badge b-frozen">口径冻结</span><span class="badge b-pend">s2-v2 待拍板</span></div>
+<code class="expr">{_esc(_showcase.factor_expr(hero or ''))}</code>
 <div class="mech">{_esc(fam_mech.get((hero_row or {}).get('family', ''), ''))}</div>
 {hero_svg}
-<div class="cards2">
-<div class="card"><h3>年度等权增强（vs 等权全因子）</h3>{yearly_html}</div>
-<div class="card"><h3>三针仪表（可交易性）</h3>{gauges}</div>
+{attrib}
+
+<h2 id="heat">③ 月度收益热力 + 滚动 IC</h2>
+{heat}
+<div style="margin-top:12px">{roll}</div>
+
+<h2>④ 年度明细</h2>
+{yearly_html}
+<p class="sub">逐年等权因子对 − 等权全因子基准（幸存者口径）</p>
+
+<h2 id="panel">⑤ 证据面板</h2>
+<div class="cards">
+<div class="card"><h3 style="font-size:13px;color:#8b98a9">六维风控雷达</h3>{radar}</div>
+<div class="card" id="isos"><h3 style="font-size:13px;color:#8b98a9">IS / OS 对照</h3>{isos}<div style="margin-top:10px">{life}</div></div>
 </div>
-
-<h2>④ 证据面板</h2>
-<div class="cards2">
-<div class="card"><h3>双实现指纹（A/B 逐月一致）</h3>{fp}<p class="sub">全绿=两实现逐月逐位一致</p></div>
-<div class="card"><h3>IC 寿命（前/后/最近12月）</h3>{life}<p class="sub">衰减可见，不藏尾巴</p></div>
+<div class="cards" style="margin-top:16px">
+<div class="card"><h3 style="font-size:13px;color:#8b98a9">三针仪表</h3>{gauges}</div>
+<div class="card"><h3 style="font-size:13px;color:#8b98a9">双实现指纹（A/B 逐月一致）</h3>{fp}</div>
 </div>
-{('<div class="card" style="margin-top:10px"><h3>幸存者月收益相关（同族高相关是诚实的）</h3>' + corr + '</div>') if corr else ''}
+{('<div class="card" style="margin-top:16px"><h3 style="font-size:13px;color:#8b98a9">幸存者月收益相关</h3>' + corr + '</div>') if corr else ''}
 
-<h2>⑤ 并行赛道（8 路进程池）</h2>
-{_showcase.race_svg(lanes=4, speedup=meta.get('speedup', '18.1×'))}
+<h2>⑥ 参数敏感性（费率扫描）</h2>
+{sens_html}
+<p class="sub">同一信号、同一换仓节奏，只动单边费率（成本摊 20 日）。静态离线计算，非实时重算。</p>
 
-<h2>⑥ 幸存者（诊断双过，待拍板）</h2>
+<h2>⑦ 控制权（永远在你手里）</h2>
+<div class="card"><p style="margin:4px 0">· 判决门 <b class="gold">冻结</b>：stage1/stage2 口径与 2026-11-13 裁决一致，页面改不动门。<br>
+· 幸存者只是「诊断双过」：<b>不入册、不构成对外主张</b>，正式结论唯一路径=冻结 run（待拍板）。<br>
+· 全部 PnL 为<b>模拟</b>（等权、月度换仓、成本摊 20 日），不含冲击成本/停牌/涨跌停。<br>
+· 零幸存者时本页如实显示诚实零，不硬凑候选。</p></div>
+
+<h2>⑧ 幸存者（诊断双过，待拍板）</h2>
 <div class="cards">{surv_html}</div>
 
-<h2>⑦ 淘汰瀑布（一单跑完的全部变体）</h2>
+<h2>⑨ 运行过程（推理流 / 数据流 / 并行）</h2>
+<div class="trace">{_showcase.trace_flow_html(log)}</div>
+<details class="log"><summary>▸ 完整日志</summary><div class="logbody">{log_html}</div></details>
+<div class="dataflow">{_showcase.dataflow_svg()}</div>
+{_showcase.race_svg(lanes=4, speedup=meta.get('speedup', '18.1×'))}
+
+<h2>⑩ 淘汰瀑布（一单跑完的全部变体）</h2>
 {waterfall_svg([{"label": "全部变体", "n": n, "color": "#4cc2ff", "note": meta.get("elapsed_s", "")},
 {"label": "过 s2-v2（年化口径）", "n": sum(1 for r in rows if r.get('s2v2') == 'pass'), "color": "#7fd4ff", "note": "待拍板"},
 {"label": "+ walk-forward", "n": n_both, "color": "#3fd68f", "note": "诊断双过"},
 {"label": "冻结 run 入册", "n": 0, "color": "#8b98a9", "note": "待拍板后执行"}])}
 
-<h2>⑧ 族级对比（各族最强变体，按 OOS IC）</h2>
+<h2>⑪ 族级对比（各族最强变体，按 OOS IC）</h2>
 {''.join(fam_rows)}
 
-<h2>⑨ 全部测试项（降暗展示，悬停/幸存者高亮；链=stage1→stage2→s2-v2→walk-fwd）</h2>
+<h2>⑫ 全部实现（降暗展示，悬停/幸存者高亮；链=stage1→stage2→s2-v2→walk-fwd）</h2>
 <table><tr><th>因子</th><th>族</th><th>OOS IC</th><th>ICIR(年化)</th>
 <th>多空年化(模拟)</th><th>判决链</th><th>月度IC（柱=月度，线=累计）</th></tr>
 {''.join(trs)}</table>

@@ -274,10 +274,36 @@ def main() -> int:
             if dup:
                 meta["dedup_note"] = (f"库内名与扫描名同参重合 {dup} 对"
                                       "（双实现数字一致，交叉验证）")
+            # v4 敏感性：主幸存者（与 render 同选法）费率扫描
+            surv_rows = [r for r in rows if r.get("both")]
+            hero_row = (max(surv_rows, key=lambda x: x.get("ann_ls")
+                            if x.get("ann_ls") is not None else -9)
+                        if surv_rows else None)
+            sens = []
+            if hero_row:
+                hspec = resolve_spec(hero_row["id"], catalog)
+                hsig = factorzoo._finalize(hspec["build"](inputs),
+                                           inputs["dates"],
+                                           hspec.get("flip", False))
+                for bps, lab in ((2, "费率 万0.2（2bps）"),
+                                 (8, "费率 万0.8（8bps，基准）"),
+                                 (20, "费率 万2（20bps）"),
+                                 (50, "费率 万5（50bps，压力）")):
+                    sp = longshort_pnl(closes, inputs["dates"], hsig,
+                                       fee_one_side=bps / 10000.0)
+                    if sp is None:
+                        continue
+                    sens.append({
+                        "k": lab,
+                        "v": f"{sp['ann_ls_net']:+.1%}",
+                        "sub": (f"Sharpe {sp['nw_sharpe_ls']:.2f}"
+                                f" · MDD {sp['max_drawdown_ls']:.0%}"),
+                        "pos": (sp["ann_ls_net"] or 0) > 0})
             page = render_index(rows, meta)
             fp = out_dir / "INDEX.md"
             fp.write_text(page, encoding="utf-8")
-            html = render_index_html(rows, meta, ics, pnls)
+            html = render_index_html(rows, meta, ics, pnls,
+                                     extras={"sens": sens})
             fh = out_dir / "overview.html"
             fh.write_text(html, encoding="utf-8")
             n_both = sum(1 for r in rows if r["both"])

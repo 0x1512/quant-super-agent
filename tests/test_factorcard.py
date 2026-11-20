@@ -212,11 +212,45 @@ class TestShowcaseV3(unittest.TestCase):
                                 {"a": IC, "b": IC},
                                 {"a": dict(self.P, ls_monthly=[0.02, 0.01],
                                            bench_monthly=[0.01, 0.0])})
-        for comp in ("推理流", "数据流", "主幸存者净值", "年度等权增强",
-                     "三针仪表", "指纹", "IC 寿命", "并行赛道",
-                     "goldrow", "details class=\"log\"", "chainline"):
+        for comp in ("一票否决指标", "净值曲线", "月度收益热力", "滚动 IC",
+                     "年度明细", "证据面板", "六维风控雷达", "IS / OS 对照",
+                     "参数敏感性", "控制权", "三针仪表", "指纹", "前半样本均值",
+                     "运行过程", "推理流", "parallel race", "淘汰瀑布",
+                     "goldrow", 'details class="log"', "chainline",
+                     "kpival", "expr", "rank("):
             self.assertIn(comp, out)
         self.assertNotIn("<script", out)
+        self.assertIn('id="hero"', out)
+        self.assertIn('id="heat"', out)
+
+    def test_v4_components(self):
+        from qsa.showcase import (factor_expr, is_os_bar, kpi_strip,
+                                  monthly_heatmap_svg, radar_svg,
+                                  rolling_ic_svg, sensitivity_grid)
+        p = dict(self.P, sortino_ls=2.1)
+        self.assertIn("vs 等权基准", kpi_strip(p, 0.08))
+        self.assertIn("及格线 1.0", kpi_strip(p, 0.08))     # 微标
+        ic = [{"ic": 0.01 * ((-1) ** m)} for m in range(12)]
+        self.assertIn("OS 保持率", is_os_bar(ic))
+        self.assertEqual(is_os_bar([{"ic": 0.1}]), "")
+        r = radar_svg({"a": (0.5, "x"), "b": (0.8, "y"), "c": (0.3, "z")})
+        self.assertIn("polygon", r)
+        self.assertEqual(radar_svg({"a": (0.5, "x")}), "")
+        h = monthly_heatmap_svg(["2026-01", "2026-02"], [.01, -.02])
+        self.assertIn("heatcell", h)
+        self.assertIn("<title>2026-02", h)                # 悬停零 JS
+        self.assertIn("rollline", rolling_ic_svg(ic))
+        self.assertIn("senscell", sensitivity_grid(
+            [{"k": "fee 万1", "v": "+21%", "sub": "Sharpe 1.6"}]))
+        self.assertIn("378", factor_expr("gap_sum_378"))
+        self.assertIn("-", factor_expr("vol_20"))          # flip 语义
+
+    def test_sortino_in_pnl(self):
+        from qsa.pnl import _sortino
+        self.assertIsNone(_sortino([]))
+        v = _sortino([0.01, -0.02, 0.03, -0.01] * 60)
+        self.assertIsInstance(v, float)
+        self.assertGreater(v, 0)
 
     def test_fam_mech_labels(self):
         from qsa.showcase import FAM_MECH

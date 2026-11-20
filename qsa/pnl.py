@@ -81,6 +81,19 @@ def _bench_monthly(closes: dict[str, dict[str, float]],
     return mr
 
 
+def _sortino(daily: list[float]) -> float | None:
+    """年化收益 / 下行偏差（Sortino，MAR=0）."""
+    if not daily:
+        return None
+    downside = [r for r in daily if r < 0]
+    if len(downside) < 2:
+        return None
+    dd = (sum(r * r for r in downside) / len(daily)) ** 0.5 * (252 ** 0.5)
+    if dd <= 0:
+        return None
+    return _annualize(daily) / dd
+
+
 def longshort_pnl(closes: dict[str, dict[str, float]],
                   dates: list[str],
                   signal: dict[str, dict[str, float]],
@@ -121,6 +134,7 @@ def longshort_pnl(closes: dict[str, dict[str, float]],
         "ann_ls_net": _annualize(ls_daily),
         "ann_g5_net": _annualize(g5["net"][:n]),
         "nw_sharpe_ls": nw_sharpe(ls_daily),
+        "sortino_ls": _sortino(ls_daily),
         "max_drawdown_ls": mdd_ls,
         "calmar_ls": (_annualize(ls_daily) / abs(mdd_ls)
                       if mdd_ls < 0 else None),
