@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0B0E14;--panel:#141923;--panel-2:#10151D;
+--up:#34C186;--down:#D0695A;--gold:#E0B04B;
+--ink-1:#DCE3EC;--ink-2:#8B98A9;--ink-3:#7C8A9B;
+--line:rgba(255,255,255,.06);
+--mono:ui-monospace,'JetBrains Mono','SF Mono',Consolas,monospace;
+--sans:-apple-system,'Segoe UI',Roboto,'PingFang SC','HarmonyOS Sans SC','Microsoft YaHei',sans-serif}
+body{background:var(--bg);font-family:var(--sans);font-feature-settings:'tnum' 1;
+background-image:radial-gradient(circle,rgba(255,255,255,.016) 1px,transparent 1px);background-size:26px 26px;
+padding:24px 28px 22px}
+.k{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:1.6px;color:var(--ink-3);margin-bottom:14px}
+.row{display:flex;align-items:stretch;gap:0}
+.node{background:linear-gradient(180deg,#161B26,#12161F);border:1px solid rgba(255,255,255,.08);
+border-radius:11px;padding:11px 14px;flex:1;min-width:0;position:relative}
+.node .n{font-family:var(--mono);font-size:9.5px;letter-spacing:1.2px;color:var(--ink-3);text-transform:uppercase}
+.node .t{font-size:13px;font-weight:600;color:var(--ink-1);margin-top:4px;line-height:1.35}
+.node .d{font-size:10.5px;color:var(--ink-2);margin-top:3px;line-height:1.5}
+.node.gold{border-color:rgba(224,176,75,.4)}
+.node.gold::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;border-radius:11px 0 0 11px;
+background:linear-gradient(var(--gold),rgba(224,176,75,.2))}
+.gold{color:var(--gold)}.u{color:var(--up)}.r{color:var(--down)}
+.arrow{display:flex;align-items:center;justify-content:center;width:38px;min-width:38px;
+font-family:var(--mono);color:var(--ink-3);font-size:16px}
+.wrap-arrow{width:38px;min-width:38px;display:flex;align-items:center;justify-content:center;
+font-family:var(--mono);color:var(--ink-3);font-size:15px}
+.row2{margin-top:10px}
+.loopback{background:linear-gradient(180deg,#161B26,#12161F);border:1px dashed rgba(139,152,169,.35);
+border-radius:11px;padding:11px 14px;flex:1.15;position:relative}
+.loopback .n{font-family:var(--mono);font-size:9.5px;letter-spacing:1.2px;color:var(--ink-3);text-transform:uppercase}
+.loopback .t{font-size:12.5px;font-weight:600;color:var(--ink-1);margin-top:4px;line-height:1.4}
+.loopback .d{font-size:10.5px;color:var(--ink-2);margin-top:3px;line-height:1.55}
+.cap{margin-top:12px;color:var(--ink-2);font-size:11.5px;letter-spacing:.3px;text-align:center}
+.cap b{color:var(--ink-1)}
+</style></head>
+<body>
+<div class="k">the research loop — every claim machine-checked before it exists</div>
+<div class="row">
+  <div class="node"><div class="n">input</div><div class="t">Research order</div><div class="d">intent + iteration budget</div></div>
+  <div class="arrow">→</div>
+  <div class="node"><div class="n">propose</div><div class="t">Hypothesis</div><div class="d">admission bar <span class="gold">pre-committed</span></div></div>
+  <div class="arrow">→</div>
+  <div class="node"><div class="n">execute</div><div class="t">Sandboxed factor code</div><div class="d">AST whitelist · closes ≤ t only</div></div>
+  <div class="arrow">→</div>
+  <div class="node gold"><div class="n">verdict</div><div class="t">Mechanical verdict</div><div class="d">Bonferroni floor <span class="gold">rises</span> with every look</div></div>
+  <div class="arrow">→</div>
+  <div class="node"><div class="n">review</div><div class="t">Roles + debate</div><div class="d">risk vetoes on <span class="r">measured</span> instability</div></div>
+</div>
+<div class="row row2">
+  <div class="wrap-arrow">↳</div>
+  <div class="node"><div class="n">gate</div><div class="t">Verify gate (CI)</div><div class="d">recomputes factor code; card must match</div></div>
+  <div class="arrow">→</div>
+  <div class="node gold"><div class="n">settle</div><div class="t">PR → merge</div><div class="d">hash-chained ledger · <span class="u">calibration</span> on untouched horizon</div></div>
+  <div class="wrap-arrow">↻</div>
+  <div class="loopback"><div class="n">fail → attribution → next hypothesis</div><div class="t">threshold · instability · deflation · OOS</div><div class="d">budget-bounded retry; one-shot OOS windows and a tighten-only rule</div></div>
+</div>
+<div class="cap"><b>The 10th "new idea" faces a bar the 1st did not.</b></div>
+</body></html>

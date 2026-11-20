@@ -50,5 +50,11 @@ readme-render:
 readme-check:
 	$(PY) tools/check_readme.py
 
+readme-assets:
+	$(PY) tools/make_readme_assets.py
+
+assets-check:
+	$(PY) tools/check_assets.py
+
 release-readme:
 	$(PY) tools/release_readme.py $(V)

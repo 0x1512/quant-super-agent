@@ -21,6 +21,8 @@ jobs:
         run: python tools/check_public.py
       - name: storefront policy check (lint + SSOT + freeze)
         run: python tools/check_readme.py
+      - name: readme image assets (present, in size bounds, no orphans)
+        run: python tools/check_assets.py
       - name: tests badge endpoint must match a fresh recount
         run: |
           python tools/write_badge.py "$RUNNER_TEMP/tests.json"
