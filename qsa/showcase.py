@@ -18,7 +18,7 @@ C_LS = "#4cc2ff"        # 多空主线（青）
 C_G5 = "#3fd68f"        # 多头（绿）
 C_G1 = "#ff6b6b"        # 空头（红）
 C_BENCH = "#8b98a9"     # 基准（灰）
-C_GOLD = "#ffc857"      # 幸存者（金）
+C_GOLD = "#E0B04B"      # 幸存者（金）
 C_DIM = "#57606a"
 
 
@@ -87,8 +87,8 @@ def hero_pnl_svg(main: dict[str, Any],
            'width="100%" '
            'role="img" aria-label="long-short NAV hero">',
            '<defs><linearGradient id="navfill" x1="0" y1="0" x2="0"'
-           ' y2="1"><stop offset="0" stop-color="#3FD68F" '
-           'stop-opacity="0.16"/><stop offset="1" stop-color="#3FD68F" '
+           ' y2="1"><stop offset="0" stop-color="#34C186" '
+           'stop-opacity="0.16"/><stop offset="1" stop-color="#34C186" '
            'stop-opacity="0"/></linearGradient></defs>', '<g id="heroG">']
     # 网格
     for gy in range(1, 4):
@@ -133,9 +133,9 @@ def hero_pnl_svg(main: dict[str, Any],
                if main_nav[i] >= main_nav[vp]), n - 1)
     x_p, x_v, x_r = _x_at(vp), _x_at(vv), _x_at(vr)
     out.append(f'<rect x="{x_p:.1f}" y="4" width="{x_v - x_p:.1f}" '
-               f'height="{h - 8:.1f}" fill="#E0685C" opacity="0.07"/>'
+               f'height="{h - 8:.1f}" fill="#D0695A" opacity="0.07"/>'
                f'<rect x="{x_v:.1f}" y="4" width="{x_r - x_v:.1f}" '
-               f'height="{h - 8:.1f}" fill="#3FD68F" opacity="0.06"/>')
+               f'height="{h - 8:.1f}" fill="#34C186" opacity="0.06"/>')
     out.append(f'<text x="{(x_p + x_v) / 2:.0f}" y="34" '
                f'text-anchor="middle" class="herolab">▼ {vd:.1%}</text>')
     # 面积渐变（v4 #11）
@@ -154,12 +154,12 @@ def hero_pnl_svg(main: dict[str, Any],
     best_i = max(range(n), key=lambda i: main_nav[i])
     y_v = _y_at(vv)
     out.append(f'<circle cx="{x_v:.1f}" cy="{y_v:.1f}" r="4.5" '
-               f'fill="#E0685C" stroke="#0B0E14" stroke-width="1.5">'
+               f'fill="#D0695A" stroke="#0B0E14" stroke-width="1.5">'
                f"<title>最大回撤谷底 {months[vv]}（{vd:.1%}，"
                f"{months[vp]}→{months[vv]} 跌 / {months[vr]} 修复）</title>"
                "</circle>")
     out.append(f'<circle cx="{_x_at(best_i):.1f}" cy="{_y_at(best_i):.1f}" '
-               'r="3.5" fill="#3FD68F" stroke="#0B0E14" stroke-width="1.5">'
+               'r="3.5" fill="#34C186" stroke="#0B0E14" stroke-width="1.5">'
                f"<title>净值峰值 {months[best_i]}（×"
                f"{main_nav[best_i]:.2f}）</title></circle>")
     out.append(f'<circle cx="{w - 4:.0f}" cy="{_y_at(n - 1):.1f}" '
@@ -171,9 +171,20 @@ def hero_pnl_svg(main: dict[str, Any],
     out.append(f'<text x="{w - 10}" y="20" text-anchor="end" '
                f'class="heroend">¥1,000,000 → ¥{final * 1e6:,.0f}'
                '</text>')
+    # 图内左上图例（C3：常显、色块样例、不依赖读者扫到图底）
+    out.append('<g id="heroLegend">')
+    lg = [("多空 L-S", "#34C186", ""), ("等权基准", "#7C8A9B", "5,4"),
+          ("回撤段", "#D0695A", "")]
+    lx = 12
+    for lab, col, dash in lg:
+        out.append(f'<line x1="{lx}" y1="14" x2="{lx + 18}" y2="14" '
+                   f'stroke="{col}" stroke-width="2.4"'
+                   + (f' stroke-dasharray="{dash}"' if dash else "") + "/>")
+        out.append(f'<text x="{lx + 23}" y="17.5" class="legend">{lab}</text>')
+        lx += 23 + len(lab) * 11 + 26
+    out.append("</g>")
     out.append(f'<text x="8" y="{h - 8:.0f}" class="herolab">'
-               f'{months[0]} — {months[-1]} · 费后模拟 · 灰虚线=等权基准'
-               f' · 青光=多空 L-S · 浅青带=邻域 {len(band)} 窗口</text>')
+               f"{months[0]} — {months[-1]} · 费后模拟（SIM）</text>")
     # 回撤水下（B3）：基线在主图下方 base=h+8，映射到 [base+4, base+uw_h-4]
     uw = _underwater(main_nav)
     base = h + 8
@@ -494,13 +505,14 @@ def factor_expr(fid: str) -> str:
 def kpi_strip(p: dict[str, Any], bench_ann: float | None = None) -> str:
     """一票否决级 6 硬指标条 + vs 基准差值微标（v4 #6/#8）."""
     def cell(k: str, v: str, pos: bool | None, bench: str = "",
-             frac: float = 0.0) -> str:
+             frac: float = 0.0, tip: str = "") -> str:
         cls = "pos" if pos else "neg" if pos is False else ""
         f = max(0.0, min(1.0, frac))
-        return (f'<div class="kpi"><div class="kpik">{k}</div>'
+        tipattr = f' title="{tip}"' if tip else ""
+        return (f'<div class="kpi"{tipattr}><div class="kpik">{k}</div>'
                 f'<div class="kpival {cls}">{v}</div>'
                 f'<div class="kmini"><i style="width:{f * 100:.0f}%;'
-                f'background:{("#3FD68F" if pos else "#E0685C" if pos is False else "#7A8CA0")}"></i></div>'
+                f'background:{("#34C186" if pos else "#D0695A" if pos is False else "#7C8A9B")}"></i></div>'
                 f'<div class="kpibench">{bench}</div></div>')
 
     ann = p.get("ann_ls_net")
@@ -512,22 +524,28 @@ def kpi_strip(p: dict[str, Any], bench_ann: float | None = None) -> str:
     bench_line = ""
     if ann is not None and bench_ann is not None:
         d = ann - bench_ann
-        c = "#3FD68F" if d >= 0 else "#E0685C"
+        c = "#34C186" if d >= 0 else "#D0695A"
         bench_line = (f'<b style="color:{c}">{d:+.1%}</b> vs 等权基准'
                       f"（{bench_ann:+.1%}）")
     cells = [
         cell("年化(费后)", f"{ann:+.1%}" if ann is not None else "—",
-             (ann or 0) > 0, bench_line, frac=abs(ann or 0) / 0.35),
+             (ann or 0) > 0, bench_line, frac=abs(ann or 0) / 0.35,
+             tip="组合级模拟年化（等权五分位多空·月频·费后）。判据：>0 且经 2-50bps 费率扫描仍为正。"),
         cell("NW Sharpe", f"{sh:.2f}" if sh is not None else "—",
-             (sh or 0) >= 1.0, "及格线 1.0", frac=(sh or 0) / 3.0),
+             (sh or 0) >= 1.0, "及格线 1.0", frac=(sh or 0) / 3.0,
+             tip="Newey-West 修正的月收益 Sharpe（滞后 3）。判据：≥1 稳，≥1.5 强。"),
         cell("Sortino", f"{so:.2f}" if so is not None else "—",
-             (so or 0) >= 1.4, "下行偏差口径", frac=(so or 0) / 4.0),
+             (so or 0) >= 1.4, "下行偏差口径", frac=(so or 0) / 4.0,
+             tip="年化收益 / 下行偏差（只罚亏损月）。判据：≥1.4，比 Sharpe 更贴近回撤体感。"),
         cell("Max Drawdown", f"{mdd:.1%}" if mdd is not None else "—",
-             False, "日频口径 · 主图为月频", frac=abs(mdd or 0) / 0.40),
+             False, "日频口径 · 主图为月频", frac=abs(mdd or 0) / 0.40,
+             tip="净值峰谷最大回撤（日频）。红=风险提示，不随好坏变色。判据：<35% 可展示。"),
         cell("月换手(单边)", f"{tu * 100:.0f}%" if tu is not None else "—",
-             None, "成本摊 20 日", frac=(tu or 0)),
+             None, "成本摊 20 日", frac=(tu or 0),
+             tip="单边月换手率。越高对费率越敏感——配合下方费率滑块看。"),
         cell("Calmar", f"{ca:.2f}" if ca is not None else "—",
-             (ca or 0) >= 1.0, "年化/|MDD|", frac=(ca or 0) / 2.5),
+             (ca or 0) >= 1.0, "年化/|MDD|", frac=(ca or 0) / 2.5,
+             tip="年化收益 / |最大回撤|。判据：≥1 表示每承受 1 单位回撤换 1 单位以上收益。"),
     ]
     return '<div class="kpis">' + "".join(cells) + "</div>"
 
@@ -558,13 +576,13 @@ def is_os_bar(ic_series: list[dict[str, Any]]) -> str:
             f'<span style="font-size:13px;color:#8B98A9">ICIR(年化)</span>'
             f"</div></div><div>"
             f'<div class="lab">OS 样本外（后 {n - cut} 月）</div>'
-            f'<div class="val" style="color:#3FD68F">{om:+.4f} '
+            f'<div class="val" style="color:#34C186">{om:+.4f} '
             f'<span style="font-size:13px;color:#8B98A9">IC</span></div>'
-            f'<div class="val" style="color:#3FD68F">{oir:+.2f} '
+            f'<div class="val" style="color:#34C186">{oir:+.2f} '
             f'<span style="font-size:13px;color:#8B98A9">ICIR(年化)'
             f"</span></div></div>"
             f'<div><div class="lab">OS 保持率</div>'
-            f'<div class="val" style="color:#FFC857">{hold:.0%}</div>'
+            f'<div class="val" style="color:#E0B04B">{hold:.0%}</div>'
             f'<div class="sub" style="font-size:11.5px;color:#5C6B7D">'
             f"OS ICIR / IS ICIR（不藏衰减）</div></div></div>")
 
@@ -612,11 +630,11 @@ def radar_svg(scores: dict[str, tuple[float, str]], w: int = 340,
                     f"{pt(i, max(0.04, min(1.0, scores[k][0])))[1]:.1f}"
                     for i, k in enumerate(keys))
     out.append(f'<polygon points="{poly}" fill="rgba(63,214,143,.16)" '
-               'stroke="#3FD68F" stroke-width="1.8"/>')
+               'stroke="#34C186" stroke-width="1.8"/>')
     for i, k in enumerate(keys):
         x, y = pt(i, max(0.04, min(1.0, scores[k][0])))
         out.append(f'<circle cx="{x:.0f}" cy="{y:.0f}" r="2.6" '
-                   'fill="#3FD68F"/>')
+                   'fill="#34C186"/>')
     return "".join(out) + "</svg>"
 
 
@@ -649,7 +667,7 @@ def monthly_heatmap_svg(months: list[str], rets: list[float],
     out = [f'<svg viewBox="0 0 {w} {h}" width="100%" role="img" '
            'aria-label="monthly heatmap">']
     out.append(f'<defs><linearGradient id="neggrad">'
-               '<stop offset="0" stop-color="#E0685C" stop-opacity=".55"/>'
+               '<stop offset="0" stop-color="#D0695A" stop-opacity=".55"/>'
                '<stop offset="1" stop-color="#8A3A32" stop-opacity=".9"/>'
                "</linearGradient></defs>")
     for mi in range(13):
@@ -676,10 +694,10 @@ def monthly_heatmap_svg(months: list[str], rets: list[float],
             t = r / hi
             if t >= 0:
                 op = 0.15 + 0.75 * min(1.0, t / 0.6)
-                fill = f'fill="#3FD68F" fill-opacity="{op:.2f}"'
+                fill = f'fill="#34C186" fill-opacity="{op:.2f}"'
             else:
                 op = 0.15 + 0.75 * min(1.0, -t / 0.6)
-                fill = f'fill="#E0685C" fill-opacity="{op:.2f}"'
+                fill = f'fill="#D0695A" fill-opacity="{op:.2f}"'
             out.append(f'<rect x="{x}" y="{yy}" width="{cw - 2}" '
                        f'height="{chh - 2}" rx="3" {fill} class="heatcell">'
                        f"<title>{y}-{mi + 1:02d} {r * 100:+.1f}%</title>"
@@ -690,7 +708,7 @@ def monthly_heatmap_svg(months: list[str], rets: list[float],
         if n_m:
             yr = tot - 1.0
             x = x0 + 12 * cw
-            c = "#3FD68F" if yr >= 0 else "#E0685C"
+            c = "#34C186" if yr >= 0 else "#D0695A"
             out.append(f'<rect x="{x}" y="{yy}" width="{cw - 2}" '
                        f'height="{chh - 2}" rx="3" fill="{c}" '
                        f'fill-opacity="0.22" class="heatcell">'
@@ -744,7 +762,7 @@ def sensitivity_grid(rows: list[dict[str, Any]]) -> str:
     """参数敏感性网格（费率×口径），rows=[{k, v, sub, pos}]（v4 #20 静态版）."""
     cells = []
     for r in rows:
-        c = "#3FD68F" if r.get("pos", True) else "#E0685C"
+        c = "#34C186" if r.get("pos", True) else "#D0695A"
         cells.append(f'<div class="senscell"><div class="sensk">'
                      f'{r["k"]}</div><div class="sensv" '
                      f'style="color:{c}">{r["v"]}</div>'

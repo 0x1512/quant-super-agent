@@ -137,7 +137,7 @@ class TestHtmlChannel(unittest.TestCase):
             self.assertIn(static, head)
         self.assertIn("t&lt;snap&gt;", out)          # escaped
         self.assertIn("class=\"surv\"", out)
-        for comp in ("runcard", "tickroll", "wfbar",
+        for comp in ("runcard", "toc", "guide", "wfbar",
                      "verdict chain", "elimination waterfall",
                      "prefers-reduced-motion", "abc1234"):
             self.assertIn(comp, out)
@@ -166,7 +166,8 @@ class TestHtmlChannel(unittest.TestCase):
                                    "both": True, "ann_ls": 0.1})
         self.assertEqual(chain.count("<circle"), 4)
         self.assertIn("stroke-dasharray", chain)             # failed gate dims
-        self.assertIn("#ffc857", chain)                      # both = gold
+        self.assertIn("#E0B04B", chain)                      # both = gold
+        self.assertIn("\u2713", chain)                 # 色弱 ✓
 
 
 if __name__ == "__main__":
@@ -223,10 +224,11 @@ class TestShowcaseV3(unittest.TestCase):
                      "六维稳健性雷达", "样本内外对照", "费率敏感性",
                      "幸存因子", "全部实现", "淘汰瀑布", "族级对比",
                      "边界与口径", "运行日志",
-                     "goldrow", 'details class="log"', "chainline",
+                     "goldrow", 'details class="log"', "heroLegend",
                      "kpival", "expr", "rank(",
                      'id="dataTable"', 'class="pill', "feeslider",
-                     "runmeta", "bento", "Dual-Impl"):
+                     "runmeta", "bento", "Dual-Impl",
+                     "colgroup", "tbstats", "concl"):
             self.assertIn(comp, out)
         # 渐进增强脚本挂载点（v5）：内嵌、可关、零 JS 时主体完整
         self.assertIn("渐进增强", out)
@@ -266,3 +268,41 @@ class TestShowcaseV3(unittest.TestCase):
         from qsa.showcase import FAM_MECH
         self.assertIn("overnight", FAM_MECH)
         self.assertTrue(all(len(v) >= 2 for v in FAM_MECH.values()))
+
+
+class TestV6DesignTokens(unittest.TestCase):
+    """v6 设计令牌：4 语义色 + 3 灰阶 + AA 对比度 + type scale。"""
+
+    def test_tokens_present_and_old_drift_gone(self):
+        from qsa.factorcard import DARK_CSS
+        for tok in ("--up:#34C186", "--down:#D0695A", "--gold:#E0B04B",
+                    "--ink-1:#DCE3EC", "--ink-2:#8B98A9", "--ink-3:#7C8A9B",
+                    "--fs-0:10px", "--fs-1:12px", "--fs-2:14px",
+                    "--fs-3:17px", "--fs-4:22px", "--fs-5:28px"):
+            self.assertIn(tok, DARK_CSS)
+        for drift in ("#3FD68F", "#E0685C", "#7A8CA0", "#FFC857",
+                      "#8FE3B0", "#1F6B4C"):
+            self.assertNotIn(drift, DARK_CSS)
+        # F5 入场动画已删
+        for anim in ("wfgrow", "tickroll", "chainrun", "ecgdraw",
+                     "racerun", "dflow"):
+            self.assertNotIn(anim, DARK_CSS)
+
+    def test_contrast_ratio_aa(self):
+        """语义/灰阶文本色对 bg/panel ≥ 4.5:1（D1 门禁）。"""
+        def lum(hexc):
+            c = [int(hexc[k:k + 2], 16) / 255 for k in (1, 3, 5)]
+            c = [x / 12.92 if x <= 0.03928
+                 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+            return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]
+
+        def ratio(a, b):
+            la, lb = sorted((lum(a), lum(b)), reverse=True)
+            return (la + .05) / (lb + .05)
+
+        for fg in ("#34C186", "#D0695A", "#E0B04B", "#DCE3EC",
+                   "#8B98A9", "#7C8A9B"):
+            for bg in ("#0B0E14", "#141923", "#10151D"):
+                self.assertGreaterEqual(
+                    ratio(fg, bg), 4.5,
+                    f"{fg} on {bg} = {ratio(fg, bg):.2f} < 4.5")
